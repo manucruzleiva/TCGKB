@@ -84,6 +84,23 @@ function fuzzyMatch(cardName, searchTerm) {
 
 class PokemonTCGService {
   /**
+   * Add TCG identifier to card
+   */
+  addTCGField(card) {
+    return {
+      ...card,
+      tcg: 'pokemon'
+    }
+  }
+
+  /**
+   * Add TCG identifier to multiple cards
+   */
+  addTCGFields(cards) {
+    return cards.map(card => this.addTCGField(card))
+  }
+
+  /**
    * Filter cards by excluding certain rarities and rotated cards
    */
   filterCards(cards, searchTerm = null) {
@@ -133,7 +150,9 @@ class PokemonTCGService {
           log.perf(MODULE, `Cache hit for "${searchKey}"`, cacheDuration)
 
           // Filter by regulation, rarity and fuzzy match
-          const filteredCards = this.filterCards(cachedCards.map(c => c.data), name)
+          const filteredCards = this.addTCGFields(
+            this.filterCards(cachedCards.map(c => c.data), name)
+          )
 
           return {
             cards: filteredCards,
@@ -174,7 +193,9 @@ class PokemonTCGService {
       log.perf(MODULE, `TCG API call for "${searchKey}"`, apiDuration)
 
       // Filter by regulation, rarity and fuzzy match
-      const filteredCards = this.filterCards(result.data || [], name)
+      const filteredCards = this.addTCGFields(
+        this.filterCards(result.data || [], name)
+      )
       log.info(MODULE, `Filtered ${(result.data || []).length - filteredCards.length} cards`)
 
       // Cache results asynchronously (don't wait)
@@ -213,7 +234,9 @@ class PokemonTCGService {
           log.warn(MODULE, `Returning cached fallback for "${searchKey}"`, { count: cachedCards.length })
 
           // Filter by regulation, rarity and fuzzy match
-          const filteredCards = this.filterCards(cachedCards.map(c => c.data), name)
+          const filteredCards = this.addTCGFields(
+            this.filterCards(cachedCards.map(c => c.data), name)
+          )
 
           return {
             cards: filteredCards,
@@ -250,7 +273,7 @@ class PokemonTCGService {
         cached.lastViewed = new Date()
         await cached.save()
 
-        return cached.data
+        return this.addTCGField(cached.data)
       }
 
       // Fetch from API
@@ -263,14 +286,14 @@ class PokemonTCGService {
       // Cache the card
       await this.cacheCard(card)
 
-      return card
+      return this.addTCGField(card)
     } catch (error) {
       console.error('Get card error:', error)
 
       // If API fails, try returning stale cache
       if (cached) {
         console.log('Returning stale cache for card:', cardId)
-        return cached.data
+        return this.addTCGField(cached.data)
       }
 
       throw new Error('Card not found')
@@ -299,7 +322,8 @@ class PokemonTCGService {
         name: card.name,
         image: card.images?.small || card.images?.large,
         set: card.set?.name,
-        releaseDate: card.set?.releaseDate
+        releaseDate: card.set?.releaseDate,
+        tcg: 'pokemon'
       }))
     } catch (error) {
       console.error('Autocomplete search error:', error)
@@ -314,11 +338,14 @@ class PokemonTCGService {
     try {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
+      // Ensure card has tcg field
+      const cardData = this.addTCGField(card)
+
       await CardCache.findOneAndUpdate(
-        { cardId: card.id },
+        { cardId: cardData.id },
         {
-          cardId: card.id,
-          data: card,
+          cardId: cardData.id,
+          data: cardData,
           cachedAt: new Date(),
           expiresAt,
           $inc: { viewCount: 1 },
@@ -359,7 +386,9 @@ class PokemonTCGService {
         log.perf(MODULE, 'Newest cards from cache', Date.now() - startTime)
 
         // Filter by regulation and rarity
-        const filteredCards = this.filterCards(cachedCards.map(c => c.data))
+        const filteredCards = this.addTCGFields(
+          this.filterCards(cachedCards.map(c => c.data))
+        )
 
         return {
           cards: filteredCards,
@@ -389,7 +418,9 @@ class PokemonTCGService {
       log.perf(MODULE, 'Newest cards from API', Date.now() - startTime)
 
       // Filter by regulation and rarity
-      const filteredCards = this.filterCards(result.data || [])
+      const filteredCards = this.addTCGFields(
+        this.filterCards(result.data || [])
+      )
 
       return {
         cards: filteredCards,
@@ -413,7 +444,9 @@ class PokemonTCGService {
           log.warn(MODULE, 'Returning cached fallback', { count: cachedCards.length })
 
           // Filter by regulation and rarity
-          const filteredCards = this.filterCards(cachedCards.map(c => c.data))
+          const filteredCards = this.addTCGFields(
+            this.filterCards(cachedCards.map(c => c.data))
+          )
 
           return {
             cards: filteredCards,

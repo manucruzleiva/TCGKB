@@ -1,4 +1,4 @@
-import pokemonTCGService from '../services/pokemonTCG.service.js'
+import unifiedTCGService from '../services/unifiedTCG.service.js'
 import Reaction from '../models/Reaction.js'
 import Comment from '../models/Comment.js'
 import log from '../utils/logger.js'
@@ -16,7 +16,7 @@ export const getCards = async (req, res) => {
 
     log.info(MODULE, `GET /cards - name:"${name}" page:${page} size:${normalizedPageSize}`)
 
-    const result = await pokemonTCGService.searchCards(
+    const result = await unifiedTCGService.searchCards(
       name,
       parseInt(page),
       normalizedPageSize
@@ -45,7 +45,7 @@ export const getCardById = async (req, res) => {
     const { cardId } = req.params
 
     // Fetch card data
-    const card = await pokemonTCGService.getCardById(cardId)
+    const card = await unifiedTCGService.getCardById(cardId)
 
     // Get stats
     const [commentCount, reactions] = await Promise.all([
@@ -92,7 +92,7 @@ export const searchCardsAutocomplete = async (req, res) => {
   try {
     const { name = '', limit = 10 } = req.query
 
-    const cards = await pokemonTCGService.searchCardsAutocomplete(
+    const cards = await unifiedTCGService.searchCardsAutocomplete(
       name,
       parseInt(limit)
     )
@@ -116,7 +116,7 @@ export const getNewestCards = async (req, res) => {
   try {
     const { pageSize = 20 } = req.query
 
-    const result = await pokemonTCGService.getNewestCards(
+    const result = await unifiedTCGService.getNewestCards(
       Math.min(parseInt(pageSize), 100)
     )
 

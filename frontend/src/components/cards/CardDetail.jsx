@@ -48,6 +48,9 @@ const CardDetail = ({ card, stats }) => {
   const legalFormatDate = calculateLegalDate(releaseDate)
   const rotationInfo = getRotationInfo(card.regulationMark)
 
+  // Check if this is a Pokemon card (rotation features only apply to Pokemon)
+  const isPokemonCard = card.tcg === 'pokemon'
+
   return (
     <div className="grid md:grid-cols-2 gap-8">
       {/* Card Image */}
@@ -66,8 +69,8 @@ const CardDetail = ({ card, stats }) => {
               </div>
             )}
 
-            {/* Rotation Ribbon */}
-            {rotationInfo && rotationInfo.status !== 'legal' && (
+            {/* Rotation Ribbon - Pokemon only */}
+            {isPokemonCard && rotationInfo && rotationInfo.status !== 'legal' && (
               <div className={`absolute top-4 right-4 px-3 py-2 rounded-lg shadow-lg text-white font-semibold text-sm ${
                 rotationInfo.status === 'rotated'
                   ? 'bg-red-600'
@@ -114,14 +117,16 @@ const CardDetail = ({ card, stats }) => {
               </div>
             )}
 
-            {legalFormatDate && (
+            {/* Pokemon-specific: Enter Legal Format */}
+            {isPokemonCard && legalFormatDate && (
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.enterLegal')}:</span>
                 <span className="ml-2 text-gray-600 dark:text-gray-400">{legalFormatDate}</span>
               </div>
             )}
 
-            {card.regulationMark && (
+            {/* Pokemon-specific: Regulation Mark */}
+            {isPokemonCard && card.regulationMark && (
               <div>
                 <span className="font-semibold text-gray-700">{t('card.regulationMark')}:</span>
                 <span className="ml-2">
