@@ -1,13 +1,9 @@
 {
   "version": 2,
+  "installCommand": "npm install --prefix frontend && npm install --prefix backend",
+  "buildCommand": "npm run build:frontend",
+  "outputDirectory": "frontend/dist",
   "builds": [
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
     {
       "src": "backend/api/index.js",
       "use": "@vercel/node"
@@ -21,10 +17,6 @@
     {
       "src": "/socket.io/(.*)",
       "dest": "backend/api/index.js"
-    },
-    {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff|woff2|ttf|eot))",
-      "dest": "frontend/dist/$1"
     },
     {
       "src": "/(.*)",
