@@ -130,7 +130,14 @@ const CardDetail = ({ card, stats }) => {
             {card.supertype && (
               <div>
                 <span className="font-semibold text-gray-700">Type:</span>
-                <span className="ml-2 text-gray-600">{card.supertype}</span>
+                <span className="ml-2 text-gray-600">
+                  {card.supertype}
+                  {card.subtypes && card.subtypes.length > 0 && (
+                    <span className="ml-1 text-gray-500">
+                      ({card.subtypes.join(', ')})
+                    </span>
+                  )}
+                </span>
               </div>
             )}
 
