@@ -8,6 +8,8 @@ import authRoutes from '../src/routes/auth.routes.js'
 import cardsRoutes from '../src/routes/cards.routes.js'
 import commentsRoutes from '../src/routes/comments.routes.js'
 import reactionsRoutes from '../src/routes/reactions.routes.js'
+import statsRoutes from '../src/routes/stats.routes.js'
+import modRoutes from '../src/routes/mod.routes.js'
 
 // Load environment variables
 dotenv.config()
@@ -44,6 +46,8 @@ app.use('/api/auth', authRoutes)
 app.use('/api/cards', cardsRoutes)
 app.use('/api/comments', commentsRoutes)
 app.use('/api/reactions', reactionsRoutes)
+app.use('/api/stats', statsRoutes)
+app.use('/api/mod', modRoutes)
 
 // Error handler (must be last)
 app.use(errorHandler)
