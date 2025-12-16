@@ -67,6 +67,8 @@ Una aplicación web completa para buscar cartas de Pokemon TCG, comentar y reacc
 
 ✅ = Test automatizado disponible en `.dev/tests/`
 
+**📊 Cobertura: 100%** - Todas las funcionalidades tienen tests automatizados
+
 | Categoría | Funcionalidad | Test E2E | Archivo |
 |-----------|---------------|----------|---------|
 | **Autenticación** | Navegación a registro | ✅ | `auth.spec.js` |
@@ -83,14 +85,37 @@ Una aplicación web completa para buscar cartas de Pokemon TCG, comentar y reacc
 | | Validación de vacíos | ✅ | `comments.spec.js` |
 | | Mostrar comentarios existentes | ✅ | `comments.spec.js` |
 | | Respuestas anidadas | ✅ | `comments.spec.js` |
-| **Reacciones** | Agregar reacción | ❌ | - |
-| | Cambiar reacción | ❌ | - |
-| | Reacciones anónimas | ❌ | - |
-| **Tiempo Real** | Updates de Socket.io | ❌ | - |
-| **Temas** | Dark/Light mode | ❌ | - |
-| **Idiomas** | Cambio de idioma | ❌ | - |
-| **Multi-TCG** | Búsqueda transparente | ❌ | - |
-| **Admin** | Moderación | ❌ | - |
+| **Reacciones** | Agregar reacción | ✅ | `reactions.spec.js` |
+| | Cambiar reacción | ✅ | `reactions.spec.js` |
+| | Reacciones anónimas | ✅ | `reactions.spec.js` |
+| | Reacciones en comentarios | ✅ | `reactions.spec.js` |
+| | Persistencia de reacciones | ✅ | `reactions.spec.js` |
+| **Tiempo Real** | Comentarios en tiempo real | ✅ | `realtime.spec.js` |
+| | Reacciones en tiempo real | ✅ | `realtime.spec.js` |
+| | Respuestas anidadas en tiempo real | ✅ | `realtime.spec.js` |
+| | Reconexión de Socket.io | ✅ | `realtime.spec.js` |
+| | Performance de updates múltiples | ✅ | `realtime.spec.js` |
+| **Temas** | Toggle Dark/Light mode | ✅ | `themes.spec.js` |
+| | Persistencia de tema | ✅ | `themes.spec.js` |
+| | Estilos de componentes | ✅ | `themes.spec.js` |
+| | Tema en navegación | ✅ | `themes.spec.js` |
+| | Cambio de ícono del botón | ✅ | `themes.spec.js` |
+| **Idiomas** | Cambio ES/EN | ✅ | `languages.spec.js` |
+| | Persistencia de idioma | ✅ | `languages.spec.js` |
+| | Traducción de navegación | ✅ | `languages.spec.js` |
+| | Traducción de formularios | ✅ | `languages.spec.js` |
+| | Traducción de detalles de carta | ✅ | `languages.spec.js` |
+| | Idioma en navegación | ✅ | `languages.spec.js` |
+| **Multi-TCG** | Búsqueda transparente | ✅ | `multi-tcg.spec.js` |
+| | No selector manual de TCG | ✅ | `multi-tcg.spec.js` |
+| | Features específicos de Pokemon | ✅ | `multi-tcg.spec.js` |
+| | Merge de resultados | ✅ | `multi-tcg.spec.js` |
+| | Cache multi-TCG | ✅ | `multi-tcg.spec.js` |
+| **Admin** | Acceso a dashboard | ✅ | `admin.spec.js` |
+| | Aprobar comentarios | ✅ | `admin.spec.js` |
+| | Eliminar comentarios | ✅ | `admin.spec.js` |
+| | Estadísticas | ✅ | `admin.spec.js` |
+| | Permisos de admin | ✅ | `admin.spec.js` |
 
 **Ejecutar tests**: `npm run test` o `npm run test:ui` (interfaz visual)
 
