@@ -1,6 +1,22 @@
 import Spinner from '../common/Spinner'
 import CardReactions from './CardReactions'
 
+// Type emoji mapping
+const TYPE_EMOJIS = {
+  'Fire': '🔥',
+  'Water': '💧',
+  'Grass': '🌿',
+  'Electric': '⚡',
+  'Psychic': '🔮',
+  'Fighting': '👊',
+  'Darkness': '🌙',
+  'Metal': '⚙️',
+  'Dragon': '🐉',
+  'Fairy': '✨',
+  'Colorless': '⭐',
+  'Lightning': '⚡'
+}
+
 const CardDetail = ({ card, stats }) => {
   if (!card) {
     return (
@@ -13,6 +29,17 @@ const CardDetail = ({ card, stats }) => {
   const imageUrl = card.images?.large || card.images?.small
   const setName = card.set?.name || 'Unknown Set'
   const releaseDate = card.set?.releaseDate || ''
+
+  // Calculate legal format date (2 weeks after release)
+  const calculateLegalDate = (releaseDateStr) => {
+    if (!releaseDateStr) return null
+    const releaseDate = new Date(releaseDateStr)
+    const legalDate = new Date(releaseDate)
+    legalDate.setDate(legalDate.getDate() + 14)
+    return legalDate.toISOString().split('T')[0]
+  }
+
+  const legalFormatDate = calculateLegalDate(releaseDate)
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
@@ -54,6 +81,24 @@ const CardDetail = ({ card, stats }) => {
               </div>
             )}
 
+            {legalFormatDate && (
+              <div>
+                <span className="font-semibold text-gray-700">Enter Legal Format:</span>
+                <span className="ml-2 text-gray-600">{legalFormatDate}</span>
+              </div>
+            )}
+
+            {card.regulationMark && (
+              <div>
+                <span className="font-semibold text-gray-700">Regulation Mark:</span>
+                <span className="ml-2">
+                  <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded font-bold">
+                    {card.regulationMark}
+                  </span>
+                </span>
+              </div>
+            )}
+
             {card.rarity && (
               <div>
                 <span className="font-semibold text-gray-700">Rarity:</span>
@@ -79,8 +124,9 @@ const CardDetail = ({ card, stats }) => {
                   {card.types.map((type, idx) => (
                     <span
                       key={idx}
-                      className="px-2 py-1 bg-gray-200 text-gray-700 text-sm rounded"
+                      className="px-2 py-1 bg-gray-200 text-gray-700 text-sm rounded flex items-center gap-1"
                     >
+                      {TYPE_EMOJIS[type] && <span>{TYPE_EMOJIS[type]}</span>}
                       {type}
                     </span>
                   ))}
@@ -94,13 +140,6 @@ const CardDetail = ({ card, stats }) => {
                 <span className="ml-2 text-gray-600">{card.hp}</span>
               </div>
             )}
-
-            {card.artist && (
-              <div>
-                <span className="font-semibold text-gray-700">Artist:</span>
-                <span className="ml-2 text-gray-600">{card.artist}</span>
-              </div>
-            )}
           </div>
 
           {/* Card Reactions */}
@@ -112,14 +151,14 @@ const CardDetail = ({ card, stats }) => {
         {/* Attacks */}
         {card.attacks && card.attacks.length > 0 && (
           <div className="card mb-6">
-            <h2 className="text-xl font-bold mb-4">Attacks</h2>
+            <h2 className="text-xl font-bold mb-4">⚔️ Attacks</h2>
             <div className="space-y-4">
               {card.attacks.map((attack, idx) => (
                 <div key={idx} className="border-l-4 border-primary-500 pl-4">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-semibold text-lg">{attack.name}</h3>
                     {attack.damage && (
-                      <span className="text-red-600 font-bold">{attack.damage}</span>
+                      <span className="text-red-600 font-bold">💥 {attack.damage}</span>
                     )}
                   </div>
                   {attack.text && (
@@ -130,8 +169,9 @@ const CardDetail = ({ card, stats }) => {
                       {attack.cost.map((cost, costIdx) => (
                         <span
                           key={costIdx}
-                          className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
+                          className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded flex items-center gap-1"
                         >
+                          {TYPE_EMOJIS[cost] && <span>{TYPE_EMOJIS[cost]}</span>}
                           {cost}
                         </span>
                       ))}
@@ -146,12 +186,14 @@ const CardDetail = ({ card, stats }) => {
         {/* Abilities */}
         {card.abilities && card.abilities.length > 0 && (
           <div className="card mb-6">
-            <h2 className="text-xl font-bold mb-4">Abilities</h2>
+            <h2 className="text-xl font-bold mb-4">✨ Abilities</h2>
             <div className="space-y-4">
               {card.abilities.map((ability, idx) => (
                 <div key={idx} className="border-l-4 border-green-500 pl-4">
-                  <h3 className="font-semibold text-lg">{ability.name}</h3>
-                  <p className="text-sm text-gray-600 italic mb-1">{ability.type}</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-lg">{ability.name}</h3>
+                    <span className="text-xs text-gray-500 italic">({ability.type})</span>
+                  </div>
                   <p className="text-sm text-gray-700">{ability.text}</p>
                 </div>
               ))}
