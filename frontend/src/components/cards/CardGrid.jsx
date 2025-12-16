@@ -1,25 +1,64 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { cardService } from '../../services/cardService'
 import { useInfiniteScroll } from '../../hooks/useInfiniteScroll'
+import { cache } from '../../utils/cache'
 import CardItem from './CardItem'
 import Spinner from '../common/Spinner'
 
-const CardGrid = ({ searchTerm }) => {
+const CardGrid = ({ searchTerm, onLoadingChange, onCancelAvailable }) => {
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
+  const [showingCached, setShowingCached] = useState(false)
+  const loadingRef = useRef(false)
+  const abortControllerRef = useRef(null)
 
-  // Load cards
+  // Load cards with cache
   const loadCards = useCallback(async (searchName, pageNum, append = false) => {
+    // Prevent duplicate requests
+    if (loadingRef.current && !append) return
+
+    const cacheKey = `cards_${searchName}_${pageNum}`
+
     try {
+      // Try to load from cache first (only for first page)
+      if (pageNum === 1 && !append) {
+        const cached = cache.get(cacheKey)
+        if (cached) {
+          setCards(cached.data.cards || [])
+          setTotalCount(cached.data.pagination?.totalCount || 0)
+          setShowingCached(!cached.isStale)
+
+          // If cache is fresh (< 5 min), don't fetch
+          if (cached.age < 5 * 60 * 1000) {
+            return
+          }
+        }
+      }
+
+      // Create new AbortController for this request
+      abortControllerRef.current = new AbortController()
+
+      // Pass cancel function to parent
+      onCancelAvailable?.(() => {
+        abortControllerRef.current?.abort()
+      })
+
+      loadingRef.current = true
       setLoading(true)
+      onLoadingChange?.(true)
       setError(null)
 
-      const response = await cardService.getCards(searchName, pageNum, 20)
+      const response = await cardService.getCards(searchName, pageNum, 20, abortControllerRef.current.signal)
       const { cards: newCards, pagination } = response.data
+
+      // Cache the results (only first page)
+      if (pageNum === 1) {
+        cache.set(cacheKey, { cards: newCards, pagination })
+      }
 
       if (append) {
         setCards(prev => [...prev, ...newCards])
@@ -28,22 +67,35 @@ const CardGrid = ({ searchTerm }) => {
       }
 
       setTotalCount(pagination.totalCount)
-      setHasMore(cards.length + newCards.length < pagination.totalCount)
+      setHasMore(newCards.length > 0 && cards.length + newCards.length < pagination.totalCount)
+      setShowingCached(false)
     } catch (err) {
-      setError(err.response?.data?.message || 'Error loading cards')
-      console.error('Error loading cards:', err)
+      // Check if error is from user cancellation
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
+        console.log('Search canceled by user')
+      } else {
+        setError(err.response?.data?.message || 'Error cargando cartas. Inténtalo de nuevo.')
+      }
     } finally {
       setLoading(false)
+      loadingRef.current = false
+      onLoadingChange?.(false)
+      onCancelAvailable?.(null)
+      abortControllerRef.current = null
     }
-  }, [])
+  }, [onLoadingChange, onCancelAvailable, cards.length])
 
-  // Initial load and search term change
+  // Initial load and search term change with debouncing
   useEffect(() => {
-    setPage(1)
-    setCards([])
-    setHasMore(true)
-    loadCards(searchTerm, 1, false)
-  }, [searchTerm, loadCards])
+    const timer = setTimeout(() => {
+      setPage(1)
+      setCards([])
+      setHasMore(true)
+      loadCards(searchTerm, 1, false)
+    }, 300) // 300ms debounce
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   // Load more cards
   const loadMore = useCallback(() => {
@@ -57,7 +109,7 @@ const CardGrid = ({ searchTerm }) => {
   // Infinite scroll ref
   const lastCardRef = useInfiniteScroll(loadMore, hasMore, loading)
 
-  if (error) {
+  if (error && cards.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="text-red-500 mb-4">{error}</div>
@@ -71,11 +123,11 @@ const CardGrid = ({ searchTerm }) => {
     )
   }
 
-  if (cards.length === 0 && !loading) {
+  if (cards.length === 0 && !loading && !showingCached) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 text-lg">
-          {searchTerm ? 'No se encontraron cartas' : 'No hay cartas disponibles'}
+          {searchTerm ? 'No se encontraron cartas' : 'Cargando cartas...'}
         </p>
       </div>
     )
@@ -83,11 +135,18 @@ const CardGrid = ({ searchTerm }) => {
 
   return (
     <div>
-      {/* Results count */}
+      {/* Cache indicator and results count */}
       {totalCount > 0 && (
-        <p className="text-sm text-gray-600 mb-4">
-          Mostrando {cards.length} de {totalCount} resultados
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-gray-600">
+            Mostrando {cards.length} de {totalCount} resultados
+          </p>
+          {showingCached && (
+            <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+              📦 Datos en caché
+            </p>
+          )}
+        </div>
       )}
 
       {/* Card grid */}

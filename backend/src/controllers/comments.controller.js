@@ -111,14 +111,17 @@ export const createComment = async (req, res) => {
       })
     }
 
-    // Create comment
-    const comment = await Comment.create({
+    // Create comment instance (doesn't save yet)
+    const comment = new Comment({
       cardId,
       userId: req.user._id,
       content,
       parentId: parentId || null,
       cardMentions: cardMentions || []
     })
+
+    // Save (triggers pre-save middleware)
+    await comment.save()
 
     // Populate user data
     await comment.populate('userId', 'username role')

@@ -1,9 +1,10 @@
 import api from './api'
 
 export const cardService = {
-  getCards: async (name = '', page = 1, pageSize = 20) => {
+  getCards: async (name = '', page = 1, pageSize = 20, signal = null) => {
     const response = await api.get('/cards', {
-      params: { name, page, pageSize }
+      params: { name, page, pageSize },
+      signal
     })
     return response.data
   },

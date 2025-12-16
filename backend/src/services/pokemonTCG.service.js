@@ -1,10 +1,111 @@
 import pokemon from 'pokemontcgsdk'
 import CardCache from '../models/CardCache.js'
+import log from '../utils/logger.js'
 
 // Configure Pokemon TCG SDK
 pokemon.configure({ apiKey: process.env.POKEMON_TCG_API_KEY })
 
+const MODULE = 'PokemonTCG'
+
+// Excluded rarities
+const EXCLUDED_RARITIES = [
+  'Hyper Rare',
+  'Ultra Rare',
+  'Special Illustration Rare',
+  'Shiny Rare',
+  'Illustration Rare',
+  'Rare Secret',
+  'Trainer Gallery Rare',
+  'Rare Holo',
+  'Rare Holo EX',
+  'Rare Holo GX',
+  'Rare Holo V',
+  'Rare Holo VMAX',
+  'Rare Holo VSTAR'
+]
+
+// Valid regulation marks (G, H, I onwards - non-rotated)
+const VALID_REGULATION_MARKS = ['G', 'H', 'I', 'J', 'K']
+
+/**
+ * Calculate Levenshtein distance for fuzzy matching
+ */
+function levenshteinDistance(str1, str2) {
+  const len1 = str1.length
+  const len2 = str2.length
+  const matrix = []
+
+  if (len1 === 0) return len2
+  if (len2 === 0) return len1
+
+  for (let i = 0; i <= len2; i++) {
+    matrix[i] = [i]
+  }
+
+  for (let j = 0; j <= len1; j++) {
+    matrix[0][j] = j
+  }
+
+  for (let i = 1; i <= len2; i++) {
+    for (let j = 1; j <= len1; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1]
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        )
+      }
+    }
+  }
+
+  return matrix[len2][len1]
+}
+
+/**
+ * Check if card name matches search with fuzzy tolerance
+ */
+function fuzzyMatch(cardName, searchTerm) {
+  const cardLower = cardName.toLowerCase()
+  const searchLower = searchTerm.toLowerCase()
+
+  // Exact match or contains
+  if (cardLower.includes(searchLower)) {
+    return true
+  }
+
+  // Fuzzy match - allow 1-2 character differences
+  const maxDistance = searchLower.length <= 5 ? 1 : 2
+  const distance = levenshteinDistance(cardLower, searchLower)
+
+  return distance <= maxDistance
+}
+
 class PokemonTCGService {
+  /**
+   * Filter cards by excluding certain rarities and rotated cards
+   */
+  filterCards(cards, searchTerm = null) {
+    return cards.filter(card => {
+      // Filter by regulation mark (only G, H, I onwards)
+      if (card.regulationMark && !VALID_REGULATION_MARKS.includes(card.regulationMark)) {
+        return false
+      }
+
+      // Filter by rarity
+      if (card.rarity && EXCLUDED_RARITIES.includes(card.rarity)) {
+        return false
+      }
+
+      // Fuzzy match if search term provided
+      if (searchTerm && card.name) {
+        return fuzzyMatch(card.name, searchTerm)
+      }
+
+      return true
+    })
+  }
   /**
    * Search cards with caching
    * @param {string} name - Card name to search
@@ -12,50 +113,123 @@ class PokemonTCGService {
    * @param {number} pageSize - Results per page
    */
   async searchCards(name = '', page = 1, pageSize = 20, excludeSpecialRares = true) {
-    try {
-      // Build query - exclude special rares by default
-      let queryParts = []
+    const startTime = Date.now()
+    const searchKey = name || 'all'
 
-      if (name) {
-        queryParts.push(`name:"${name}*"`)
+    try {
+      // PRIORITY 1: Check MongoDB cache first for ultra-fast results
+      if (page === 1) {
+        const cacheStartTime = Date.now()
+        const query = name
+          ? { 'data.name': { $regex: name, $options: 'i' } }
+          : {}
+
+        const cachedCards = await CardCache.find(query)
+          .sort({ 'data.set.releaseDate': -1 })
+          .limit(pageSize)
+
+        if (cachedCards.length > 0) {
+          const cacheDuration = Date.now() - cacheStartTime
+          log.perf(MODULE, `Cache hit for "${searchKey}"`, cacheDuration)
+
+          // Filter by regulation, rarity and fuzzy match
+          const filteredCards = this.filterCards(cachedCards.map(c => c.data), name)
+
+          return {
+            cards: filteredCards,
+            pagination: {
+              page: 1,
+              pageSize,
+              count: filteredCards.length,
+              totalCount: filteredCards.length
+            },
+            fromCache: true
+          }
+        }
+        log.info(MODULE, `Cache miss for "${searchKey}", fetching from API`)
       }
 
-      // Exclude Special Illustration Rare, Hyper Rare, and other ultra-rare variants
-      if (excludeSpecialRares) {
-        queryParts.push(
-          '!rarity:"Special Illustration Rare"',
-          '!rarity:"Hyper Rare"',
-          '!rarity:"Illustration Rare"',
-          '!rarity:"Ultra Rare"'
+      // PRIORITY 2: Fetch from Pokemon TCG API
+      let query = ''
+      if (name) {
+        query = `name:${name}*`
+      }
+
+      const queryParams = {
+        page,
+        pageSize,
+        orderBy: '-set.releaseDate'
+      }
+
+      if (query) {
+        queryParams.q = query
+      }
+
+      log.info(MODULE, `Fetching from TCG API: "${searchKey}"`, { page, pageSize })
+      const apiStartTime = Date.now()
+
+      const result = await pokemon.card.where(queryParams)
+
+      const apiDuration = Date.now() - apiStartTime
+      log.perf(MODULE, `TCG API call for "${searchKey}"`, apiDuration)
+
+      // Filter by regulation, rarity and fuzzy match
+      const filteredCards = this.filterCards(result.data || [], name)
+      log.info(MODULE, `Filtered ${(result.data || []).length - filteredCards.length} cards`)
+
+      // Cache results asynchronously (don't wait)
+      if (result.data && result.data.length > 0) {
+        this.cacheCards(result.data).catch(err =>
+          log.error(MODULE, 'Background cache failed', err)
         )
       }
 
-      const query = queryParts.join(' ')
-
-      // Fetch from Pokemon TCG API
-      const result = await pokemon.card.where({
-        q: query || undefined,
-        page,
-        pageSize,
-        orderBy: '-set.releaseDate' // Newest first
-      })
-
-      // Cache each card
-      if (result.data && result.data.length > 0) {
-        await this.cacheCards(result.data)
-      }
+      const totalDuration = Date.now() - startTime
+      log.perf(MODULE, `Total search for "${searchKey}"`, totalDuration)
 
       return {
-        cards: result.data || [],
+        cards: filteredCards,
         pagination: {
           page: result.page || page,
-          pageSize: result.pageSize || pageSize,
-          count: result.count || 0,
-          totalCount: result.totalCount || 0
+          pageSize: filteredCards.length,
+          count: filteredCards.length,
+          totalCount: filteredCards.length
         }
       }
     } catch (error) {
-      console.error('Pokemon TCG API Error:', error)
+      log.error(MODULE, `Search failed for "${searchKey}"`, error)
+
+      // Fallback to cache on error
+      try {
+        const query = name
+          ? { 'data.name': { $regex: name, $options: 'i' } }
+          : {}
+
+        const cachedCards = await CardCache.find(query)
+          .sort({ 'data.set.releaseDate': -1 })
+          .limit(pageSize)
+
+        if (cachedCards.length > 0) {
+          log.warn(MODULE, `Returning cached fallback for "${searchKey}"`, { count: cachedCards.length })
+
+          // Filter by regulation, rarity and fuzzy match
+          const filteredCards = this.filterCards(cachedCards.map(c => c.data), name)
+
+          return {
+            cards: filteredCards,
+            pagination: {
+              page: 1,
+              pageSize,
+              count: filteredCards.length,
+              totalCount: filteredCards.length
+            },
+            fromCache: true
+          }
+        }
+      } catch (cacheError) {
+        log.error(MODULE, 'Cache fallback failed', cacheError)
+      }
+
       throw new Error('Failed to fetch cards from Pokemon TCG API')
     }
   }
@@ -173,27 +347,89 @@ class PokemonTCGService {
    * Get newest cards (for homepage)
    */
   async getNewestCards(pageSize = 20) {
+    const startTime = Date.now()
+
     try {
+      // Check cache first
+      const cachedCards = await CardCache.find()
+        .sort({ 'data.set.releaseDate': -1 })
+        .limit(pageSize)
+
+      if (cachedCards.length >= pageSize) {
+        log.perf(MODULE, 'Newest cards from cache', Date.now() - startTime)
+
+        // Filter by regulation and rarity
+        const filteredCards = this.filterCards(cachedCards.map(c => c.data))
+
+        return {
+          cards: filteredCards,
+          pagination: {
+            page: 1,
+            pageSize,
+            count: filteredCards.length,
+            totalCount: filteredCards.length
+          },
+          fromCache: true
+        }
+      }
+
+      // Fetch from API if cache insufficient
+      log.info(MODULE, 'Fetching newest cards from API')
       const result = await pokemon.card.where({
         pageSize,
         orderBy: '-set.releaseDate'
       })
 
       if (result.data && result.data.length > 0) {
-        await this.cacheCards(result.data)
+        this.cacheCards(result.data).catch(err =>
+          log.error(MODULE, 'Background cache failed', err)
+        )
       }
 
+      log.perf(MODULE, 'Newest cards from API', Date.now() - startTime)
+
+      // Filter by regulation and rarity
+      const filteredCards = this.filterCards(result.data || [])
+
       return {
-        cards: result.data || [],
+        cards: filteredCards,
         pagination: {
           page: 1,
           pageSize,
-          count: result.count || 0,
-          totalCount: result.totalCount || 0
+          count: filteredCards.length,
+          totalCount: filteredCards.length
         }
       }
     } catch (error) {
-      console.error('Get newest cards error:', error)
+      log.error(MODULE, 'Get newest cards failed', error)
+
+      // Fallback to any cached cards
+      try {
+        const cachedCards = await CardCache.find()
+          .sort({ 'data.set.releaseDate': -1 })
+          .limit(pageSize)
+
+        if (cachedCards.length > 0) {
+          log.warn(MODULE, 'Returning cached fallback', { count: cachedCards.length })
+
+          // Filter by regulation and rarity
+          const filteredCards = this.filterCards(cachedCards.map(c => c.data))
+
+          return {
+            cards: filteredCards,
+            pagination: {
+              page: 1,
+              pageSize,
+              count: filteredCards.length,
+              totalCount: filteredCards.length
+            },
+            fromCache: true
+          }
+        }
+      } catch (cacheError) {
+        log.error(MODULE, 'Cache fallback failed', cacheError)
+      }
+
       throw new Error('Failed to fetch newest cards')
     }
   }

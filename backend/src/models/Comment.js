@@ -82,6 +82,11 @@ commentSchema.index({ path: 1 })
 // Pre-save middleware to generate path
 commentSchema.pre('save', async function(next) {
   if (this.isNew) {
+    // Ensure _id is generated
+    if (!this._id) {
+      this._id = new mongoose.Types.ObjectId()
+    }
+
     if (this.parentId) {
       // Find parent comment to build path
       const parent = await mongoose.model('Comment').findById(this.parentId)

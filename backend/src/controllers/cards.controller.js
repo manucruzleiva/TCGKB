@@ -1,25 +1,35 @@
 import pokemonTCGService from '../services/pokemonTCG.service.js'
 import Reaction from '../models/Reaction.js'
 import Comment from '../models/Comment.js'
+import log from '../utils/logger.js'
+
+const MODULE = 'CardsController'
 
 /**
  * Get cards with search and pagination
  */
 export const getCards = async (req, res) => {
+  const startTime = Date.now()
   try {
     const { name = '', page = 1, pageSize = 20 } = req.query
+    const normalizedPageSize = Math.min(parseInt(pageSize), 20) // Max 20 per page for speed
+
+    log.info(MODULE, `GET /cards - name:"${name}" page:${page} size:${normalizedPageSize}`)
 
     const result = await pokemonTCGService.searchCards(
       name,
       parseInt(page),
-      Math.min(parseInt(pageSize), 100) // Max 100 per page
+      normalizedPageSize
     )
+
+    log.perf(MODULE, 'GET /cards completed', Date.now() - startTime)
 
     res.status(200).json({
       success: true,
       data: result
     })
   } catch (error) {
+    log.error(MODULE, 'GET /cards failed', error)
     res.status(500).json({
       success: false,
       message: error.message

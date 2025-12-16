@@ -5,10 +5,18 @@ import CardGrid from '../components/cards/CardGrid'
 const Home = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [isSearching, setIsSearching] = useState(false)
+  const [cancelSearch, setCancelSearch] = useState(null)
 
   const handleSearch = (term) => {
     setSearchTerm(term)
-    setIsSearching(true)
+  }
+
+  const handleLoadingChange = (loading) => {
+    setIsSearching(loading)
+  }
+
+  const handleCancelAvailable = (cancelFn) => {
+    setCancelSearch(() => cancelFn)
   }
 
   return (
@@ -20,9 +28,17 @@ const Home = () => {
         </p>
       </div>
 
-      <CardSearch onSearch={handleSearch} loading={isSearching} />
+      <CardSearch
+        onSearch={handleSearch}
+        loading={isSearching}
+        onCancel={cancelSearch}
+      />
 
-      <CardGrid searchTerm={searchTerm} />
+      <CardGrid
+        searchTerm={searchTerm}
+        onLoadingChange={handleLoadingChange}
+        onCancelAvailable={handleCancelAvailable}
+      />
     </div>
   )
 }
