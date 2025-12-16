@@ -63,23 +63,50 @@ const CardReactions = ({ cardId }) => {
         )
         setTotal(prev => prev - 1)
       } else {
-        // Add reaction
-        await reactionService.addReaction('card', cardId, emoji)
+        // Add or change reaction
+        const response = await reactionService.addReaction('card', cardId, emoji)
 
-        // Optimistic update
-        setReactions(prev => {
-          const existing = prev.find(r => r.emoji === emoji)
-          if (existing) {
-            return prev.map(r =>
-              r.emoji === emoji
-                ? { ...r, count: r.count + 1, userReacted: true }
-                : r
-            )
-          } else {
-            return [...prev, { emoji, count: 1, userReacted: true }]
-          }
-        })
-        setTotal(prev => prev + 1)
+        // If backend changed the reaction (removed old one), update UI accordingly
+        if (response.data.changed && response.data.previousEmoji) {
+          // Remove previous emoji reaction
+          setReactions(prev => {
+            let updated = prev.map(r => {
+              if (r.emoji === response.data.previousEmoji) {
+                return { ...r, count: r.count - 1, userReacted: false }
+              }
+              return r
+            }).filter(r => r.count > 0)
+
+            // Add new emoji reaction
+            const existing = updated.find(r => r.emoji === emoji)
+            if (existing) {
+              updated = updated.map(r =>
+                r.emoji === emoji
+                  ? { ...r, count: r.count + 1, userReacted: true }
+                  : r
+              )
+            } else {
+              updated = [...updated, { emoji, count: 1, userReacted: true }]
+            }
+
+            return updated
+          })
+        } else {
+          // Just add the new reaction
+          setReactions(prev => {
+            const existing = prev.find(r => r.emoji === emoji)
+            if (existing) {
+              return prev.map(r =>
+                r.emoji === emoji
+                  ? { ...r, count: r.count + 1, userReacted: true }
+                  : r
+              )
+            } else {
+              return [...prev, { emoji, count: 1, userReacted: true }]
+            }
+          })
+          setTotal(prev => prev + 1)
+        }
       }
     } catch (error) {
       console.error('Error updating reaction:', error)
@@ -114,7 +141,7 @@ const CardReactions = ({ cardId }) => {
               : 'bg-gray-100 hover:bg-gray-200 border-2 border-transparent'
             }
           `}
-          title={reaction.userReacted ? 'Quitar reacción' : 'Reaccionar'}
+          title={reaction.userReacted ? 'Cambiar reacción' : 'Reaccionar'}
         >
           <span>{reaction.emoji}</span>
           <span className="font-medium">{reaction.count}</span>

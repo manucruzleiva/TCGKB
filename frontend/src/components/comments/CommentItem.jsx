@@ -186,17 +186,12 @@ const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
         </div>
 
         {/* Comment content */}
-        <div className="text-gray-800 mb-3 whitespace-pre-wrap break-words">
+        <div className="text-gray-800 mb-2 whitespace-pre-wrap break-words">
           {renderContent()}
         </div>
 
-        {/* Comment reactions */}
-        <div className="mb-3">
-          <CommentReactions commentId={localComment._id} />
-        </div>
-
-        {/* Comment actions */}
-        <div className="flex items-center gap-3 flex-wrap text-sm">
+        {/* Comment actions and reactions in same row */}
+        <div className="flex items-center gap-4 flex-wrap text-sm mb-2">
           <button
             onClick={handleReply}
             className="text-gray-600 hover:text-primary-600 font-medium"
@@ -230,6 +225,11 @@ const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
               {localComment.replies.length} {localComment.replies.length === 1 ? 'respuesta' : 'respuestas'}
             </span>
           )}
+
+          {/* Reactions inline with actions */}
+          <div className="ml-auto">
+            <CommentReactions commentId={localComment._id} compact={true} />
+          </div>
         </div>
 
         {/* Reply form */}
