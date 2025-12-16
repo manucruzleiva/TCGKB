@@ -7,7 +7,9 @@
       "Bash(npm run dev:*)",
       "Bash(timeout /t 5 /nobreak)",
       "Bash(cat:*)",
-      "Bash(taskkill //F //PID 37940)"
+      "Bash(taskkill //F //PID 37940)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
