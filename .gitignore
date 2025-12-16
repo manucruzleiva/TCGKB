@@ -5,6 +5,10 @@ node_modules/
 
 # Testing
 /coverage
+/.dev/tests/test-results
+/.dev/tests/playwright-report
+/playwright-report
+/test-results
 
 # Production
 /build

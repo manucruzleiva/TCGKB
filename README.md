@@ -106,12 +106,15 @@ Resumen rápido:
 
 ```
 TCGKB/
+├── .dev/              # Herramientas de desarrollo (tests, docs, configs)
 ├── frontend/          # React application
 ├── backend/           # Express API
 ├── shared/            # Código compartido
 ├── package.json       # Root package
 └── vercel.json        # Vercel config
 ```
+
+📖 **Para desarrolladores**: Ver [.dev/docs/DEVELOPMENT.md](.dev/docs/DEVELOPMENT.md) para guía completa de desarrollo.
 
 ## Comandos Disponibles
 
