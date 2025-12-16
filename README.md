@@ -4,13 +4,95 @@ Una aplicación web completa para buscar cartas de Pokemon TCG, comentar y reacc
 
 ## Características
 
-- 🔍 Búsqueda de cartas de Pokemon TCG
-- 💬 Sistema de comentarios anidados ilimitados
-- 😀 Reacciones con emojis (anónimas permitidas)
-- @ Menciones de cartas en comentarios
-- ⚡ Actualizaciones en tiempo real
-- 🛡️ Sistema de moderación
-- 📱 Diseño responsive (Desktop & Mobile)
+### Sistema Multi-TCG
+- 🎴 **Búsqueda transparente** - Busca en Pokemon TCG y Rifbound simultáneamente
+- 🔄 **Sin selección manual** - El sistema detecta automáticamente el TCG de cada carta
+- ⚡ **Búsqueda paralela** - Resultados de todos los TCGs en una sola consulta
+
+### Búsqueda y Filtrado (✅ Tests E2E)
+- 🔍 **Búsqueda exacta** - Por nombre de carta
+- 🎯 **Búsqueda difusa (Fuzzy)** - Tolera errores de ortografía (Levenshtein distance)
+- 🗂️ **Filtrado de rotación** - Solo muestra cartas legales (regulation marks G,H,I+)
+- 💾 **Sistema de cache** - MongoDB cache con indicador visual
+- ⚡ **Resultados rápidos** - Cache-first strategy para ultra velocidad
+
+### Comentarios y Discusión (✅ Tests E2E)
+- 💬 **Comentarios anidados** - Ilimitados niveles de respuestas
+- 📝 **@ Menciones de cartas** - Menciona cartas con autocompletado
+- ✏️ **Editar y eliminar** - Usuarios pueden gestionar sus comentarios
+- 👁️ **Ocultar comentarios** - Los usuarios pueden ocultar comentarios propios
+
+### Reacciones
+- 😀 **Emojis en cartas** - Reacciona a cualquier carta
+- 💭 **Emojis en comentarios** - Reacciona a comentarios específicos
+- 🔓 **Anónimas permitidas** - No requiere login para reaccionar
+- 🔄 **Cambiar reacción** - Usuarios autenticados pueden cambiar su emoji
+
+### Autenticación (✅ Tests E2E)
+- 👤 **Registro de usuarios** - Crear cuenta con validación
+- 🔐 **Login/Logout** - Sistema JWT con sesiones de 7 días
+- ✅ **Validación de formularios** - Mensajes de error claros
+- 🛡️ **Protección de rutas** - Comentarios requieren autenticación
+
+### Tiempo Real
+- ⚡ **Socket.io** - Comentarios y reacciones en tiempo real
+- 🔄 **Auto-reconexión** - Conexión persistente con fallback
+- 📡 **Actualizaciones instantáneas** - Sin necesidad de recargar
+
+### Moderación (Admin)
+- 🛡️ **Panel de administración** - Gestión de contenido
+- 👮 **Moderar comentarios** - Aprobar/rechazar/eliminar
+- 📊 **Estadísticas** - Ver actividad de la comunidad
+
+### Personalización
+- 🌓 **Dark/Light Mode** - Tema oscuro y claro con persistencia
+- 🌍 **Multi-idioma** - Español e Inglés con traducción completa
+- 📅 **Formato de fechas** - Múltiples formatos configurables (YYYY-MM-DD, DD/MM/YYYY, etc.)
+- 💾 **Preferencias guardadas** - localStorage para todas las configuraciones
+
+### Features Específicos Pokemon TCG
+- 🔄 **Información de rotación** - Ribbons visuales para cartas que rotarán
+- 📋 **Regulation Marks** - Filtrado y visualización de marks (G,H,I,J,K)
+- 📅 **Fecha de legalidad** - Calcula cuándo una carta es legal en formato (release + 14 días)
+- ⚠️ **Alertas de rotación** - Contador de días hasta próxima rotación
+
+### Performance y UX
+- 📱 **Responsive Design** - Funciona en desktop, tablet y móvil
+- 🎨 **Tailwind CSS** - UI moderna y consistente
+- ⚡ **Vite** - Build ultra rápido con HMR
+- 🗂️ **MongoDB Cache** - 7 días de cache con TTL automático
+- 📊 **Logging detallado** - Sistema de logs con performance metrics
+
+## Cobertura de Tests E2E
+
+✅ = Test automatizado disponible en `.dev/tests/`
+
+| Categoría | Funcionalidad | Test E2E | Archivo |
+|-----------|---------------|----------|---------|
+| **Autenticación** | Navegación a registro | ✅ | `auth.spec.js` |
+| | Navegación a login | ✅ | `auth.spec.js` |
+| | Validación de formularios | ✅ | `auth.spec.js` |
+| | Login y logout | ✅ | `auth.spec.js` |
+| **Búsqueda** | Búsqueda exacta | ✅ | `search.spec.js` |
+| | Búsqueda difusa (fuzzy) | ✅ | `search.spec.js` |
+| | Estado de carga | ✅ | `search.spec.js` |
+| | Filtrado de rotación | ✅ | `search.spec.js` |
+| | Indicador de cache | ✅ | `search.spec.js` |
+| **Comentarios** | Mostrar formulario | ✅ | `comments.spec.js` |
+| | Crear comentario | ✅ | `comments.spec.js` |
+| | Validación de vacíos | ✅ | `comments.spec.js` |
+| | Mostrar comentarios existentes | ✅ | `comments.spec.js` |
+| | Respuestas anidadas | ✅ | `comments.spec.js` |
+| **Reacciones** | Agregar reacción | ❌ | - |
+| | Cambiar reacción | ❌ | - |
+| | Reacciones anónimas | ❌ | - |
+| **Tiempo Real** | Updates de Socket.io | ❌ | - |
+| **Temas** | Dark/Light mode | ❌ | - |
+| **Idiomas** | Cambio de idioma | ❌ | - |
+| **Multi-TCG** | Búsqueda transparente | ❌ | - |
+| **Admin** | Moderación | ❌ | - |
+
+**Ejecutar tests**: `npm run test` o `npm run test:ui` (interfaz visual)
 
 ## Stack Tecnológico
 
