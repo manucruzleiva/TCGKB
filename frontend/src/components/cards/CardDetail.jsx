@@ -1,6 +1,7 @@
 import Spinner from '../common/Spinner'
 import CardReactions from './CardReactions'
 import { getRotationInfo, formatDaysUntilRotation } from '../../config/rotation'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 // Type emoji mapping
 const TYPE_EMOJIS = {
@@ -19,6 +20,8 @@ const TYPE_EMOJIS = {
 }
 
 const CardDetail = ({ card, stats }) => {
+  const { t } = useLanguage()
+
   if (!card) {
     return (
       <div className="text-center py-12">
@@ -71,13 +74,13 @@ const CardDetail = ({ card, stats }) => {
                 {rotationInfo.status === 'rotated' ? (
                   <div className="flex items-center gap-2">
                     <span>🚫</span>
-                    <span>Not Legal</span>
+                    <span>{t('card.notLegal')}</span>
                   </div>
                 ) : rotationInfo.status === 'rotating-soon' ? (
                   <div className="text-center">
                     <div className="flex items-center gap-2 mb-1">
                       <span>⚠️</span>
-                      <span>Rotating Soon</span>
+                      <span>{t('card.rotatingSoon')}</span>
                     </div>
                     <div className="text-xs opacity-90">
                       {formatDaysUntilRotation(rotationInfo.daysUntilRotation)}
@@ -98,27 +101,27 @@ const CardDetail = ({ card, stats }) => {
           <div className="space-y-3">
             {/* Set Info */}
             <div>
-              <span className="font-semibold text-gray-700">Set:</span>
+              <span className="font-semibold text-gray-700">{t('card.set')}:</span>
               <span className="ml-2 text-gray-600">{setName}</span>
             </div>
 
             {releaseDate && (
               <div>
-                <span className="font-semibold text-gray-700">Release Date:</span>
+                <span className="font-semibold text-gray-700">{t('card.releaseDate')}:</span>
                 <span className="ml-2 text-gray-600">{releaseDate}</span>
               </div>
             )}
 
             {legalFormatDate && (
               <div>
-                <span className="font-semibold text-gray-700">Enter Legal Format:</span>
+                <span className="font-semibold text-gray-700">{t('card.enterLegal')}:</span>
                 <span className="ml-2 text-gray-600">{legalFormatDate}</span>
               </div>
             )}
 
             {card.regulationMark && (
               <div>
-                <span className="font-semibold text-gray-700">Regulation Mark:</span>
+                <span className="font-semibold text-gray-700">{t('card.regulationMark')}:</span>
                 <span className="ml-2">
                   <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded font-bold">
                     {card.regulationMark}
@@ -129,7 +132,7 @@ const CardDetail = ({ card, stats }) => {
 
             {card.supertype && (
               <div>
-                <span className="font-semibold text-gray-700">Type:</span>
+                <span className="font-semibold text-gray-700">{t('card.type')}:</span>
                 <span className="ml-2 text-gray-600">
                   {card.supertype}
                   {card.subtypes && card.subtypes.length > 0 && (
@@ -143,7 +146,7 @@ const CardDetail = ({ card, stats }) => {
 
             {card.types && card.types.length > 0 && (
               <div>
-                <span className="font-semibold text-gray-700">Types:</span>
+                <span className="font-semibold text-gray-700">{t('card.types')}:</span>
                 <div className="inline-flex gap-2 ml-2">
                   {card.types.map((type, idx) => (
                     <span
@@ -160,7 +163,7 @@ const CardDetail = ({ card, stats }) => {
 
             {card.hp && (
               <div>
-                <span className="font-semibold text-gray-700">HP:</span>
+                <span className="font-semibold text-gray-700">{t('card.hp')}:</span>
                 <span className="ml-2 text-gray-600">{card.hp}</span>
               </div>
             )}
@@ -175,7 +178,7 @@ const CardDetail = ({ card, stats }) => {
         {/* Attacks */}
         {card.attacks && card.attacks.length > 0 && (
           <div className="card mb-6">
-            <h2 className="text-xl font-bold mb-4">⚔️ Attacks</h2>
+            <h2 className="text-xl font-bold mb-4">⚔️ {t('card.attacks')}</h2>
             <div className="space-y-4">
               {card.attacks.map((attack, idx) => (
                 <div key={idx} className="border-l-4 border-primary-500 pl-4">
@@ -210,7 +213,7 @@ const CardDetail = ({ card, stats }) => {
         {/* Abilities */}
         {card.abilities && card.abilities.length > 0 && (
           <div className="card mb-6">
-            <h2 className="text-xl font-bold mb-4">✨ Abilities</h2>
+            <h2 className="text-xl font-bold mb-4">✨ {t('card.abilities')}</h2>
             <div className="space-y-4">
               {card.abilities.map((ability, idx) => (
                 <div key={idx} className="border-l-4 border-green-500 pl-4">
@@ -228,7 +231,7 @@ const CardDetail = ({ card, stats }) => {
         {/* Stats */}
         {stats && (
           <div className="card">
-            <h2 className="text-xl font-bold mb-4">Community Activity</h2>
+            <h2 className="text-xl font-bold mb-4">{t('card.communityActivity')}</h2>
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Comments:</span>

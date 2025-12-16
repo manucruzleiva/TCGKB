@@ -1,25 +1,31 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import Button from '../common/Button'
+import LanguageSwitcher from '../common/LanguageSwitcher'
 
 const Header = () => {
   const { user, logout, isAuthenticated, isAdmin } = useAuth()
+  const { t } = useLanguage()
 
   return (
     <header className="bg-white shadow-md">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center">
+          <Link to="/" className="flex flex-col">
             <h1 className="text-2xl font-bold text-primary-600">
-              Pokemon TCG KB
+              TCG KB
             </h1>
+            <p className="text-xs text-gray-500">TCG Knowledge Base</p>
           </Link>
 
           <nav className="flex items-center gap-4">
+            <LanguageSwitcher />
+
             {isAuthenticated ? (
               <>
                 <span className="text-gray-700">
-                  Hola, <span className="font-medium">{user?.username}</span>
+                  {t('nav.profile')}, <span className="font-medium">{user?.username}</span>
                 </span>
                 {isAdmin && (
                   <Link to="/admin">
@@ -29,19 +35,19 @@ const Header = () => {
                   </Link>
                 )}
                 <Button variant="ghost" onClick={logout} className="text-sm">
-                  Cerrar Sesión
+                  {t('nav.logout')}
                 </Button>
               </>
             ) : (
               <>
                 <Link to="/login">
                   <Button variant="ghost" className="text-sm">
-                    Iniciar Sesión
+                    {t('nav.login')}
                   </Button>
                 </Link>
                 <Link to="/register">
                   <Button variant="primary" className="text-sm">
-                    Registrarse
+                    {t('nav.register')}
                   </Button>
                 </Link>
               </>
