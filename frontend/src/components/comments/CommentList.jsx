@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { commentService } from '../../services/commentService'
 import { useSocket } from '../../contexts/SocketContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import CommentItem from './CommentItem'
 import CommentComposer from './CommentComposer'
 import Spinner from '../common/Spinner'
 
 const CommentList = ({ cardId }) => {
+  const { t } = useLanguage()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -92,7 +94,7 @@ const CommentList = ({ cardId }) => {
     return (
       <div className="text-center py-8">
         <Spinner size="md" />
-        <p className="text-gray-500 mt-2">Cargando comentarios...</p>
+        <p className="text-gray-500 dark:text-gray-400 mt-2">{t('comments.loadingComments')}</p>
       </div>
     )
   }
@@ -100,9 +102,9 @@ const CommentList = ({ cardId }) => {
   if (error) {
     return (
       <div className="text-center py-8">
-        <p className="text-red-500 mb-4">{error}</p>
+        <p className="text-red-500 dark:text-red-400 mb-4">{error}</p>
         <button onClick={loadComments} className="btn-primary">
-          Reintentar
+          {t('common.retry')}
         </button>
       </div>
     )
@@ -112,7 +114,7 @@ const CommentList = ({ cardId }) => {
     <div>
       {/* Comment composer */}
       <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-3">Deja un comentario</h3>
+        <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">{t('comments.leaveComment')}</h3>
         <CommentComposer
           cardId={cardId}
           onCommentAdded={handleCommentAdded}
@@ -121,14 +123,14 @@ const CommentList = ({ cardId }) => {
 
       {/* Comments list */}
       <div>
-        <h3 className="text-lg font-semibold mb-4">
-          Comentarios ({comments.length})
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+          {t('comments.title')} ({comments.length})
         </h3>
 
         {comments.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-500">
-              No hay comentarios aún. ¡Sé el primero en comentar!
+            <p className="text-gray-500 dark:text-gray-400">
+              {t('comments.noCommentsPrompt')}
             </p>
           </div>
         ) : (

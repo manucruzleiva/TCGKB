@@ -11,12 +11,18 @@ export const es = {
 
   // Search
   search: {
-    placeholder: 'Buscar cartas...',
+    placeholder: 'Buscar cartas por nombre... (ej: Pikachu, Charizard)',
     button: 'Buscar',
     results: 'resultados',
     noResults: 'No se encontraron cartas',
     loading: 'Buscando...',
-    cached: 'En caché'
+    cached: 'En caché',
+    loadingCards: 'Cargando cartas...',
+    errorLoadingCards: 'Error cargando cartas. Inténtalo de nuevo.',
+    tryAgain: 'Intentar de nuevo',
+    cancel: 'Cancelar',
+    searching: 'Buscando',
+    showingRecent: 'Mostrando las cartas más recientes'
   },
 
   // Card Details
@@ -52,7 +58,26 @@ export const es = {
     posting: 'Publicando...',
     replying: 'Respondiendo...',
     empty: 'El comentario no puede estar vacío',
-    beFirst: 'Sé el primero en reaccionar'
+    beFirst: 'Sé el primero en reaccionar',
+    noComments: 'No hay comentarios aún',
+    noCommentsPrompt: 'No hay comentarios aún. ¡Sé el primero en comentar!',
+    loadingComments: 'Cargando comentarios...',
+    searching: 'Buscando...',
+    leaveComment: 'Deja un comentario'
+  },
+
+  // Pages
+  pages: {
+    cardDetails: {
+      loading: 'Cargando carta...',
+      errorLoading: 'Error al cargar la carta',
+      backToHome: 'Volver al inicio',
+      backToSearch: 'Volver a búsqueda'
+    },
+    home: {
+      title: 'Buscar Cartas',
+      subtitle: 'Encuentra información detallada sobre cartas TCG'
+    }
   },
 
   // Reactions
@@ -92,7 +117,8 @@ export const es = {
     search: 'Buscar',
     filter: 'Filtrar',
     sort: 'Ordenar',
-    clear: 'Limpiar'
+    clear: 'Limpiar',
+    retry: 'Reintentar'
   },
 
   // Time

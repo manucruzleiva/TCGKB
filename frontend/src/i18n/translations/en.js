@@ -11,12 +11,18 @@ export const en = {
 
   // Search
   search: {
-    placeholder: 'Search cards...',
+    placeholder: 'Search cards by name... (e.g: Pikachu, Charizard)',
     button: 'Search',
     results: 'results',
     noResults: 'No cards found',
     loading: 'Searching...',
-    cached: 'Cached'
+    cached: 'Cached',
+    loadingCards: 'Loading cards...',
+    errorLoadingCards: 'Error loading cards. Please try again.',
+    tryAgain: 'Try again',
+    cancel: 'Cancel',
+    searching: 'Searching',
+    showingRecent: 'Showing most recent cards'
   },
 
   // Card Details
@@ -52,7 +58,12 @@ export const en = {
     posting: 'Posting...',
     replying: 'Replying...',
     empty: 'Comment cannot be empty',
-    beFirst: 'Be the first to react'
+    beFirst: 'Be the first to react',
+    noComments: 'No comments yet',
+    noCommentsPrompt: 'No comments yet. Be the first to comment!',
+    loadingComments: 'Loading comments...',
+    searching: 'Searching...',
+    leaveComment: 'Leave a comment'
   },
 
   // Reactions
@@ -92,7 +103,8 @@ export const en = {
     search: 'Search',
     filter: 'Filter',
     sort: 'Sort',
-    clear: 'Clear'
+    clear: 'Clear',
+    retry: 'Retry'
   },
 
   // Time
@@ -104,6 +116,20 @@ export const en = {
     weeksAgo: 'weeks ago',
     monthsAgo: 'months ago',
     yearsAgo: 'years ago'
+  },
+
+  // Pages
+  pages: {
+    cardDetails: {
+      loading: 'Loading card...',
+      errorLoading: 'Error loading card',
+      backToHome: 'Back to home',
+      backToSearch: 'Back to search'
+    },
+    home: {
+      title: 'TCG Knowledge Base',
+      subtitle: 'Search and explore Pokémon cards'
+    }
   }
 }
 

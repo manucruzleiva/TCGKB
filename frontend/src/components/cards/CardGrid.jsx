@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { cardService } from '../../services/cardService'
 import { useInfiniteScroll } from '../../hooks/useInfiniteScroll'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { cache } from '../../utils/cache'
 import CardItem from './CardItem'
 import Spinner from '../common/Spinner'
 
 const CardGrid = ({ searchTerm, onLoadingChange, onCancelAvailable }) => {
+  const { t } = useLanguage()
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -74,7 +76,7 @@ const CardGrid = ({ searchTerm, onLoadingChange, onCancelAvailable }) => {
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
         console.log('Search canceled by user')
       } else {
-        setError(err.response?.data?.message || 'Error cargando cartas. Inténtalo de nuevo.')
+        setError(err.response?.data?.message || t('search.errorLoadingCards'))
       }
     } finally {
       setLoading(false)
@@ -112,12 +114,12 @@ const CardGrid = ({ searchTerm, onLoadingChange, onCancelAvailable }) => {
   if (error && cards.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="text-red-500 mb-4">{error}</div>
+        <div className="text-red-500 dark:text-red-400 mb-4">{error}</div>
         <button
           onClick={() => loadCards(searchTerm, 1, false)}
           className="btn-primary"
         >
-          Intentar de nuevo
+          {t('search.tryAgain')}
         </button>
       </div>
     )
@@ -126,8 +128,8 @@ const CardGrid = ({ searchTerm, onLoadingChange, onCancelAvailable }) => {
   if (cards.length === 0 && !loading && !showingCached) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 text-lg">
-          {searchTerm ? 'No se encontraron cartas' : 'Cargando cartas...'}
+        <p className="text-gray-500 dark:text-gray-400 text-lg">
+          {searchTerm ? t('search.noResults') : t('search.loadingCards')}
         </p>
       </div>
     )
