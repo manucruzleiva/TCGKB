@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { reactionService } from '../../services/reactionService'
 import { useSocket } from '../../contexts/SocketContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import EmojiPicker from '../common/EmojiPicker'
 
 const CommentReactions = ({ commentId, compact = false }) => {
+  const { t } = useLanguage()
   const [reactions, setReactions] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -129,11 +131,11 @@ const CommentReactions = ({ commentId, compact = false }) => {
             }
             rounded-full flex items-center gap-1 transition-all
             ${reaction.userReacted
-              ? 'bg-primary-100 border border-primary-500 text-primary-700'
-              : 'bg-gray-100 hover:bg-gray-200 border border-transparent'
+              ? 'bg-primary-100 dark:bg-primary-900 border border-primary-500 dark:border-primary-400 text-primary-700 dark:text-primary-300'
+              : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-transparent dark:border-gray-600'
             }
           `}
-          title={reaction.userReacted ? 'Cambiar reacción' : 'Reaccionar'}
+          title={reaction.userReacted ? t('reactions.change') : t('reactions.react')}
         >
           <span>{reaction.emoji}</span>
           <span className={`${compact ? 'text-xs' : ''} font-medium`}>{reaction.count}</span>

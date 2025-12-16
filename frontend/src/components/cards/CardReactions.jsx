@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { reactionService } from '../../services/reactionService'
 import { useSocket } from '../../contexts/SocketContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import EmojiPicker from '../common/EmojiPicker'
 
 const CardReactions = ({ cardId }) => {
+  const { t } = useLanguage()
   const [reactions, setReactions] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -120,7 +122,7 @@ const CardReactions = ({ cardId }) => {
   if (reactions.length === 0 && total === 0) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-500">Sé el primero en reaccionar</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400">{t('comments.beFirst')}</span>
         <EmojiPicker onEmojiSelect={handleEmojiSelect} />
       </div>
     )
@@ -137,11 +139,11 @@ const CardReactions = ({ cardId }) => {
           className={`
             px-3 py-1 rounded-full text-sm flex items-center gap-1 transition-all
             ${reaction.userReacted
-              ? 'bg-primary-100 border-2 border-primary-500 text-primary-700'
-              : 'bg-gray-100 hover:bg-gray-200 border-2 border-transparent'
+              ? 'bg-primary-100 dark:bg-primary-900 border-2 border-primary-500 dark:border-primary-400 text-primary-700 dark:text-primary-300'
+              : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border-2 border-transparent'
             }
           `}
-          title={reaction.userReacted ? 'Cambiar reacción' : 'Reaccionar'}
+          title={reaction.userReacted ? t('reactions.change') : t('reactions.react')}
         >
           <span>{reaction.emoji}</span>
           <span className="font-medium">{reaction.count}</span>
