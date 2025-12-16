@@ -228,25 +228,24 @@ const CardDetail = ({ card, stats }) => {
           </div>
         )}
 
-        {/* Stats */}
-        {stats && (
-          <div className="card">
-            <h2 className="text-xl font-bold mb-4">{t('card.communityActivity')}</h2>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Comments:</span>
-                <span className="font-semibold">{stats.commentCount || 0}</span>
-              </div>
+        {/* Stats - Compact */}
+        {stats && (stats.commentCount > 0 || (stats.reactionCounts && Object.keys(stats.reactionCounts).length > 0)) && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <div className="flex items-center gap-4 text-xs text-gray-600">
+              {stats.commentCount > 0 && (
+                <div className="flex items-center gap-1">
+                  <span>💬</span>
+                  <span className="font-medium">{stats.commentCount}</span>
+                </div>
+              )}
               {stats.reactionCounts && Object.keys(stats.reactionCounts).length > 0 && (
-                <div>
-                  <span className="text-gray-600 block mb-2">Reactions:</span>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(stats.reactionCounts).map(([emoji, count]) => (
-                      <span key={emoji} className="px-3 py-1 bg-gray-100 rounded-full text-sm">
-                        {emoji} {count}
-                      </span>
-                    ))}
-                  </div>
+                <div className="flex items-center gap-2">
+                  {Object.entries(stats.reactionCounts).map(([emoji, count]) => (
+                    <span key={emoji} className="flex items-center gap-1">
+                      <span>{emoji}</span>
+                      <span className="font-medium">{count}</span>
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
