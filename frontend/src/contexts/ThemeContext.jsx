@@ -28,13 +28,22 @@ export const ThemeProvider = ({ children }) => {
 
     // Save to localStorage
     localStorage.setItem('theme', theme)
+
+    // Debug log
+    console.log('Theme changed to:', theme)
+    console.log('Root classes:', root.className)
   }, [theme])
 
   /**
    * Toggle between light and dark themes
    */
   const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light')
+    console.log('toggleTheme called, current theme:', theme)
+    setTheme(prevTheme => {
+      const newTheme = prevTheme === 'light' ? 'dark' : 'light'
+      console.log('Toggling from', prevTheme, 'to', newTheme)
+      return newTheme
+    })
   }
 
   /**
