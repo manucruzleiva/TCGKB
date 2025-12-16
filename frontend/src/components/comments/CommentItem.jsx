@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useDateFormat } from '../../contexts/DateFormatContext'
 import { commentService } from '../../services/commentService'
 import CommentComposer from './CommentComposer'
 import CommentReactions from './CommentReactions'
@@ -8,6 +9,7 @@ import Button from '../common/Button'
 
 const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
   const { user, isAdmin } = useAuth()
+  const { timeAgo } = useDateFormat()
   const [showReplyForm, setShowReplyForm] = useState(false)
   const [isExpanded, setIsExpanded] = useState(true)
   const [localComment, setLocalComment] = useState(comment)
@@ -80,27 +82,6 @@ const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
     }
 
     return <div dangerouslySetInnerHTML={{ __html: content }} />
-  }
-
-  const timeAgo = (date) => {
-    const seconds = Math.floor((new Date() - new Date(date)) / 1000)
-
-    let interval = seconds / 31536000
-    if (interval > 1) return Math.floor(interval) + ' años'
-
-    interval = seconds / 2592000
-    if (interval > 1) return Math.floor(interval) + ' meses'
-
-    interval = seconds / 86400
-    if (interval > 1) return Math.floor(interval) + ' días'
-
-    interval = seconds / 3600
-    if (interval > 1) return Math.floor(interval) + ' horas'
-
-    interval = seconds / 60
-    if (interval > 1) return Math.floor(interval) + ' minutos'
-
-    return 'ahora'
   }
 
   // User hidden comment

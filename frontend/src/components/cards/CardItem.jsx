@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
+import { useDateFormat } from '../../contexts/DateFormatContext'
 
 const CardItem = ({ card }) => {
+  const { formatDate } = useDateFormat()
   const imageUrl = card.images?.small || card.images?.large
   const setName = card.set?.name || 'Unknown Set'
   const releaseDate = card.set?.releaseDate || ''
@@ -24,13 +26,13 @@ const CardItem = ({ card }) => {
         </div>
 
         <div>
-          <h3 className="font-bold text-lg mb-1 line-clamp-2">{card.name}</h3>
-          <p className="text-sm text-gray-600 mb-1">{setName}</p>
+          <h3 className="font-bold text-lg mb-1 line-clamp-2 text-gray-900 dark:text-gray-100">{card.name}</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{setName}</p>
           {releaseDate && (
-            <p className="text-xs text-gray-500">{releaseDate}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-500">{formatDate(releaseDate)}</p>
           )}
           {card.rarity && (
-            <span className="inline-block mt-2 px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded">
+            <span className="inline-block mt-2 px-2 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs rounded">
               {card.rarity}
             </span>
           )}

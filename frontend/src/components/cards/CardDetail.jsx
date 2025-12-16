@@ -2,6 +2,7 @@ import Spinner from '../common/Spinner'
 import CardReactions from './CardReactions'
 import { getRotationInfo, formatDaysUntilRotation } from '../../config/rotation'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { useDateFormat } from '../../contexts/DateFormatContext'
 
 // Type emoji mapping
 const TYPE_EMOJIS = {
@@ -21,6 +22,7 @@ const TYPE_EMOJIS = {
 
 const CardDetail = ({ card, stats }) => {
   const { t } = useLanguage()
+  const { formatDate } = useDateFormat()
 
   if (!card) {
     return (
@@ -40,7 +42,7 @@ const CardDetail = ({ card, stats }) => {
     const releaseDate = new Date(releaseDateStr)
     const legalDate = new Date(releaseDate)
     legalDate.setDate(legalDate.getDate() + 14)
-    return legalDate.toISOString().split('T')[0]
+    return formatDate(legalDate)
   }
 
   const legalFormatDate = calculateLegalDate(releaseDate)
@@ -107,15 +109,15 @@ const CardDetail = ({ card, stats }) => {
 
             {releaseDate && (
               <div>
-                <span className="font-semibold text-gray-700">{t('card.releaseDate')}:</span>
-                <span className="ml-2 text-gray-600">{releaseDate}</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.releaseDate')}:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">{formatDate(releaseDate)}</span>
               </div>
             )}
 
             {legalFormatDate && (
               <div>
-                <span className="font-semibold text-gray-700">{t('card.enterLegal')}:</span>
-                <span className="ml-2 text-gray-600">{legalFormatDate}</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.enterLegal')}:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">{legalFormatDate}</span>
               </div>
             )}
 
