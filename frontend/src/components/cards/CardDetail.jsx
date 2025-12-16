@@ -45,11 +45,12 @@ const CardDetail = ({ card, stats }) => {
     return formatDate(legalDate)
   }
 
-  const legalFormatDate = calculateLegalDate(releaseDate)
-  const rotationInfo = getRotationInfo(card.regulationMark)
-
   // Check if this is a Pokemon card (rotation features only apply to Pokemon)
   const isPokemonCard = card.tcg === 'pokemon'
+
+  // Pokemon-specific calculations
+  const legalFormatDate = isPokemonCard ? calculateLegalDate(releaseDate) : null
+  const rotationInfo = isPokemonCard ? getRotationInfo(card.regulationMark) : null
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
