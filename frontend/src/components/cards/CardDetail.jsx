@@ -1,5 +1,6 @@
 import Spinner from '../common/Spinner'
 import CardReactions from './CardReactions'
+import { getRotationInfo, formatDaysUntilRotation } from '../../config/rotation'
 
 // Type emoji mapping
 const TYPE_EMOJIS = {
@@ -40,6 +41,7 @@ const CardDetail = ({ card, stats }) => {
   }
 
   const legalFormatDate = calculateLegalDate(releaseDate)
+  const rotationInfo = getRotationInfo(card.regulationMark)
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
@@ -56,6 +58,32 @@ const CardDetail = ({ card, stats }) => {
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">
                 No Image Available
+              </div>
+            )}
+
+            {/* Rotation Ribbon */}
+            {rotationInfo && rotationInfo.status !== 'legal' && (
+              <div className={`absolute top-4 right-4 px-3 py-2 rounded-lg shadow-lg text-white font-semibold text-sm ${
+                rotationInfo.status === 'rotated'
+                  ? 'bg-red-600'
+                  : 'bg-orange-500'
+              }`}>
+                {rotationInfo.status === 'rotated' ? (
+                  <div className="flex items-center gap-2">
+                    <span>🚫</span>
+                    <span>Not Legal</span>
+                  </div>
+                ) : rotationInfo.status === 'rotating-soon' ? (
+                  <div className="text-center">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span>⚠️</span>
+                      <span>Rotating Soon</span>
+                    </div>
+                    <div className="text-xs opacity-90">
+                      {formatDaysUntilRotation(rotationInfo.daysUntilRotation)}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
@@ -94,17 +122,6 @@ const CardDetail = ({ card, stats }) => {
                 <span className="ml-2">
                   <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded font-bold">
                     {card.regulationMark}
-                  </span>
-                </span>
-              </div>
-            )}
-
-            {card.rarity && (
-              <div>
-                <span className="font-semibold text-gray-700">Rarity:</span>
-                <span className="ml-2">
-                  <span className="inline-block px-2 py-1 bg-primary-100 text-primary-700 text-sm rounded">
-                    {card.rarity}
                   </span>
                 </span>
               </div>
