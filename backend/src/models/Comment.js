@@ -51,6 +51,10 @@ const commentSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  hiddenAt: {
+    type: Date,
+    default: null
+  },
   isModerated: {
     type: Boolean,
     default: false

@@ -76,7 +76,7 @@ export const getReactions = async (req, res) => {
 }
 
 /**
- * Add a reaction
+ * Add or update a reaction (allows changing emoji without removing first)
  */
 export const addReaction = async (req, res) => {
   try {
@@ -97,52 +97,89 @@ export const addReaction = async (req, res) => {
       })
     }
 
-    // Prepare reaction data
-    const reactionData = {
-      targetType,
-      targetId,
-      emoji
-    }
+    let previousEmoji = null
+    let reaction
 
-    // Add userId if authenticated, otherwise use fingerprint
+    // Use findOneAndUpdate with upsert for atomic operation
     if (req.user) {
-      reactionData.userId = req.user._id
-
-      // Check if user already reacted with this emoji
+      // Check existing reaction for authenticated user
       const existing = await Reaction.findOne({
         targetType,
         targetId,
-        userId: req.user._id,
-        emoji
+        userId: req.user._id
       })
 
-      if (existing) {
+      if (existing && existing.emoji === emoji) {
         return res.status(400).json({
           success: false,
           message: 'You already reacted with this emoji'
         })
       }
+
+      if (existing) {
+        previousEmoji = existing.emoji
+      }
+
+      // Atomically update or create reaction
+      reaction = await Reaction.findOneAndUpdate(
+        {
+          targetType,
+          targetId,
+          userId: req.user._id
+        },
+        {
+          targetType,
+          targetId,
+          emoji,
+          userId: req.user._id
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true
+        }
+      )
     } else {
-      reactionData.fingerprint = generateFingerprint(req)
+      const fingerprint = generateFingerprint(req)
 
-      // Check if fingerprint already reacted with this emoji
+      // Check existing reaction for anonymous user
       const existing = await Reaction.findOne({
         targetType,
         targetId,
-        fingerprint: reactionData.fingerprint,
-        emoji
+        fingerprint
       })
 
-      if (existing) {
+      if (existing && existing.emoji === emoji) {
         return res.status(400).json({
           success: false,
           message: 'You already reacted with this emoji'
         })
       }
-    }
 
-    // Create reaction
-    const reaction = await Reaction.create(reactionData)
+      if (existing) {
+        previousEmoji = existing.emoji
+      }
+
+      // Atomically update or create reaction
+      reaction = await Reaction.findOneAndUpdate(
+        {
+          targetType,
+          targetId,
+          fingerprint
+        },
+        {
+          targetType,
+          targetId,
+          emoji,
+          fingerprint
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true
+        }
+      )
+    }
 
     // Get updated aggregated counts
     const aggregated = await Reaction.aggregate([
@@ -166,6 +203,33 @@ export const addReaction = async (req, res) => {
       const io = getIO()
       const room = targetType === 'card' ? `card:${targetId}` : `card:*`
 
+      // If we changed from a previous emoji, emit removal event too
+      if (previousEmoji) {
+        const previousCount = await Reaction.aggregate([
+          {
+            $match: {
+              targetType,
+              targetId,
+              emoji: previousEmoji
+            }
+          },
+          {
+            $group: {
+              _id: '$emoji',
+              count: { $sum: 1 }
+            }
+          }
+        ])
+
+        io.to(room).emit('reaction:updated', {
+          targetType,
+          targetId,
+          emoji: previousEmoji,
+          count: previousCount[0]?.count || 0,
+          action: 'remove'
+        })
+      }
+
       io.to(room).emit('reaction:updated', {
         targetType,
         targetId,
@@ -184,7 +248,9 @@ export const addReaction = async (req, res) => {
         aggregated: {
           emoji,
           count: aggregated[0]?.count || 1
-        }
+        },
+        changed: previousEmoji !== null,
+        previousEmoji
       }
     })
   } catch (error) {

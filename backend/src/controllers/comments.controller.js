@@ -213,6 +213,7 @@ export const hideComment = async (req, res) => {
     }
 
     comment.isHiddenByUser = isHidden
+    comment.hiddenAt = isHidden ? new Date() : null
     await comment.save()
 
     // Emit socket event
