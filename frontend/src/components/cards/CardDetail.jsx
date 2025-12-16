@@ -1,5 +1,6 @@
 import Spinner from '../common/Spinner'
 import CardReactions from './CardReactions'
+import CommentList from '../comments/CommentList'
 import { getRotationInfo, formatDaysUntilRotation } from '../../config/rotation'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { useDateFormat } from '../../contexts/DateFormatContext'
@@ -20,7 +21,7 @@ const TYPE_EMOJIS = {
   'Lightning': '⚡'
 }
 
-const CardDetail = ({ card, stats }) => {
+const CardDetail = ({ card, stats, cardId }) => {
   const { t } = useLanguage()
   const { formatDate } = useDateFormat()
 
@@ -238,8 +239,8 @@ const CardDetail = ({ card, stats }) => {
 
         {/* Stats - Compact */}
         {stats && (stats.commentCount > 0 || (stats.reactionCounts && Object.keys(stats.reactionCounts).length > 0)) && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <div className="flex items-center gap-4 text-xs text-gray-600">
+          <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3 mb-6">
+            <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-300">
               {stats.commentCount > 0 && (
                 <div className="flex items-center gap-1">
                   <span>💬</span>
@@ -257,6 +258,13 @@ const CardDetail = ({ card, stats }) => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Comments Section - Below Attacks */}
+        {cardId && (
+          <div className="mt-8">
+            <CommentList cardId={cardId} />
           </div>
         )}
       </div>

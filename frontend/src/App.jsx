@@ -9,7 +9,8 @@ import Home from './pages/Home'
 import CardDetails from './pages/CardDetails'
 import Login from './pages/Login'
 import Register from './pages/Register'
-import AdminDashboard from './pages/AdminDashboard'
+import ModDashboard from './pages/ModDashboard'
+import Settings from './pages/Settings'
 
 function App() {
   return (
@@ -27,9 +28,10 @@ function App() {
                       <Route path="/card/:cardId" element={<CardDetails />} />
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
-                      <Route path="/admin" element={<AdminDashboard />} />
-                    </Routes>
-                  </main>
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/admin" element={<ModDashboard />} />
+                      <Route path="/mod" element={<ModDashboard />} />
+                    </Routes>                  </main>
                 </div>
               </Router>
             </SocketProvider>

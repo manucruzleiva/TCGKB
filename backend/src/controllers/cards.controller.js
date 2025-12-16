@@ -131,3 +131,60 @@ export const getNewestCards = async (req, res) => {
     })
   }
 }
+
+/**
+ * Get most commented cards
+ */
+export const getMostCommentedCards = async (req, res) => {
+  try {
+    const { limit = 10 } = req.query
+
+    // Get card IDs with most comments
+    const topCards = await Comment.aggregate([
+      { $match: { isModerated: false } },
+      {
+        $group: {
+          _id: '$cardId',
+          commentCount: { $sum: 1 }
+        }
+      },
+      { $sort: { commentCount: -1 } },
+      { $limit: parseInt(limit) }
+    ])
+
+    // Fetch full card data
+    const cardsWithComments = await Promise.all(
+      topCards.map(async ({ _id: cardId, commentCount }) => {
+        try {
+          const card = await unifiedTCGService.getCardById(cardId)
+          return {
+            id: card.id,
+            name: card.name,
+            images: card.images,
+            set: card.set,
+            number: card.number,
+            tcgSystem: card.tcgSystem || 'pokemon',
+            commentCount
+          }
+        } catch (error) {
+          log.error(MODULE, `Failed to fetch card ${cardId}`, error)
+          return null
+        }
+      })
+    )
+
+    // Filter out nulls
+    const validCards = cardsWithComments.filter(card => card !== null)
+
+    res.status(200).json({
+      success: true,
+      data: { cards: validCards }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get most commented cards failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}

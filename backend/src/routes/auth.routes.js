@@ -1,7 +1,7 @@
 import express from 'express'
-import { register, login, getMe, refreshToken } from '../controllers/auth.controller.js'
+import { register, login, getMe, refreshToken, updatePreferences, updateAccount } from '../controllers/auth.controller.js'
 import { protect } from '../middleware/auth.middleware.js'
-import { authLimiter } from '../middleware/rateLimiter.middleware.js'
+import { authLimiter, generalLimiter } from '../middleware/rateLimiter.middleware.js'
 
 const router = express.Router()
 
@@ -9,5 +9,7 @@ router.post('/register', authLimiter, register)
 router.post('/login', authLimiter, login)
 router.get('/me', protect, getMe)
 router.post('/refresh', protect, refreshToken)
+router.put('/preferences', protect, generalLimiter, updatePreferences)
+router.put('/update-account', protect, generalLimiter, updateAccount)
 
 export default router

@@ -9,7 +9,10 @@
       "Bash(cat:*)",
       "Bash(taskkill //F //PID 37940)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git restore:*)",
+      "Bash(taskkill:*)",
+      "Bash(taskkill //F //PID 7824)"
     ]
   }
 }

@@ -5,14 +5,25 @@ test.describe('Authentication', () => {
     await page.goto('/');
   });
 
-  test('should navigate to register page', async ({ page }) => {
-    await page.getByRole('button', { name: /Registrarse/i }).click();
+  test('should navigate to register page via user menu', async ({ page }) => {
+    // Click user menu icon
+    await page.getByRole('button', { name: /Switch to/i }).or(page.locator('button').filter({ has: page.locator('svg path[d*="M16 7a4 4 0 11-8 0"]') })).first().click();
+
+    // Click Register link in dropdown
+    await page.getByRole('link', { name: /Registrarse/i }).click();
     await expect(page).toHaveURL(/\/register/);
     await expect(page.getByRole('heading', { name: /Crear cuenta/i })).toBeVisible();
   });
 
-  test('should navigate to login page', async ({ page }) => {
-    await page.getByRole('button', { name: /Iniciar Sesión/i }).click();
+  test('should navigate to login page via user menu', async ({ page }) => {
+    // Click user menu icon (person icon)
+    const userMenuButton = page.locator('button').filter({ hasText: '' }).or(
+      page.locator('button svg path[d*="M16 7a4 4 0 11-8 0"]').locator('..')
+    );
+    await userMenuButton.first().click();
+
+    // Click Login link in dropdown
+    await page.getByRole('link', { name: /Iniciar Sesión/i }).click();
     await expect(page).toHaveURL(/\/login/);
     await expect(page.getByRole('heading', { name: /Iniciar Sesión/i })).toBeVisible();
   });
@@ -33,7 +44,7 @@ test.describe('Authentication', () => {
     await expect(page.getByText(/requerido/i).first()).toBeVisible();
   });
 
-  test('should allow user to logout after login', async ({ page }) => {
+  test('should allow user to logout after login via user menu', async ({ page }) => {
     // Navigate to login
     await page.goto('/login');
 
@@ -45,14 +56,26 @@ test.describe('Authentication', () => {
     // Wait for redirect to homepage
     await page.waitForURL('/');
 
-    // Should show user greeting
-    await expect(page.getByText(/Hola,/i)).toBeVisible();
+    // Click user menu icon to open dropdown
+    const userMenuButton = page.locator('button').filter({ hasText: '' }).or(
+      page.locator('button svg path[d*="M16 7a4 4 0 11-8 0"]').locator('..')
+    );
+    await userMenuButton.first().click();
 
-    // Click logout
-    await page.getByRole('button', { name: /Cerrar Sesión/i }).click();
+    // Should show username in dropdown
+    await expect(page.getByText('testuser')).toBeVisible();
 
-    // Should show login/register buttons again
-    await expect(page.getByRole('button', { name: /Iniciar Sesión/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Registrarse/i })).toBeVisible();
+    // Click logout button in dropdown
+    await page.getByRole('button', { name: /Cerrar Sesión|Logout/i }).click();
+
+    // Wait a moment for logout to complete
+    await page.waitForTimeout(500);
+
+    // Click user menu again to verify logout
+    await userMenuButton.first().click();
+
+    // Should show login/register links again in dropdown
+    await expect(page.getByRole('link', { name: /Iniciar Sesión/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Registrarse/i })).toBeVisible();
   });
 });

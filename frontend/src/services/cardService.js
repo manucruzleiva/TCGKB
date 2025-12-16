@@ -26,5 +26,12 @@ export const cardService = {
       params: { pageSize }
     })
     return response.data
+  },
+
+  getMostCommentedCards: async (limit = 10) => {
+    const response = await api.get('/cards/most-commented', {
+      params: { limit }
+    })
+    return response.data
   }
 }

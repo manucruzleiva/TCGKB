@@ -28,12 +28,42 @@ const LoginForm = () => {
     setLoading(true)
     setError('')
 
-    const result = await login(formData.email, formData.password)
+    // Client-side validation
+    if (!formData.email || !formData.password) {
+      setError('Por favor completa todos los campos')
+      setLoading(false)
+      return
+    }
 
-    if (result.success) {
-      navigate('/')
-    } else {
-      setError(result.error)
+    if (!formData.email.includes('@')) {
+      setError('Por favor ingresa un email válido')
+      setLoading(false)
+      return
+    }
+
+    if (formData.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const result = await login(formData.email, formData.password)
+
+      if (result.success) {
+        navigate('/')
+      } else {
+        // More specific error messages
+        if (result.error.includes('credentials') || result.error.includes('credenciales')) {
+          setError('Email o contraseña incorrectos')
+        } else if (result.error.includes('inactive')) {
+          setError('Tu cuenta está inactiva. Contacta a un administrador.')
+        } else {
+          setError(result.error || 'Error al iniciar sesión. Intenta nuevamente.')
+        }
+      }
+    } catch (err) {
+      setError('Error de conexión. Verifica tu internet e intenta nuevamente.')
     }
 
     setLoading(false)
@@ -78,9 +108,19 @@ const LoginForm = () => {
         >
           {loading ? <Spinner size="sm" /> : 'Iniciar Sesión'}
         </Button>
+
+        <div className="mt-3 text-center">
+          <button
+            type="button"
+            onClick={() => setError('Contacta a un administrador en shieromanu@gmail.com para recuperar tu contraseña')}
+            className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
+        </div>
       </form>
 
-      <p className="mt-4 text-center text-gray-600">
+      <p className="mt-4 text-center text-gray-600 dark:text-gray-400">
         ¿No tienes cuenta?{' '}
         <Link to="/register" className="text-primary-600 hover:text-primary-700 font-medium">
           Regístrate

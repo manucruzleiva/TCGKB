@@ -11,7 +11,7 @@ export const en = {
 
   // Search
   search: {
-    placeholder: 'Search cards by name... (e.g: Pikachu, Charizard)',
+    placeholder: 'Search cards by name...',
     button: 'Search',
     results: 'results',
     noResults: 'No cards found',
@@ -127,8 +127,8 @@ export const en = {
       backToSearch: 'Back to search'
     },
     home: {
-      title: 'Pokemon TCG Knowledge Base',
-      subtitle: 'Search, explore and comment on your favorite Pokemon TCG cards'
+      title: 'TCG Knowledge Base',
+      subtitle: 'Search, explore and comment on your favorite trading card games'
     }
   }
 }

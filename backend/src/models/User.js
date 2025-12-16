@@ -32,6 +32,27 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  preferences: {
+    language: {
+      type: String,
+      enum: ['en', 'es'],
+      default: 'es'
+    },
+    theme: {
+      type: String,
+      enum: ['light', 'dark'],
+      default: 'dark'
+    },
+    dateFormat: {
+      type: String,
+      enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY/MM/DD'],
+      default: 'DD/MM/YYYY'
+    },
+    showRelativeTime: {
+      type: Boolean,
+      default: true
+    }
   }
 }, {
   timestamps: true

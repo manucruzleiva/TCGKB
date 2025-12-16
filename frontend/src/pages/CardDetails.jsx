@@ -65,12 +65,7 @@ const CardDetails = () => {
         </Link>
       </div>
 
-      <CardDetail card={card} stats={stats} />
-
-      {/* Comments section */}
-      <div className="mt-8">
-        <CommentList cardId={cardId} />
-      </div>
+      <CardDetail card={card} stats={stats} cardId={cardId} />
     </div>
   )
 }

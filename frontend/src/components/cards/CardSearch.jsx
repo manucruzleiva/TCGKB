@@ -1,11 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLanguage } from '../../contexts/LanguageContext'
 import Input from '../common/Input'
 
-const CardSearch = ({ onSearch, loading, onCancel }) => {
+const CardSearch = ({ onSearch, loading, onCancel, initialValue = '' }) => {
   const { t } = useLanguage()
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchTerm, setSearchTerm] = useState(initialValue)
   const [isHovering, setIsHovering] = useState(false)
+
+  // Update searchTerm when initialValue changes (from header search)
+  useEffect(() => {
+    if (initialValue && initialValue !== searchTerm) {
+      setSearchTerm(initialValue)
+      onSearch(initialValue)
+    }
+  }, [initialValue])
 
   const handleSearch = (e) => {
     e.preventDefault()

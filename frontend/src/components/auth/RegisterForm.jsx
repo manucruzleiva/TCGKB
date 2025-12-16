@@ -70,12 +70,27 @@ const RegisterForm = () => {
 
     setLoading(true)
 
-    const result = await register(formData.email, formData.username, formData.password)
+    try {
+      const result = await register(formData.email, formData.username, formData.password)
 
-    if (result.success) {
-      navigate('/')
-    } else {
-      setErrors({ general: result.error })
+      if (result.success) {
+        navigate('/')
+      } else {
+        // More specific error messages
+        let errorMessage = result.error || 'Error al registrarse'
+
+        if (result.error?.includes('email already exists') || result.error?.includes('email ya existe')) {
+          errorMessage = 'Este email ya está registrado. ¿Quieres iniciar sesión?'
+        } else if (result.error?.includes('username') && (result.error?.includes('taken') || result.error?.includes('existe'))) {
+          errorMessage = 'Este nombre de usuario ya está en uso. Intenta con otro.'
+        } else if (result.error?.includes('validation')) {
+          errorMessage = 'Por favor verifica que todos los campos sean válidos'
+        }
+
+        setErrors({ general: errorMessage })
+      }
+    } catch (err) {
+      setErrors({ general: 'Error de conexión. Verifica tu internet e intenta nuevamente.' })
     }
 
     setLoading(false)

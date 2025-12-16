@@ -3,7 +3,8 @@ import {
   getCards,
   getCardById,
   searchCardsAutocomplete,
-  getNewestCards
+  getNewestCards,
+  getMostCommentedCards
 } from '../controllers/cards.controller.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
 
@@ -17,6 +18,9 @@ router.get('/', getCards)
 
 // Get newest cards
 router.get('/newest', getNewestCards)
+
+// Get most commented cards
+router.get('/most-commented', getMostCommentedCards)
 
 // Search cards for autocomplete
 router.get('/search', searchCardsAutocomplete)

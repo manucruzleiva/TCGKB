@@ -19,15 +19,53 @@ export const register = async (req, res) => {
       })
     }
 
-    // Check if user exists
-    const userExists = await User.findOne({
-      $or: [{ email }, { username }]
-    })
-
-    if (userExists) {
+    // Email format validation
+    const emailRegex = /^\S+@\S+\.\S+$/
+    if (!emailRegex.test(email)) {
       return res.status(400).json({
         success: false,
-        message: 'User already exists with this email or username'
+        message: 'Please provide a valid email address'
+      })
+    }
+
+    // Username length validation
+    if (username.length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username must be at least 3 characters long'
+      })
+    }
+
+    if (username.length > 30) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username cannot exceed 30 characters'
+      })
+    }
+
+    // Password length validation
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      })
+    }
+
+    // Check if email already exists
+    const emailExists = await User.findOne({ email })
+    if (emailExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'An account with this email already exists'
+      })
+    }
+
+    // Check if username already exists
+    const usernameExists = await User.findOne({ username })
+    if (usernameExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'This username is already taken'
       })
     }
 
@@ -35,7 +73,9 @@ export const register = async (req, res) => {
     const user = await User.create({
       email,
       username,
-      password
+      password,
+      // Auto-promote shieromanu@gmail.com to admin
+      role: email === 'shieromanu@gmail.com' ? 'admin' : 'user'
     })
 
     // Generate token
@@ -54,9 +94,31 @@ export const register = async (req, res) => {
       }
     })
   } catch (error) {
+    // Handle MongoDB duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0]
+      return res.status(400).json({
+        success: false,
+        message: field === 'email'
+          ? 'An account with this email already exists'
+          : 'This username is already taken'
+      })
+    }
+
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message)
+      return res.status(400).json({
+        success: false,
+        message: messages[0] || 'Validation error'
+      })
+    }
+
+    // Generic error
+    console.error('Registration error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'An error occurred during registration. Please try again.'
     })
   }
 }
@@ -99,6 +161,12 @@ export const login = async (req, res) => {
         success: false,
         message: 'Account is inactive'
       })
+    }
+
+    // Auto-promote shieromanu@gmail.com to admin if not already
+    if (user.email === 'shieromanu@gmail.com' && user.role !== 'admin') {
+      user.role = 'admin'
+      await user.save()
     }
 
     // Generate token
@@ -164,6 +232,149 @@ export const refreshToken = async (req, res) => {
       success: true,
       data: {
         token
+      }
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+export const updatePreferences = async (req, res) => {
+  try {
+    const { language, theme, dateFormat, showRelativeTime } = req.body
+
+    const updateData = {}
+    if (language) updateData['preferences.language'] = language
+    if (theme) updateData['preferences.theme'] = theme
+    if (dateFormat) updateData['preferences.dateFormat'] = dateFormat
+    if (showRelativeTime !== undefined) updateData['preferences.showRelativeTime'] = showRelativeTime
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    )
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        preferences: user.preferences
+      }
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+export const updateAccount = async (req, res) => {
+  try {
+    const { email, username, currentPassword, newPassword } = req.body
+
+    // Get user with password field
+    const user = await User.findById(req.user._id).select('+password')
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    // Verify current password
+    if (!currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is required'
+      })
+    }
+
+    const isPasswordValid = await user.comparePassword(currentPassword)
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      })
+    }
+
+    // Update email if provided
+    if (email) {
+      const emailRegex = /^\S+@\S+\.\S+$/
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide a valid email address'
+        })
+      }
+
+      // Check if email is already taken by another user
+      const emailExists = await User.findOne({ email, _id: { $ne: user._id } })
+      if (emailExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'This email is already in use'
+        })
+      }
+
+      user.email = email
+    }
+
+    // Update username if provided
+    if (username) {
+      if (username.length < 3 || username.length > 30) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username must be between 3 and 30 characters'
+        })
+      }
+
+      // Check if username is already taken by another user
+      const usernameExists = await User.findOne({ username, _id: { $ne: user._id } })
+      if (usernameExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'This username is already taken'
+        })
+      }
+
+      user.username = username
+    }
+
+    // Update password if provided
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'New password must be at least 6 characters long'
+        })
+      }
+
+      user.password = newPassword
+    }
+
+    await user.save()
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          id: user._id,
+          email: user.email,
+          username: user.username,
+          role: user.role
+        }
       }
     })
   } catch (error) {
