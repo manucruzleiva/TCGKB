@@ -75,8 +75,8 @@ export const es = {
       backToSearch: 'Volver a búsqueda'
     },
     home: {
-      title: 'Buscar Cartas',
-      subtitle: 'Encuentra información detallada sobre cartas TCG'
+      title: 'Pokemon TCG Knowledge Base',
+      subtitle: 'Busca, explora y comenta sobre tus cartas favoritas de Pokemon TCG'
     }
   },
 

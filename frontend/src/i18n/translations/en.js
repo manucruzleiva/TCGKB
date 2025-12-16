@@ -127,8 +127,8 @@ export const en = {
       backToSearch: 'Back to search'
     },
     home: {
-      title: 'TCG Knowledge Base',
-      subtitle: 'Search and explore Pokémon cards'
+      title: 'Pokemon TCG Knowledge Base',
+      subtitle: 'Search, explore and comment on your favorite Pokemon TCG cards'
     }
   }
 }
