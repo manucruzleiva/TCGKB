@@ -83,7 +83,7 @@ export const getAllBugReports = async (req, res) => {
 
     // Calculate totals
     const totalCount = Object.values(counts).reduce((sum, c) => sum + c, 0)
-    const openStatuses = ['new', 'reviewing', 'in_progress']
+    const openStatuses = ['new', 'reviewing', 'in_progress', 'not_enough_data']
     const closedStatuses = ['resolved', 'wont_fix']
 
     counts.total = totalCount
@@ -127,12 +127,14 @@ export const getAllBugReports = async (req, res) => {
       filteredReports = await BugReport.find({ status: { $in: openStatuses } })
         .populate('userId', 'username email')
         .populate('resolvedBy', 'username')
+        .populate('assignedTo', 'username')
         .sort({ createdAt: -1 })
         .lean()
     } else if (status === 'closed') {
       filteredReports = await BugReport.find({ status: { $in: closedStatuses } })
         .populate('userId', 'username email')
         .populate('resolvedBy', 'username')
+        .populate('assignedTo', 'username')
         .sort({ createdAt: -1 })
         .lean()
     }

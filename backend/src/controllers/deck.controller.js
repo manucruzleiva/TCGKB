@@ -82,7 +82,7 @@ const exportToTCGLiveFormat = (deck) => {
  */
 export const createDeck = async (req, res) => {
   try {
-    const { name, description, cards, isPublic, format, tags, importString } = req.body
+    const { name, description, cards, isPublic, tags, importString } = req.body
 
     if (!name) {
       return res.status(400).json({
@@ -103,7 +103,6 @@ export const createDeck = async (req, res) => {
       cards: deckCards,
       userId: req.user._id,
       isPublic: isPublic || false,
-      format: format || 'standard',
       tags: tags || []
     })
 
@@ -131,7 +130,7 @@ export const createDeck = async (req, res) => {
  */
 export const getDecks = async (req, res) => {
   try {
-    const { page = 1, limit = 20, sort = 'newest', search, format, userId, mine } = req.query
+    const { page = 1, limit = 20, sort = 'newest', search, tag, tags, userId, mine } = req.query
 
     const query = {}
 
@@ -149,8 +148,12 @@ export const getDecks = async (req, res) => {
       query.isPublic = true
     }
 
-    if (format && format !== 'all') {
-      query.format = format
+    // Filter by tag(s)
+    if (tag) {
+      query.tags = tag
+    } else if (tags) {
+      const tagList = tags.split(',')
+      query.tags = { $all: tagList }
     }
 
     if (search) {
@@ -249,7 +252,7 @@ export const getDeckById = async (req, res) => {
 export const updateDeck = async (req, res) => {
   try {
     const { deckId } = req.params
-    const { name, description, cards, isPublic, format, tags, importString } = req.body
+    const { name, description, cards, isPublic, tags, importString } = req.body
 
     const deck = await Deck.findById(deckId)
 
@@ -272,8 +275,7 @@ export const updateDeck = async (req, res) => {
     if (name) deck.name = name
     if (description !== undefined) deck.description = description
     if (typeof isPublic === 'boolean') deck.isPublic = isPublic
-    if (format) deck.format = format
-    if (tags) deck.tags = tags
+    if (tags !== undefined) deck.tags = tags
 
     // Handle cards update
     if (importString) {
@@ -420,7 +422,6 @@ export const copyDeck = async (req, res) => {
       cards: originalDeck.cards,
       userId: req.user._id,
       isPublic: false,
-      format: originalDeck.format,
       tags: originalDeck.tags
     })
 
@@ -493,6 +494,26 @@ export const updateDeckCardInfo = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update card info'
+    })
+  }
+}
+
+/**
+ * Get available deck tags (predefined categories)
+ */
+export const getAvailableTags = async (req, res) => {
+  try {
+    const tags = Deck.getAvailableTags()
+
+    res.status(200).json({
+      success: true,
+      data: tags
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get available tags failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get available tags'
     })
   }
 }

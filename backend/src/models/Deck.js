@@ -51,15 +51,22 @@ const deckSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  format: {
-    type: String,
-    enum: ['standard', 'expanded', 'unlimited'],
-    default: 'standard'
-  },
+  // Predefined tags only - users select from list
   tags: [{
     type: String,
     trim: true,
-    maxlength: 30
+    enum: [
+      // Format tags
+      'standard', 'expanded', 'unlimited',
+      // Archetype tags
+      'aggro', 'control', 'combo', 'midrange', 'stall', 'mill', 'turbo',
+      // Strategy tags
+      'meta', 'budget', 'fun', 'competitive', 'casual', 'beginner-friendly',
+      // Type-focused tags
+      'fire', 'water', 'grass', 'electric', 'psychic', 'fighting', 'dark', 'steel', 'dragon', 'colorless', 'fairy',
+      // Special tags
+      'ex-focused', 'v-focused', 'vstar', 'vmax', 'single-prize', 'lost-zone', 'rapid-strike', 'single-strike'
+    ]
   }],
   // Stats
   views: {
@@ -103,6 +110,18 @@ deckSchema.set('toObject', { virtuals: true })
 deckSchema.index({ userId: 1 })
 deckSchema.index({ isPublic: 1, createdAt: -1 })
 deckSchema.index({ name: 'text', description: 'text' })
+deckSchema.index({ tags: 1 })
+
+// Static method to get available tags categorized
+deckSchema.statics.getAvailableTags = function() {
+  return {
+    format: ['standard', 'expanded', 'unlimited'],
+    archetype: ['aggro', 'control', 'combo', 'midrange', 'stall', 'mill', 'turbo'],
+    strategy: ['meta', 'budget', 'fun', 'competitive', 'casual', 'beginner-friendly'],
+    type: ['fire', 'water', 'grass', 'electric', 'psychic', 'fighting', 'dark', 'steel', 'dragon', 'colorless', 'fairy'],
+    special: ['ex-focused', 'v-focused', 'vstar', 'vmax', 'single-prize', 'lost-zone', 'rapid-strike', 'single-strike']
+  }
+}
 
 const Deck = mongoose.model('Deck', deckSchema)
 

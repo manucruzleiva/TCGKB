@@ -30,7 +30,7 @@ const bugReportSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['new', 'reviewing', 'in_progress', 'resolved', 'wont_fix'],
+    enum: ['new', 'reviewing', 'in_progress', 'resolved', 'wont_fix', 'not_enough_data'],
     default: 'new'
   },
   priority: {

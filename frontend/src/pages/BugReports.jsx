@@ -12,7 +12,8 @@ const STATUS_COLORS = {
   reviewing: { bg: 'bg-yellow-100 dark:bg-yellow-900', text: 'text-yellow-800 dark:text-yellow-200', chart: '#eab308' },
   in_progress: { bg: 'bg-purple-100 dark:bg-purple-900', text: 'text-purple-800 dark:text-purple-200', chart: '#8b5cf6' },
   resolved: { bg: 'bg-green-100 dark:bg-green-900', text: 'text-green-800 dark:text-green-200', chart: '#22c55e' },
-  wont_fix: { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-800 dark:text-gray-200', chart: '#6b7280' }
+  wont_fix: { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-800 dark:text-gray-200', chart: '#6b7280' },
+  not_enough_data: { bg: 'bg-orange-100 dark:bg-orange-900', text: 'text-orange-800 dark:text-orange-200', chart: '#f97316' }
 }
 
 const STATUS_LABELS = {
@@ -20,7 +21,8 @@ const STATUS_LABELS = {
   reviewing: { es: 'Revisando', en: 'Reviewing' },
   in_progress: { es: 'En Progreso', en: 'In Progress' },
   resolved: { es: 'Resuelto', en: 'Resolved' },
-  wont_fix: { es: 'No se arreglará', en: "Won't Fix" }
+  wont_fix: { es: 'No se arreglará', en: "Won't Fix" },
+  not_enough_data: { es: 'Faltan datos', en: 'Not Enough Data' }
 }
 
 const BugReports = () => {

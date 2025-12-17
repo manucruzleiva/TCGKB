@@ -6,11 +6,57 @@ import { deckService } from '../services/deckService'
 import { cardService } from '../services/cardService'
 import Spinner from '../components/common/Spinner'
 
-const FORMAT_OPTIONS = [
-  { value: 'standard', label: { es: 'Estándar', en: 'Standard' } },
-  { value: 'expanded', label: { es: 'Expandido', en: 'Expanded' } },
-  { value: 'unlimited', label: { es: 'Sin límite', en: 'Unlimited' } }
-]
+// Tag display labels
+const TAG_LABELS = {
+  // Format
+  standard: { es: 'Estándar', en: 'Standard' },
+  expanded: { es: 'Expandido', en: 'Expanded' },
+  unlimited: { es: 'Sin límite', en: 'Unlimited' },
+  // Archetype
+  aggro: { es: 'Aggro', en: 'Aggro' },
+  control: { es: 'Control', en: 'Control' },
+  combo: { es: 'Combo', en: 'Combo' },
+  midrange: { es: 'Midrange', en: 'Midrange' },
+  stall: { es: 'Stall', en: 'Stall' },
+  mill: { es: 'Mill', en: 'Mill' },
+  turbo: { es: 'Turbo', en: 'Turbo' },
+  // Strategy
+  meta: { es: 'Meta', en: 'Meta' },
+  budget: { es: 'Económico', en: 'Budget' },
+  fun: { es: 'Divertido', en: 'Fun' },
+  competitive: { es: 'Competitivo', en: 'Competitive' },
+  casual: { es: 'Casual', en: 'Casual' },
+  'beginner-friendly': { es: 'Para principiantes', en: 'Beginner Friendly' },
+  // Types
+  fire: { es: 'Fuego', en: 'Fire' },
+  water: { es: 'Agua', en: 'Water' },
+  grass: { es: 'Planta', en: 'Grass' },
+  electric: { es: 'Eléctrico', en: 'Electric' },
+  psychic: { es: 'Psíquico', en: 'Psychic' },
+  fighting: { es: 'Lucha', en: 'Fighting' },
+  dark: { es: 'Oscuridad', en: 'Dark' },
+  steel: { es: 'Acero', en: 'Steel' },
+  dragon: { es: 'Dragón', en: 'Dragon' },
+  colorless: { es: 'Incoloro', en: 'Colorless' },
+  fairy: { es: 'Hada', en: 'Fairy' },
+  // Special
+  'ex-focused': { es: 'Enfocado en ex', en: 'ex Focused' },
+  'v-focused': { es: 'Enfocado en V', en: 'V Focused' },
+  vstar: { es: 'VSTAR', en: 'VSTAR' },
+  vmax: { es: 'VMAX', en: 'VMAX' },
+  'single-prize': { es: 'Un solo premio', en: 'Single Prize' },
+  'lost-zone': { es: 'Zona Perdida', en: 'Lost Zone' },
+  'rapid-strike': { es: 'Golpe Rápido', en: 'Rapid Strike' },
+  'single-strike': { es: 'Golpe Único', en: 'Single Strike' }
+}
+
+const CATEGORY_LABELS = {
+  format: { es: 'Formato', en: 'Format' },
+  archetype: { es: 'Arquetipo', en: 'Archetype' },
+  strategy: { es: 'Estrategia', en: 'Strategy' },
+  type: { es: 'Tipo', en: 'Type' },
+  special: { es: 'Especial', en: 'Special' }
+}
 
 const DeckBuilder = () => {
   const { deckId } = useParams()
@@ -23,11 +69,13 @@ const DeckBuilder = () => {
   // Form state
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [format, setFormat] = useState('standard')
   const [isPublic, setIsPublic] = useState(false)
   const [tags, setTags] = useState([])
-  const [tagInput, setTagInput] = useState('')
   const [cards, setCards] = useState([])
+
+  // Available tags from backend
+  const [availableTags, setAvailableTags] = useState({})
+  const [showTagSelector, setShowTagSelector] = useState(false)
 
   // UI state
   const [loading, setLoading] = useState(isEditMode)
@@ -50,10 +98,24 @@ const DeckBuilder = () => {
       return
     }
 
+    // Load available tags
+    loadAvailableTags()
+
     if (isEditMode) {
       fetchDeck()
     }
   }, [isAuthenticated, deckId])
+
+  const loadAvailableTags = async () => {
+    try {
+      const response = await deckService.getAvailableTags()
+      if (response.success) {
+        setAvailableTags(response.data)
+      }
+    } catch (error) {
+      console.error('Error loading tags:', error)
+    }
+  }
 
   const fetchDeck = async () => {
     try {
@@ -68,7 +130,6 @@ const DeckBuilder = () => {
         }
         setName(deck.name)
         setDescription(deck.description || '')
-        setFormat(deck.format || 'standard')
         setIsPublic(deck.isPublic)
         setTags(deck.tags || [])
         setCards(deck.cards || [])
@@ -147,12 +208,11 @@ const DeckBuilder = () => {
     setCards(prev => prev.filter(c => c.cardId !== cardId))
   }
 
-  const handleAddTag = (e) => {
-    e.preventDefault()
-    const tag = tagInput.trim().toLowerCase()
-    if (tag && !tags.includes(tag) && tags.length < 5) {
+  const toggleTag = (tag) => {
+    if (tags.includes(tag)) {
+      setTags(prev => prev.filter(t => t !== tag))
+    } else if (tags.length < 10) {
       setTags(prev => [...prev, tag])
-      setTagInput('')
     }
   }
 
@@ -234,7 +294,6 @@ const DeckBuilder = () => {
       const deckData = {
         name: name.trim(),
         description: description.trim(),
-        format,
         isPublic,
         tags,
         cards
@@ -352,23 +411,6 @@ const DeckBuilder = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {language === 'es' ? 'Formato' : 'Format'}
-                </label>
-                <select
-                  value={format}
-                  onChange={(e) => setFormat(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                >
-                  {FORMAT_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label[language]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
@@ -382,42 +424,66 @@ const DeckBuilder = () => {
                 </label>
               </div>
 
+              {/* Tags Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tags ({tags.length}/5)
-                </label>
-                <form onSubmit={handleAddTag} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    maxLength={20}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="aggro, control..."
-                  />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Tags ({tags.length}/10)
+                  </label>
                   <button
-                    type="submit"
-                    disabled={tags.length >= 5}
-                    className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                    type="button"
+                    onClick={() => setShowTagSelector(!showTagSelector)}
+                    className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
                   >
-                    +
+                    {showTagSelector ? (language === 'es' ? 'Cerrar' : 'Close') : (language === 'es' ? 'Elegir tags' : 'Choose tags')}
                   </button>
-                </form>
+                </div>
+
+                {/* Selected tags */}
                 {tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="flex flex-wrap gap-2 mb-3">
                     {tags.map(tag => (
                       <span
                         key={tag}
-                        className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-sm flex items-center gap-1"
+                        className="px-2 py-1 bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 rounded-full text-sm flex items-center gap-1"
                       >
-                        #{tag}
+                        {TAG_LABELS[tag]?.[language] || tag}
                         <button
                           onClick={() => removeTag(tag)}
-                          className="text-gray-500 hover:text-red-500"
+                          className="text-primary-500 hover:text-red-500"
                         >
                           ×
                         </button>
                       </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tag selector dropdown */}
+                {showTagSelector && Object.keys(availableTags).length > 0 && (
+                  <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-3 space-y-3 max-h-64 overflow-y-auto">
+                    {Object.entries(availableTags).map(([category, categoryTags]) => (
+                      <div key={category}>
+                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">
+                          {CATEGORY_LABELS[category]?.[language] || category}
+                        </h4>
+                        <div className="flex flex-wrap gap-1">
+                          {categoryTags.map(tag => (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => toggleTag(tag)}
+                              className={`px-2 py-0.5 rounded-full text-xs transition-colors ${
+                                tags.includes(tag)
+                                  ? 'bg-primary-600 text-white'
+                                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              {TAG_LABELS[tag]?.[language] || tag}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}

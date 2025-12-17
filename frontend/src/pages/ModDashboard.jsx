@@ -1,32 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
-import { useDateFormat } from '../contexts/DateFormatContext'
 import api from '../services/api'
 import Button from '../components/common/Button'
-
-const STATUS_COLORS = {
-  new: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200',
-  reviewing: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200',
-  in_progress: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200',
-  resolved: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200',
-  wont_fix: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-}
-
-const STATUS_LABELS = {
-  new: { es: 'Nuevo', en: 'New' },
-  reviewing: { es: 'Revisando', en: 'Reviewing' },
-  in_progress: { es: 'En Progreso', en: 'In Progress' },
-  resolved: { es: 'Resuelto', en: 'Resolved' },
-  wont_fix: { es: 'No se arreglará', en: "Won't Fix" }
-}
 
 const ModDashboard = () => {
   const { user, isAuthenticated } = useAuth()
   const { language } = useLanguage()
-  const { timeAgo } = useDateFormat()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
@@ -35,11 +17,7 @@ const ModDashboard = () => {
   const [summary, setSummary] = useState(null)
   const [timeRange, setTimeRange] = useState(30)
   const [updatingUser, setUpdatingUser] = useState(null)
-  const [bugReports, setBugReports] = useState([])
-  const [bugCounts, setBugCounts] = useState({})
-  const [bugStatusFilter, setBugStatusFilter] = useState('all')
-  const [selectedBug, setSelectedBug] = useState(null)
-  const [updatingBug, setUpdatingBug] = useState(null)
+  const [openBugsCount, setOpenBugsCount] = useState(0)
 
   useEffect(() => {
     // Redirect if not admin
@@ -64,7 +42,7 @@ const ModDashboard = () => {
         api.get(`/mod/time-series?days=${timeRange}`),
         api.get('/mod/users'),
         api.get('/mod/summary'),
-        api.get(`/bugs?status=${bugStatusFilter}`)
+        api.get('/bugs?status=all')
       ])
 
       if (timeSeriesRes.data.success) {
@@ -80,63 +58,12 @@ const ModDashboard = () => {
       }
 
       if (bugsRes.data.success) {
-        setBugReports(bugsRes.data.data.bugReports)
-        setBugCounts(bugsRes.data.data.counts || {})
+        setOpenBugsCount(bugsRes.data.data.counts?.open || 0)
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchBugReports = async () => {
-    try {
-      const response = await api.get(`/bugs?status=${bugStatusFilter}`)
-      if (response.data.success) {
-        setBugReports(response.data.data.bugReports)
-        setBugCounts(response.data.data.counts || {})
-      }
-    } catch (error) {
-      console.error('Error fetching bug reports:', error)
-    }
-  }
-
-  useEffect(() => {
-    if (isAuthenticated && user?.role === 'admin') {
-      fetchBugReports()
-    }
-  }, [bugStatusFilter])
-
-  const handleBugStatusChange = async (bugId, newStatus) => {
-    try {
-      setUpdatingBug(bugId)
-      const response = await api.put(`/bugs/${bugId}`, { status: newStatus })
-
-      if (response.data.success) {
-        setBugReports(prev =>
-          prev.map(b => b._id === bugId ? { ...b, status: newStatus } : b)
-        )
-        setSelectedBug(null)
-      }
-    } catch (error) {
-      console.error('Error updating bug status:', error)
-    } finally {
-      setUpdatingBug(null)
-    }
-  }
-
-  const handleDeleteBug = async (bugId) => {
-    if (!window.confirm(language === 'es' ? '¿Eliminar este reporte?' : 'Delete this report?')) {
-      return
-    }
-
-    try {
-      await api.delete(`/bugs/${bugId}`)
-      setBugReports(prev => prev.filter(b => b._id !== bugId))
-      setSelectedBug(null)
-    } catch (error) {
-      console.error('Error deleting bug:', error)
     }
   }
 
@@ -235,7 +162,7 @@ const ModDashboard = () => {
           >
             <div className="text-3xl mb-2">🐛</div>
             <div className="text-2xl font-bold text-orange-800 dark:text-orange-200">
-              {bugCounts.open || 0}
+              {openBugsCount}
             </div>
             <div className="text-sm text-orange-700 dark:text-orange-300">
               {language === 'es' ? 'Bugs Abiertos' : 'Open Bugs'}

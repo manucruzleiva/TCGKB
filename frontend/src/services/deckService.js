@@ -49,6 +49,12 @@ export const deckService = {
     return response.data
   },
 
+  // Get available tags (predefined categories)
+  getAvailableTags: async () => {
+    const response = await api.get('/decks/tags')
+    return response.data
+  },
+
   // Parse TCG Live format text
   parseTCGLiveFormat: (text) => {
     const lines = text.trim().split('\n')
