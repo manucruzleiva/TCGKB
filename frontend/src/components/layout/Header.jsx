@@ -8,7 +8,7 @@ import ThemeSwitcher from '../common/ThemeSwitcher'
 import { cardService } from '../../services/cardService'
 
 const Header = () => {
-  const { user, logout, isAuthenticated, isAdmin } = useAuth()
+  const { user, logout, isAuthenticated, isAdmin, isDev, canAccessBugDashboard } = useAuth()
   const { t, language } = useLanguage()
   const navigate = useNavigate()
   const location = useLocation()
@@ -267,6 +267,18 @@ const Header = () => {
                           className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           👑 {language === 'es' ? 'Panel de Moderación' : 'Mod Dashboard'}
+                        </Link>
+                      )}
+                      {canAccessBugDashboard && (
+                        <Link
+                          to="/mod/bugs"
+                          onClick={() => setShowUserMenu(false)}
+                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          🐛 {language === 'es' ? 'Bug Reports' : 'Bug Reports'}
+                          {isDev && !isAdmin && (
+                            <span className="ml-1 text-xs text-primary-500">(Dev)</span>
+                          )}
                         </Link>
                       )}
                       <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">

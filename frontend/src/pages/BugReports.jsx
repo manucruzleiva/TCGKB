@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useDateFormat } from '../contexts/DateFormatContext'
@@ -24,7 +24,7 @@ const STATUS_LABELS = {
 }
 
 const BugReports = () => {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, canAccessBugDashboard, isAdmin } = useAuth()
   const { language } = useLanguage()
   const { timeAgo } = useDateFormat()
   const navigate = useNavigate()
@@ -32,26 +32,48 @@ const BugReports = () => {
   const [loading, setLoading] = useState(true)
   const [bugReports, setBugReports] = useState([])
   const [bugCounts, setBugCounts] = useState({})
+  const [timeSeries, setTimeSeries] = useState([])
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedBug, setSelectedBug] = useState(null)
   const [updating, setUpdating] = useState(null)
+  const [assignees, setAssignees] = useState([])
+  const [assigningBug, setAssigningBug] = useState(null)
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login')
       return
     }
-    if (user && user.role !== 'admin') {
+    // Allow both admin and dev users
+    if (user && !canAccessBugDashboard) {
       navigate('/')
       return
     }
-  }, [isAuthenticated, user, navigate])
+  }, [isAuthenticated, user, canAccessBugDashboard, navigate])
 
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'admin') {
+    if (isAuthenticated && canAccessBugDashboard) {
       fetchBugReports()
     }
-  }, [statusFilter, isAuthenticated, user])
+  }, [statusFilter, isAuthenticated, canAccessBugDashboard])
+
+  // Fetch assignees for admin users
+  useEffect(() => {
+    if (isAuthenticated && isAdmin) {
+      fetchAssignees()
+    }
+  }, [isAuthenticated, isAdmin])
+
+  const fetchAssignees = async () => {
+    try {
+      const response = await api.get('/bugs/assignees')
+      if (response.data.success) {
+        setAssignees(response.data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching assignees:', error)
+    }
+  }
 
   const fetchBugReports = async () => {
     try {
@@ -60,6 +82,7 @@ const BugReports = () => {
       if (response.data.success) {
         setBugReports(response.data.data.bugReports)
         setBugCounts(response.data.data.counts || {})
+        setTimeSeries(response.data.data.timeSeries || [])
       }
     } catch (error) {
       console.error('Error fetching bug reports:', error)
@@ -97,6 +120,27 @@ const BugReports = () => {
       fetchBugReports()
     } catch (error) {
       console.error('Error deleting bug:', error)
+    }
+  }
+
+  const handleAssignmentChange = async (bugId, assigneeId) => {
+    try {
+      setAssigningBug(bugId)
+      const response = await api.put(`/bugs/${bugId}`, {
+        assignedTo: assigneeId || null
+      })
+      if (response.data.success) {
+        setBugReports(prev =>
+          prev.map(b => b._id === bugId ? {
+            ...b,
+            assignedTo: response.data.data.assignedTo
+          } : b)
+        )
+      }
+    } catch (error) {
+      console.error('Error assigning bug:', error)
+    } finally {
+      setAssigningBug(null)
     }
   }
 
@@ -175,6 +219,59 @@ const BugReports = () => {
           </div>
         </div>
       </div>
+
+      {/* Time Series Chart */}
+      {timeSeries.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+            {language === 'es' ? 'Bugs en los últimos 30 días' : 'Bugs over last 30 days'}
+          </h2>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={timeSeries}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis
+                dataKey="date"
+                stroke="#9CA3AF"
+                tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                tickFormatter={(value) => {
+                  const date = new Date(value)
+                  return `${date.getDate()}/${date.getMonth() + 1}`
+                }}
+              />
+              <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1F2937',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#F3F4F6'
+                }}
+                labelFormatter={(value) => {
+                  const date = new Date(value)
+                  return date.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')
+                }}
+              />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="created"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                dot={{ fill: '#3b82f6', strokeWidth: 2 }}
+                name={language === 'es' ? 'Creados' : 'Created'}
+              />
+              <Line
+                type="monotone"
+                dataKey="resolved"
+                stroke="#22c55e"
+                strokeWidth={2}
+                dot={{ fill: '#22c55e', strokeWidth: 2 }}
+                name={language === 'es' ? 'Resueltos' : 'Resolved'}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Chart and Filter Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -314,6 +411,11 @@ const BugReports = () => {
                     <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                       <span>👤 {bug.userId?.username || 'Anonymous'}</span>
                       <span>🕐 {timeAgo(bug.createdAt)}</span>
+                      {bug.assignedTo && (
+                        <span className="text-primary-600 dark:text-primary-400">
+                          🎯 {bug.assignedTo.username}
+                        </span>
+                      )}
                       {bug.pageUrl && (
                         <a
                           href={bug.pageUrl}
@@ -366,6 +468,35 @@ const BugReports = () => {
                       </div>
                     )}
 
+                    {/* Assignment Section - Admin Only */}
+                    {isAdmin && assignees.length > 0 && (
+                      <div className="mb-4 flex items-center gap-3">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          🎯 {language === 'es' ? 'Asignado a:' : 'Assigned to:'}
+                        </span>
+                        <select
+                          value={bug.assignedTo?._id || ''}
+                          onChange={(e) => handleAssignmentChange(bug._id, e.target.value)}
+                          disabled={assigningBug === bug._id}
+                          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent disabled:opacity-50"
+                        >
+                          <option value="">
+                            {language === 'es' ? '-- Sin asignar --' : '-- Unassigned --'}
+                          </option>
+                          {assignees.map((assignee) => (
+                            <option key={assignee._id} value={assignee._id}>
+                              {assignee.username} {assignee.role === 'admin' ? '(Admin)' : assignee.isDev ? '(Dev)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {assigningBug === bug._id && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {language === 'es' ? 'Guardando...' : 'Saving...'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap gap-2 mt-4">
                       <span className="text-sm text-gray-600 dark:text-gray-400">
                         {language === 'es' ? 'Cambiar estado:' : 'Change status:'}
@@ -374,7 +505,7 @@ const BugReports = () => {
                         <button
                           key={status}
                           onClick={() => handleStatusChange(bug._id, status)}
-                          disabled={updating === bug._id || bug.status === status}
+                          disabled={updating === bug._id || bug.status === status || !isAdmin}
                           className={`px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50 ${
                             bug.status === status
                               ? `${STATUS_COLORS[status].bg} ${STATUS_COLORS[status].text} ring-2 ring-primary-500`
@@ -384,12 +515,14 @@ const BugReports = () => {
                           {updating === bug._id ? '...' : labels[language]}
                         </button>
                       ))}
-                      <button
-                        onClick={() => handleDelete(bug._id)}
-                        className="px-3 py-1 rounded text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900 transition-colors ml-auto"
-                      >
-                        🗑️ {language === 'es' ? 'Eliminar' : 'Delete'}
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDelete(bug._id)}
+                          className="px-3 py-1 rounded text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900 transition-colors ml-auto"
+                        >
+                          🗑️ {language === 'es' ? 'Eliminar' : 'Delete'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

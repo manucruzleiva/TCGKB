@@ -95,3 +95,36 @@ export const adminOnly = async (req, res, next) => {
     })
   }
 }
+
+// Check if user is dev (includes hardcoded email check)
+const isDevUser = (user) => {
+  const DEV_EMAILS = ['shieromanu@gmail.com']
+  return user.isDev || DEV_EMAILS.includes(user.email)
+}
+
+export const adminOrDevOnly = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route'
+      })
+    }
+
+    const hasAccess = req.user.role === 'admin' || isDevUser(req.user)
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin or Dev privileges required.'
+      })
+    }
+
+    next()
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Server error'
+    })
+  }
+}

@@ -1,4 +1,5 @@
 import BugReport from '../models/BugReport.js'
+import User from '../models/User.js'
 import log from '../utils/logger.js'
 
 const MODULE = 'BugReportController'
@@ -62,6 +63,7 @@ export const getAllBugReports = async (req, res) => {
       BugReport.find(query)
         .populate('userId', 'username email')
         .populate('resolvedBy', 'username')
+        .populate('assignedTo', 'username')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
@@ -87,6 +89,37 @@ export const getAllBugReports = async (req, res) => {
     counts.total = totalCount
     counts.open = openStatuses.reduce((sum, status) => sum + (counts[status] || 0), 0)
     counts.closed = closedStatuses.reduce((sum, status) => sum + (counts[status] || 0), 0)
+
+    // Get time-based data for last 30 days
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    const timeSeriesData = await BugReport.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' },
+            day: { $dayOfMonth: '$createdAt' }
+          },
+          created: { $sum: 1 },
+          resolved: {
+            $sum: {
+              $cond: [{ $in: ['$status', ['resolved', 'wont_fix']] }, 1, 0]
+            }
+          }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
+    ])
+
+    // Format time series for frontend
+    const timeSeries = timeSeriesData.map(item => ({
+      date: `${item._id.year}-${String(item._id.month).padStart(2, '0')}-${String(item._id.day).padStart(2, '0')}`,
+      created: item.created,
+      resolved: item.resolved
+    }))
 
     // Handle filter by open/closed
     let filteredReports = bugReports
@@ -114,7 +147,8 @@ export const getAllBugReports = async (req, res) => {
           total,
           pages: Math.ceil(total / parseInt(limit))
         },
-        counts
+        counts,
+        timeSeries
       }
     })
   } catch (error) {
@@ -160,7 +194,16 @@ export const updateBugReportStatus = async (req, res) => {
       bugReport.adminNotes = adminNotes
     }
 
+    // Handle assignment
+    const { assignedTo } = req.body
+    if (assignedTo !== undefined) {
+      bugReport.assignedTo = assignedTo || null
+    }
+
     await bugReport.save()
+
+    // Populate for response
+    await bugReport.populate('assignedTo', 'username')
 
     log.info(MODULE, `Bug report ${reportId} updated by ${req.user.username}`)
 
@@ -174,6 +217,42 @@ export const updateBugReportStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update bug report'
+    })
+  }
+}
+
+/**
+ * Get available assignees (admins and devs)
+ */
+export const getAvailableAssignees = async (req, res) => {
+  try {
+    const DEV_EMAILS = ['shieromanu@gmail.com']
+
+    // Find admins and devs
+    const assignees = await User.find({
+      $or: [
+        { role: 'admin' },
+        { isDev: true },
+        { email: { $in: DEV_EMAILS } }
+      ],
+      isActive: true
+    }).select('_id username email role isDev').lean()
+
+    // Add isDev flag for hardcoded emails
+    const assigneesWithDev = assignees.map(user => ({
+      ...user,
+      isDev: user.isDev || DEV_EMAILS.includes(user.email)
+    }))
+
+    res.status(200).json({
+      success: true,
+      data: assigneesWithDev
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get assignees failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get assignees'
     })
   }
 }

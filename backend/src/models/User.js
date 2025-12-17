@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
+  isDev: {
+    type: Boolean,
+    default: false
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -85,6 +89,32 @@ userSchema.pre('save', async function(next) {
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password)
 }
+
+// Virtual to check if user is dev (always true for shieromanu@gmail.com)
+userSchema.virtual('isDevUser').get(function() {
+  const DEV_EMAILS = ['shieromanu@gmail.com']
+  return this.isDev || DEV_EMAILS.includes(this.email)
+})
+
+// Ensure virtuals are included in JSON
+userSchema.set('toJSON', {
+  virtuals: true,
+  transform: function(doc, ret) {
+    // Make isDevUser override isDev for response
+    ret.isDev = ret.isDevUser
+    delete ret.isDevUser
+    return ret
+  }
+})
+
+userSchema.set('toObject', {
+  virtuals: true,
+  transform: function(doc, ret) {
+    ret.isDev = ret.isDevUser
+    delete ret.isDevUser
+    return ret
+  }
+})
 
 // Indexes
 userSchema.index({ email: 1 })
