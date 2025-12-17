@@ -5,6 +5,7 @@
 
 export const ROTATION_CONFIG = {
   // Current legal regulation marks (in order from oldest to newest)
+  // G is the oldest legal mark and will rotate out in the next rotation cycle
   legalMarks: ['G', 'H', 'I', 'J', 'K'],
 
   // Rotation history and future schedule
@@ -16,16 +17,16 @@ export const ROTATION_CONFIG = {
       name: 'Scarlet & Violet Rotation 2024'
     },
     {
-      date: '2025-03-21', // Estimated
+      date: '2026-04-01', // Estimated next rotation
       removedMarks: ['G'],
-      addedMarks: ['K', 'L'],
-      name: 'Scarlet & Violet Rotation 2025'
+      addedMarks: ['L'],
+      name: 'Scarlet & Violet Rotation 2026'
     },
     {
-      date: '2026-03-20', // Estimated
+      date: '2027-04-01', // Estimated
       removedMarks: ['H'],
       addedMarks: ['M'],
-      name: 'Scarlet & Violet Rotation 2026'
+      name: 'Scarlet & Violet Rotation 2027'
     }
   ]
 }

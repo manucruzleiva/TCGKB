@@ -13,6 +13,8 @@ const CardDetails = () => {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [alternateArts, setAlternateArts] = useState([])
+  const [loadingAlternates, setLoadingAlternates] = useState(false)
 
   useEffect(() => {
     const fetchCard = async () => {
@@ -23,11 +25,27 @@ const CardDetails = () => {
         const response = await cardService.getCardById(cardId)
         setCard(response.data.card)
         setStats(response.data.stats)
+
+        // Fetch alternate arts in background
+        fetchAlternateArts(cardId)
       } catch (err) {
         setError(err.response?.data?.message || 'Error loading card')
         console.error('Error fetching card:', err)
       } finally {
         setLoading(false)
+      }
+    }
+
+    const fetchAlternateArts = async (id) => {
+      try {
+        setLoadingAlternates(true)
+        const response = await cardService.getCardAlternateArts(id)
+        setAlternateArts(response.data.allArts || [])
+      } catch (err) {
+        console.error('Error fetching alternate arts:', err)
+        setAlternateArts([])
+      } finally {
+        setLoadingAlternates(false)
       }
     }
 
@@ -58,14 +76,7 @@ const CardDetails = () => {
 
   return (
     <div>
-      {/* Breadcrumb */}
-      <div className="mb-6">
-        <Link to="/" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
-          ← {t('pages.cardDetails.backToSearch')}
-        </Link>
-      </div>
-
-      <CardDetail card={card} stats={stats} cardId={cardId} />
+      <CardDetail card={card} stats={stats} cardId={cardId} alternateArts={alternateArts} />
     </div>
   )
 }

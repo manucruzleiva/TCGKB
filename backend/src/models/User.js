@@ -33,6 +33,14 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  canComment: {
+    type: Boolean,
+    default: true
+  },
+  canReact: {
+    type: Boolean,
+    default: true
+  },
   preferences: {
     language: {
       type: String,

@@ -7,7 +7,7 @@ import { COMMENT_MAX_LENGTH } from '../../utils/constants'
 import { useDebounce } from '../../hooks/useDebounce'
 import { mentionCache } from '../../utils/mentionCache'
 
-const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) => {
+const CommentComposer = ({ cardId, deckId, targetType = 'card', parentId = null, onCommentAdded, onCancel }) => {
   const { isAuthenticated } = useAuth()
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,39 +18,52 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
   const [mentionLoading, setMentionLoading] = useState(false)
   const [cardMentions, setCardMentions] = useState([])
   const [cursorPosition, setCursorPosition] = useState(0)
-  const [abilityMention, setAbilityMention] = useState(null) // For @card.ability format
+  const [selectedCardForAbility, setSelectedCardForAbility] = useState(null) // Card selected, waiting for ability
+  const [showAbilityDropdown, setShowAbilityDropdown] = useState(false)
   const textareaRef = useRef(null)
 
-  // Debounce the mention query to reduce API calls
   const debouncedMentionQuery = useDebounce(mentionQuery, 300)
 
-  // Detect @ mentions (supports @card and @card.ability formats)
   useEffect(() => {
     const detectMention = () => {
       if (!content) return
 
       const beforeCursor = content.substring(0, cursorPosition)
-      // Match @cardname or @cardname.ability
-      const match = beforeCursor.match(/@([\w\s-]+)(?:\.(attack|ability|weakness|resistance))?$/i)
+
+      // Check if we just typed a "." after a card mention chip
+      if (selectedCardForAbility) {
+        const chipText = `[@${selectedCardForAbility.name}]`
+        const chipEndPos = beforeCursor.lastIndexOf(chipText) + chipText.length
+        const afterChip = beforeCursor.substring(chipEndPos)
+
+        if (afterChip === '.') {
+          setShowAbilityDropdown(true)
+          setShowMentionDropdown(false)
+          return
+        } else if (afterChip.length > 0 && afterChip !== '.') {
+          // User typed something else, clear the selected card
+          setSelectedCardForAbility(null)
+          setShowAbilityDropdown(false)
+        }
+      }
+
+      // Check for new @ mention
+      const match = beforeCursor.match(/@([\w\s-]*)$/i)
 
       if (match) {
         const cardQuery = match[1]
-        const abilityType = match[2] // attack, ability, weakness, or resistance
-
         setMentionQuery(cardQuery)
-        setAbilityMention(abilityType || null)
         setShowMentionDropdown(true)
+        setShowAbilityDropdown(false)
       } else {
         setShowMentionDropdown(false)
         setMentionCards([])
-        setAbilityMention(null)
       }
     }
 
     detectMention()
-  }, [content, cursorPosition])
+  }, [content, cursorPosition, selectedCardForAbility])
 
-  // Search cards when debounced query changes
   useEffect(() => {
     if (debouncedMentionQuery && debouncedMentionQuery.length >= 2) {
       searchCards(debouncedMentionQuery)
@@ -60,9 +73,9 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
   }, [debouncedMentionQuery])
 
   const searchCards = useCallback(async (query) => {
-    // Check cache first
     const cached = mentionCache.get(query)
-    if (cached) {
+    // Only use cache if it includes attacks/abilities data
+    if (cached && cached.length > 0 && (cached[0].attacks !== undefined || cached[0].abilities !== undefined)) {
       setMentionCards(cached)
       return
     }
@@ -72,7 +85,6 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
       const response = await cardService.searchCards(query, 5)
       const cards = response.data.cards
 
-      // Cache the results
       mentionCache.set(query, cards)
       setMentionCards(cards)
     } catch (err) {
@@ -87,20 +99,21 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
     const beforeCursor = content.substring(0, cursorPosition)
     const afterCursor = content.substring(cursorPosition)
 
-    // Remove the @ and partial query (including .ability if present)
-    const beforeMention = beforeCursor.replace(/@[\w\s-]+(?:\.\w+)?$/i, '')
+    // Remove the @query part
+    const beforeMention = beforeCursor.replace(/@[\w\s-]*$/i, '')
 
-    // Build mention text based on whether ability is specified
-    let mentionText = `@${card.name}`
+    // Create chip-style text with brackets to indicate it's a chip
+    let mentionText = `[@${card.name}]`
+
     if (selectedAbility) {
-      mentionText += `.${selectedAbility.type}`
+      mentionText = `[@${card.name}.${selectedAbility.name}]`
     }
 
-    const newContent = beforeMention + mentionText + ' ' + afterCursor
+    const newContent = beforeMention + mentionText + (selectedAbility ? ' ' : '') + afterCursor
 
     setContent(newContent)
 
-    // Track the mention
+    // Add to mentions tracking
     setCardMentions([...cardMentions, {
       cardId: card.id,
       cardName: card.name,
@@ -111,27 +124,87 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
 
     setShowMentionDropdown(false)
     setMentionCards([])
-    setAbilityMention(null)
 
-    // Focus back on textarea
+    if (selectedAbility) {
+      // Ability selected, done
+      setSelectedCardForAbility(null)
+      setShowAbilityDropdown(false)
+    } else {
+      // Card selected, wait for possible "." to select ability
+      setSelectedCardForAbility(card)
+    }
+
     if (textareaRef.current) {
       textareaRef.current.focus()
-      const newPosition = beforeMention.length + mentionText.length + 1
+      const newPosition = beforeMention.length + mentionText.length
       textareaRef.current.setSelectionRange(newPosition, newPosition)
+      setCursorPosition(newPosition)
     }
   }
 
-  // Get abilities/attacks for a card based on the mention type
-  const getCardAbilities = (card, type) => {
-    if (!type) return []
+  const insertAbility = (ability) => {
+    if (!selectedCardForAbility) return
 
-    switch (type.toLowerCase()) {
-      case 'attack':
-        return (card.attacks || []).map(a => ({ ...a, type: 'attack' }))
-      case 'ability':
-        return (card.abilities || []).map(a => ({ ...a, type: 'ability' }))
-      default:
-        return []
+    const beforeCursor = content.substring(0, cursorPosition)
+    const afterCursor = content.substring(cursorPosition)
+
+    // Find and replace the chip text with ability
+    const chipText = `[@${selectedCardForAbility.name}]`
+    const chipPos = beforeCursor.lastIndexOf(chipText)
+
+    if (chipPos >= 0) {
+      const beforeChip = beforeCursor.substring(0, chipPos)
+      const afterChipAndDot = afterCursor // The "." is part of beforeCursor
+
+      const newMentionText = `[@${selectedCardForAbility.name}.${ability.name}]`
+      // Remove the trailing "."
+      const cleanBeforeCursor = beforeCursor.substring(0, beforeCursor.length - 1)
+      const newContent = cleanBeforeCursor.replace(chipText, newMentionText) + ' ' + afterCursor
+
+      setContent(newContent)
+
+      // Update the mention with ability info
+      setCardMentions(prev => prev.map(m =>
+        m.cardId === selectedCardForAbility.id && !m.abilityName
+          ? { ...m, abilityType: ability.type, abilityName: ability.name }
+          : m
+      ))
+    }
+
+    setShowAbilityDropdown(false)
+    setSelectedCardForAbility(null)
+
+    if (textareaRef.current) {
+      textareaRef.current.focus()
+    }
+  }
+
+  const getAllCardAbilities = (card) => {
+    const abilities = []
+
+    // Add attacks
+    if (card.attacks) {
+      card.attacks.forEach(a => abilities.push({ ...a, type: 'attack' }))
+    }
+
+    // Add abilities
+    if (card.abilities) {
+      card.abilities.forEach(a => abilities.push({ ...a, type: 'ability' }))
+    }
+
+    return abilities
+  }
+
+  const removeChip = (cardId) => {
+    // Find and remove the chip from content
+    const mention = cardMentions.find(m => m.cardId === cardId)
+    if (mention) {
+      let chipText = `[@${mention.cardName}]`
+      if (mention.abilityName) {
+        chipText = `[@${mention.cardName}.${mention.abilityName}]`
+      }
+      setContent(prev => prev.replace(chipText, '').replace(/\s+/g, ' ').trim())
+      setCardMentions(prev => prev.filter(m => m.cardId !== cardId))
     }
   }
 
@@ -144,6 +217,12 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
     if (showMentionDropdown && mentionCards.length > 0) {
       if (e.key === 'Escape') {
         setShowMentionDropdown(false)
+      }
+    }
+    if (showAbilityDropdown) {
+      if (e.key === 'Escape') {
+        setShowAbilityDropdown(false)
+        setSelectedCardForAbility(null)
       }
     }
   }
@@ -160,12 +239,22 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
       setLoading(true)
       setError(null)
 
-      const response = await commentService.createComment(
-        cardId,
-        content.trim(),
-        parentId,
-        cardMentions
-      )
+      let response
+      if (targetType === 'deck') {
+        response = await commentService.createDeckComment(
+          deckId,
+          content.trim(),
+          parentId,
+          cardMentions
+        )
+      } else {
+        response = await commentService.createComment(
+          cardId,
+          content.trim(),
+          parentId,
+          cardMentions
+        )
+      }
 
       setContent('')
       setCardMentions([])
@@ -182,9 +271,9 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
 
   if (!isAuthenticated) {
     return (
-      <div className="card bg-gray-50">
-        <p className="text-gray-600 text-center">
-          <a href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+        <p className="text-gray-600 dark:text-gray-400 text-center text-sm">
+          <a href="/login" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             Inicia sesión
           </a>{' '}
           para dejar un comentario
@@ -194,8 +283,45 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
   }
 
   return (
-    <div className="card">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <form onSubmit={handleSubmit}>
+        {/* Chips display for mentioned cards */}
+        {cardMentions.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {cardMentions.map((mention, idx) => (
+              <span
+                key={`${mention.cardId}-${idx}`}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                  mention.abilityName
+                    ? 'bg-gradient-to-r from-primary-100 to-purple-100 dark:from-primary-900/50 dark:to-purple-900/50 text-primary-700 dark:text-primary-300'
+                    : 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
+                }`}
+              >
+                {mention.abilityName ? (
+                  <>
+                    <span className="text-sm">{mention.abilityType === 'attack' ? '⚔️' : '✨'}</span>
+                    <span className="font-semibold">{mention.cardName}</span>
+                    <span className="text-primary-500 dark:text-primary-400">•</span>
+                    <span className="italic">{mention.abilityName}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm">🃏</span>
+                    <span>{mention.cardName}</span>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeChip(mention.cardId)}
+                  className="ml-1 text-primary-500 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-200 text-lg leading-none"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="relative">
           <textarea
             ref={textareaRef}
@@ -203,96 +329,140 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onSelect={(e) => setCursorPosition(e.target.selectionStart)}
-            placeholder={parentId ? "Escribe tu respuesta... (usa @ para mencionar cartas)" : "Escribe tu comentario... (usa @ para mencionar cartas)"}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
-            rows="4"
+            placeholder={parentId ? "Escribe tu respuesta... (usa @ para mencionar cartas)" : "Escribe tu comentario... (usa @ para mencionar cartas, luego . para habilidades)"}
+            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
+            rows="3"
             maxLength={COMMENT_MAX_LENGTH}
           />
 
+          {/* Hint when card is selected */}
+          {selectedCardForAbility && !showAbilityDropdown && (
+            <div className="absolute bottom-full left-0 mb-1 px-2 py-1 bg-gray-800 dark:bg-gray-700 text-white text-xs rounded shadow">
+              Escribe <span className="font-bold">.</span> para seleccionar una habilidad de {selectedCardForAbility.name}
+            </div>
+          )}
+
+          {/* Ability dropdown */}
+          {showAbilityDropdown && selectedCardForAbility && (
+            <div
+              className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-80 overflow-y-auto"
+              onMouseDown={(e) => e.preventDefault()} // Prevent blur on textarea
+            >
+              <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+                <div className="flex items-center gap-2">
+                  {(selectedCardForAbility.images?.small || selectedCardForAbility.images?.large) && (
+                    <img
+                      src={selectedCardForAbility.images?.small || selectedCardForAbility.images?.large}
+                      alt={selectedCardForAbility.name}
+                      className="w-8 h-11 object-contain rounded"
+                    />
+                  )}
+                  <div>
+                    <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{selectedCardForAbility.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Selecciona una habilidad o ataque</div>
+                  </div>
+                </div>
+              </div>
+              <ul>
+                {getAllCardAbilities(selectedCardForAbility).length > 0 ? (
+                  getAllCardAbilities(selectedCardForAbility).map((ability, idx) => (
+                    <li
+                      key={idx}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        insertAbility(ability)
+                      }}
+                      className="px-3 py-2 hover:bg-primary-50 dark:hover:bg-primary-900/30 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{ability.type === 'attack' ? '⚔️' : '✨'}</span>
+                        <div className="flex-1">
+                          <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{ability.name}</div>
+                          {ability.damage && (
+                            <span className="text-xs text-red-600 dark:text-red-400 font-semibold">💥 {ability.damage}</span>
+                          )}
+                          {ability.text && (
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">{ability.text}</p>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 italic">
+                    Esta carta no tiene habilidades o ataques
+                  </li>
+                )}
+              </ul>
+              <div className="px-3 py-2 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setShowAbilityDropdown(false)
+                    setSelectedCardForAbility(null)
+                    // Remove the "." from content
+                    setContent(prev => prev.slice(0, -1))
+                    textareaRef.current?.focus()
+                  }}
+                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                >
+                  Cancelar (solo mencionar carta)
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Mention dropdown */}
           {showMentionDropdown && mentionQuery.length >= 2 && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+            <div
+              className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-80 overflow-y-auto"
+              onMouseDown={(e) => e.preventDefault()} // Prevent blur on textarea
+            >
               {mentionLoading ? (
-                <div className="p-4 text-center text-gray-500">Buscando...</div>
+                <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                  Buscando...
+                </div>
               ) : mentionCards.length > 0 ? (
-                <div>
-                  {abilityMention ? (
-                    // Show abilities/attacks for each card
-                    mentionCards.map((card) => {
-                      const abilities = getCardAbilities(card, abilityMention)
-                      return (
-                        <div key={card.id} className="border-b border-gray-200 last:border-b-0">
-                          <div className="px-4 py-2 bg-gray-50 flex items-center gap-3">
-                            {card.image && (
-                              <img
-                                src={card.image}
-                                alt={card.name}
-                                className="w-8 h-11 object-contain rounded"
-                              />
-                            )}
-                            <div>
-                              <div className="font-semibold text-sm">{card.name}</div>
-                              <div className="text-xs text-gray-500">{card.set}</div>
-                            </div>
-                          </div>
-                          {abilities.length > 0 ? (
-                            <ul>
-                              {abilities.map((ability, idx) => (
-                                <li
-                                  key={idx}
-                                  onClick={() => insertMention(card, ability)}
-                                  className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-l-4 border-transparent hover:border-blue-500"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium">{ability.type === 'attack' ? '⚔️' : '✨'}</span>
-                                    <div className="flex-1">
-                                      <div className="font-medium text-sm">{ability.name}</div>
-                                      {ability.damage && (
-                                        <span className="text-xs text-red-600 font-semibold">💥 {ability.damage}</span>
-                                      )}
-                                      {ability.text && (
-                                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{ability.text}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <div className="px-4 py-2 text-sm text-gray-500 italic">
-                              No {abilityMention}s found for this card
+                <ul>
+                  {mentionCards.map((card) => {
+                    const cardImage = card.images?.small || card.images?.large || card.image
+                    const setName = typeof card.set === 'string' ? card.set : card.set?.name || ''
+                    const hasAbilities = (card.attacks?.length > 0) || (card.abilities?.length > 0)
+                    return (
+                      <li
+                        key={card.id}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          insertMention(card)
+                        }}
+                        className="px-3 py-2 hover:bg-primary-50 dark:hover:bg-primary-900/30 cursor-pointer flex items-center gap-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                      >
+                        {cardImage && (
+                          <img
+                            src={cardImage}
+                            alt={card.name}
+                            className="w-10 h-14 object-contain rounded"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{card.name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{setName}</div>
+                          {hasAbilities && (
+                            <div className="text-xs text-primary-600 dark:text-primary-400 mt-0.5">
+                              Escribe . después para ver habilidades
                             </div>
                           )}
                         </div>
-                      )
-                    })
-                  ) : (
-                    // Show card list only
-                    <ul>
-                      {mentionCards.map((card) => (
-                        <li
-                          key={card.id}
-                          onClick={() => insertMention(card)}
-                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-3"
-                        >
-                          {card.image && (
-                            <img
-                              src={card.image}
-                              alt={card.name}
-                              className="w-10 h-14 object-contain rounded"
-                            />
-                          )}
-                          <div>
-                            <div className="font-medium">{card.name}</div>
-                            <div className="text-xs text-gray-500">{card.set}</div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                      </li>
+                    )
+                  })}
+                </ul>
               ) : (
-                <div className="p-4 text-center text-gray-500">
+                <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
                   No se encontraron cartas
                 </div>
               )}
@@ -301,11 +471,11 @@ const CommentComposer = ({ cardId, parentId = null, onCommentAdded, onCancel }) 
         </div>
 
         {error && (
-          <p className="text-red-500 text-sm mt-2">{error}</p>
+          <p className="text-red-500 dark:text-red-400 text-sm mt-2">{error}</p>
         )}
 
         <div className="flex items-center justify-between mt-3">
-          <span className="text-sm text-gray-500">
+          <span className="text-xs text-gray-400 dark:text-gray-500">
             {content.length}/{COMMENT_MAX_LENGTH}
           </span>
 

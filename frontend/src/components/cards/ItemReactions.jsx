@@ -4,7 +4,13 @@ import { useSocket } from '../../contexts/SocketContext'
 
 const THUMBS = ['👍', '👎']
 
-const CommentReactions = ({ commentId, compact = false }) => {
+/**
+ * Generic reaction component for attacks and abilities
+ * @param {string} targetType - 'attack' or 'ability'
+ * @param {string} targetId - Format: cardId_type_index (e.g., "swsh1-1_attack_0")
+ * @param {boolean} compact - Use compact styling
+ */
+const ItemReactions = ({ targetType, targetId, compact = true }) => {
   const [reactions, setReactions] = useState([])
   const [loading, setLoading] = useState(false)
   const [userReaction, setUserReaction] = useState(null)
@@ -12,13 +18,13 @@ const CommentReactions = ({ commentId, compact = false }) => {
 
   useEffect(() => {
     loadReactions()
-  }, [commentId])
+  }, [targetId])
 
   useEffect(() => {
     if (!socket) return
 
     const handleReactionUpdate = (data) => {
-      if (data.targetType === 'comment' && data.targetId === commentId) {
+      if (data.targetType === targetType && data.targetId === targetId) {
         loadReactions()
       }
     }
@@ -28,11 +34,11 @@ const CommentReactions = ({ commentId, compact = false }) => {
     return () => {
       socket.off('reaction:updated', handleReactionUpdate)
     }
-  }, [socket, commentId])
+  }, [socket, targetId, targetType])
 
   const loadReactions = async () => {
     try {
-      const response = await reactionService.getReactions('comment', commentId)
+      const response = await reactionService.getReactions(targetType, targetId)
       setReactions(response.data.reactions)
       const userReacted = response.data.reactions.find(r => r.userReacted)
       setUserReaction(userReacted ? userReacted.emoji : null)
@@ -47,7 +53,7 @@ const CommentReactions = ({ commentId, compact = false }) => {
 
       if (userReaction === emoji) {
         // Remove reaction
-        await reactionService.removeReaction('comment', commentId, emoji)
+        await reactionService.removeReaction(targetType, targetId, emoji)
         setReactions(prev =>
           prev.map(r =>
             r.emoji === emoji
@@ -58,7 +64,7 @@ const CommentReactions = ({ commentId, compact = false }) => {
         setUserReaction(null)
       } else {
         // Add or change reaction
-        const response = await reactionService.addReaction('comment', commentId, emoji)
+        const response = await reactionService.addReaction(targetType, targetId, emoji)
 
         if (response.data.changed && response.data.previousEmoji) {
           setReactions(prev => {
@@ -144,4 +150,4 @@ const CommentReactions = ({ commentId, compact = false }) => {
   )
 }
 
-export default CommentReactions
+export default ItemReactions

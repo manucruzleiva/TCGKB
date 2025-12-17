@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import Spinner from '../common/Spinner'
 import CardReactions from './CardReactions'
+import ItemReactions from './ItemReactions'
 import CommentList from '../comments/CommentList'
 import { getRotationInfo, formatDaysUntilRotation } from '../../config/rotation'
 import { useLanguage } from '../../contexts/LanguageContext'
@@ -21,9 +23,10 @@ const TYPE_EMOJIS = {
   'Lightning': '⚡'
 }
 
-const CardDetail = ({ card, stats, cardId }) => {
+const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
   const { t } = useLanguage()
   const { formatDate } = useDateFormat()
+  const [currentArtIndex, setCurrentArtIndex] = useState(0)
 
   if (!card) {
     return (
@@ -33,32 +36,44 @@ const CardDetail = ({ card, stats, cardId }) => {
     )
   }
 
-  const imageUrl = card.images?.large || card.images?.small
+  // Get the current card (either from alternateArts or the original card)
+  const displayedCard = alternateArts.length > 0 ? alternateArts[currentArtIndex] : card
+  const imageUrl = displayedCard?.images?.large || displayedCard?.images?.small || card.images?.large || card.images?.small
   const setName = card.set?.name || 'Unknown Set'
   const releaseDate = card.set?.releaseDate || ''
+  const hasMultipleArts = alternateArts.length > 1
+
+  const goToPrevArt = () => {
+    setCurrentArtIndex((prev) => (prev === 0 ? alternateArts.length - 1 : prev - 1))
+  }
+
+  const goToNextArt = () => {
+    setCurrentArtIndex((prev) => (prev === alternateArts.length - 1 ? 0 : prev + 1))
+  }
 
   // Calculate legal format date (2 weeks after release)
   const calculateLegalDate = (releaseDateStr) => {
     if (!releaseDateStr) return null
-    const releaseDate = new Date(releaseDateStr)
-    const legalDate = new Date(releaseDate)
+    const release = new Date(releaseDateStr)
+    const legalDate = new Date(release)
     legalDate.setDate(legalDate.getDate() + 14)
-    return formatDate(legalDate)
+    return legalDate
   }
 
   // Check if this is a Pokemon card (rotation features only apply to Pokemon)
-  const isPokemonCard = card.tcg === 'pokemon'
+  // Default to true if tcgSystem is not specified (most cards in the API are Pokemon)
+  const isPokemonCard = card.tcgSystem === 'pokemon' || !card.tcgSystem
 
   // Pokemon-specific calculations
   const legalFormatDate = isPokemonCard ? calculateLegalDate(releaseDate) : null
-  const rotationInfo = isPokemonCard ? getRotationInfo(card.regulationMark) : null
+  const rotationInfo = isPokemonCard && card.regulationMark ? getRotationInfo(card.regulationMark) : null
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
-      {/* Card Image */}
+      {/* Card Image with Carousel */}
       <div>
         <div className="card sticky top-4">
-          <div className="aspect-[2.5/3.5] relative bg-gray-100 rounded-lg overflow-hidden">
+          <div className="aspect-[2.5/3.5] relative bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
             {imageUrl ? (
               <img
                 src={imageUrl}
@@ -71,45 +86,95 @@ const CardDetail = ({ card, stats, cardId }) => {
               </div>
             )}
 
-            {/* Rotation Ribbon - Pokemon only */}
-            {isPokemonCard && rotationInfo && rotationInfo.status !== 'legal' && (
-              <div className={`absolute top-4 right-4 px-3 py-2 rounded-lg shadow-lg text-white font-semibold text-sm ${
-                rotationInfo.status === 'rotated'
-                  ? 'bg-red-600'
-                  : 'bg-orange-500'
-              }`}>
-                {rotationInfo.status === 'rotated' ? (
-                  <div className="flex items-center gap-2">
-                    <span>🚫</span>
-                    <span>{t('card.notLegal')}</span>
-                  </div>
-                ) : rotationInfo.status === 'rotating-soon' ? (
-                  <div className="text-center">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span>⚠️</span>
-                      <span>{t('card.rotatingSoon')}</span>
-                    </div>
-                    <div className="text-xs opacity-90">
-                      {formatDaysUntilRotation(rotationInfo.daysUntilRotation)}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+            {/* Carousel Navigation */}
+            {hasMultipleArts && (
+              <>
+                {/* Previous Button */}
+                <button
+                  onClick={goToPrevArt}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+                  aria-label="Previous art"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                {/* Next Button */}
+                <button
+                  onClick={goToNextArt}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+                  aria-label="Next art"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+
+                {/* Art Counter Badge */}
+                <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 rounded-md text-white text-xs font-medium">
+                  {currentArtIndex + 1} / {alternateArts.length}
+                </div>
+              </>
             )}
+
           </div>
+
+          {/* Alternate Arts Thumbnails */}
+          {hasMultipleArts && (
+            <div className="mt-4">
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Artes Alternativos ({alternateArts.length})
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {alternateArts.map((art, idx) => (
+                  <button
+                    key={art.id}
+                    onClick={() => setCurrentArtIndex(idx)}
+                    className={`flex-shrink-0 w-16 h-22 rounded-md overflow-hidden border-2 transition-all ${
+                      idx === currentArtIndex
+                        ? 'border-primary-500 shadow-lg scale-105'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-primary-300'
+                    }`}
+                  >
+                    <img
+                      src={art.images?.small || art.images?.large}
+                      alt={`${art.name} - ${art.set?.name || ''}`}
+                      className="w-full h-full object-contain"
+                    />
+                  </button>
+                ))}
+              </div>
+              {/* Current art set info */}
+              {displayedCard && displayedCard.id !== card.id && (
+                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="font-medium">{displayedCard.set?.name}</span>
+                  {displayedCard.number && <span> • #{displayedCard.number}</span>}
+                  {displayedCard.rarity && <span> • {displayedCard.rarity}</span>}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Card Info */}
+      {/* Card Info - Main Container */}
       <div>
         <div className="card mb-6">
-          <h1 className="text-3xl font-bold mb-4">{card.name}</h1>
+          {/* Card Header with Name and Card Reactions */}
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{card.name}</h1>
+            <div className="flex-shrink-0">
+              <CardReactions cardId={card.id} />
+            </div>
+          </div>
 
-          <div className="space-y-3">
+          {/* Card Data */}
+          <div className="space-y-3 mb-6">
             {/* Set Info */}
             <div>
-              <span className="font-semibold text-gray-700">{t('card.set')}:</span>
-              <span className="ml-2 text-gray-600">{setName}</span>
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.set')}:</span>
+              <span className="ml-2 text-gray-600 dark:text-gray-400">{setName}</span>
             </div>
 
             {releaseDate && (
@@ -119,33 +184,69 @@ const CardDetail = ({ card, stats, cardId }) => {
               </div>
             )}
 
-            {/* Pokemon-specific: Enter Legal Format */}
-            {isPokemonCard && legalFormatDate && (
-              <div>
-                <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.enterLegal')}:</span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">{legalFormatDate}</span>
+            {/* Pokemon-specific: Regulation Mark with status */}
+            {isPokemonCard && card.regulationMark && (
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.regulationMark')}:</span>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-bold rounded ${
+                  rotationInfo?.status === 'rotated'
+                    ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'
+                    : rotationInfo?.status === 'rotating-soon'
+                    ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300'
+                    : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                }`}>
+                  <span className="text-lg">{card.regulationMark}</span>
+                  {rotationInfo?.status === 'rotating-soon' && (
+                    <span className="text-xs font-normal">⚠️</span>
+                  )}
+                  {rotationInfo?.status === 'rotated' && (
+                    <span className="text-xs font-normal">🚫</span>
+                  )}
+                  {rotationInfo?.status === 'legal' && (
+                    <span className="text-xs font-normal">✓</span>
+                  )}
+                </span>
               </div>
             )}
 
-            {/* Pokemon-specific: Regulation Mark */}
-            {isPokemonCard && card.regulationMark && (
+            {/* Pokemon-specific: Enter Standard date */}
+            {isPokemonCard && legalFormatDate && (
               <div>
-                <span className="font-semibold text-gray-700">{t('card.regulationMark')}:</span>
-                <span className="ml-2">
-                  <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded font-bold">
-                    {card.regulationMark}
-                  </span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.enterLegal')}:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">{formatDate(legalFormatDate)}</span>
+              </div>
+            )}
+
+            {/* Pokemon-specific: Leave Standard date (for rotating cards) */}
+            {isPokemonCard && rotationInfo && rotationInfo.status === 'rotating-soon' && rotationInfo.rotationDate && (
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-orange-600 dark:text-orange-400">Leave Standard:</span>
+                <span className="text-orange-600 dark:text-orange-400">
+                  {formatDate(rotationInfo.rotationDate)}
+                </span>
+                <span className="text-xs text-orange-500 dark:text-orange-400">
+                  ({formatDaysUntilRotation(rotationInfo.daysUntilRotation)})
+                </span>
+              </div>
+            )}
+
+            {/* Pokemon-specific: Already rotated info */}
+            {isPokemonCard && rotationInfo && rotationInfo.status === 'rotated' && (
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-red-600 dark:text-red-400">Estado:</span>
+                <span className="text-red-600 dark:text-red-400">
+                  No legal en Standard
                 </span>
               </div>
             )}
 
             {card.supertype && (
               <div>
-                <span className="font-semibold text-gray-700">{t('card.type')}:</span>
-                <span className="ml-2 text-gray-600">
+                <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.type')}:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">
                   {card.supertype}
                   {card.subtypes && card.subtypes.length > 0 && (
-                    <span className="ml-1 text-gray-500">
+                    <span className="ml-1 text-gray-500 dark:text-gray-500">
                       ({card.subtypes.join(', ')})
                     </span>
                   )}
@@ -155,12 +256,12 @@ const CardDetail = ({ card, stats, cardId }) => {
 
             {card.types && card.types.length > 0 && (
               <div>
-                <span className="font-semibold text-gray-700">{t('card.types')}:</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.types')}:</span>
                 <div className="inline-flex gap-2 ml-2">
                   {card.types.map((type, idx) => (
                     <span
                       key={idx}
-                      className="px-2 py-1 bg-gray-200 text-gray-700 text-sm rounded flex items-center gap-1"
+                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded flex items-center gap-1"
                     >
                       {TYPE_EMOJIS[type] && <span>{TYPE_EMOJIS[type]}</span>}
                       {type}
@@ -172,96 +273,182 @@ const CardDetail = ({ card, stats, cardId }) => {
 
             {card.hp && (
               <div>
-                <span className="font-semibold text-gray-700">{t('card.hp')}:</span>
-                <span className="ml-2 text-gray-600">{card.hp}</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.hp')}:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">{card.hp}</span>
+              </div>
+            )}
+
+            {/* Card Number */}
+            {card.number && (
+              <div>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">Número:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">
+                  {card.number}{card.set?.printedTotal ? ` / ${card.set.printedTotal}` : ''}
+                </span>
+              </div>
+            )}
+
+            {/* Rarity */}
+            {card.rarity && (
+              <div>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">Rareza:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">{card.rarity}</span>
               </div>
             )}
           </div>
 
-          {/* Card Reactions */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <CardReactions cardId={card.id} />
-          </div>
-        </div>
-
-        {/* Attacks */}
-        {card.attacks && card.attacks.length > 0 && (
-          <div className="card mb-6">
-            <h2 className="text-xl font-bold mb-4">⚔️ {t('card.attacks')}</h2>
-            <div className="space-y-4">
-              {card.attacks.map((attack, idx) => (
-                <div key={idx} className="border-l-4 border-primary-500 pl-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-lg">{attack.name}</h3>
-                    {attack.damage && (
-                      <span className="text-red-600 font-bold">💥 {attack.damage}</span>
-                    )}
+          {/* Attacks - Nested Inside Card Data Box */}
+          {card.attacks && card.attacks.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+                <span className="mr-2">⚔️</span>
+                {t('card.attacks')}
+              </h2>
+              <div className="space-y-4">
+                {card.attacks.map((attack, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border-l-4 border-primary-500"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{attack.name}</h3>
+                          {attack.damage && (
+                            <span className="text-red-600 dark:text-red-400 font-bold">
+                              <span className="mr-1">💥</span>{attack.damage}
+                            </span>
+                          )}
+                        </div>
+                        {attack.text && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{attack.text}</p>
+                        )}
+                        {attack.cost && attack.cost.length > 0 && (
+                          <div className="flex gap-1 flex-wrap">
+                            {attack.cost.map((cost, costIdx) => (
+                              <span
+                                key={costIdx}
+                                className="px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded flex items-center gap-1 border border-gray-200 dark:border-gray-600"
+                              >
+                                {TYPE_EMOJIS[cost] && <span>{TYPE_EMOJIS[cost]}</span>}
+                                {cost}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Attack Reactions */}
+                      <div className="flex-shrink-0">
+                        <ItemReactions
+                          targetType="attack"
+                          targetId={`${card.id}_attack_${idx}`}
+                          compact={true}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  {attack.text && (
-                    <p className="text-sm text-gray-600">{attack.text}</p>
-                  )}
-                  {attack.cost && attack.cost.length > 0 && (
-                    <div className="flex gap-1 mt-2">
-                      {attack.cost.map((cost, costIdx) => (
-                        <span
-                          key={costIdx}
-                          className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded flex items-center gap-1"
-                        >
-                          {TYPE_EMOJIS[cost] && <span>{TYPE_EMOJIS[cost]}</span>}
-                          {cost}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Abilities - Nested Inside Card Data Box */}
+          {card.abilities && card.abilities.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+                <span className="mr-2">✨</span>
+                {t('card.abilities')}
+              </h2>
+              <div className="space-y-4">
+                {card.abilities.map((ability, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border-l-4 border-green-500"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{ability.name}</h3>
+                          <span className="text-xs text-green-700 dark:text-green-400 italic bg-green-100 dark:bg-green-800/50 px-2 py-0.5 rounded">
+                            {ability.type}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{ability.text}</p>
+                      </div>
+                      {/* Ability Reactions */}
+                      <div className="flex-shrink-0">
+                        <ItemReactions
+                          targetType="ability"
+                          targetId={`${card.id}_ability_${idx}`}
+                          compact={true}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Weakness / Resistance / Retreat */}
+          {(card.weaknesses || card.resistances || card.retreatCost) && (
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                {/* Weakness */}
+                <div>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300 block mb-1">Debilidad</span>
+                  {card.weaknesses && card.weaknesses.length > 0 ? (
+                    <div className="flex gap-1 flex-wrap">
+                      {card.weaknesses.map((w, idx) => (
+                        <span key={idx} className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                          {TYPE_EMOJIS[w.type] && <span>{TYPE_EMOJIS[w.type]}</span>}
+                          <span>{w.value}</span>
                         </span>
                       ))}
                     </div>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500">-</span>
                   )}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Abilities */}
-        {card.abilities && card.abilities.length > 0 && (
-          <div className="card mb-6">
-            <h2 className="text-xl font-bold mb-4">✨ {t('card.abilities')}</h2>
-            <div className="space-y-4">
-              {card.abilities.map((ability, idx) => (
-                <div key={idx} className="border-l-4 border-green-500 pl-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-lg">{ability.name}</h3>
-                    <span className="text-xs text-gray-500 italic">({ability.type})</span>
-                  </div>
-                  <p className="text-sm text-gray-700">{ability.text}</p>
+                {/* Resistance */}
+                <div>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300 block mb-1">Resistencia</span>
+                  {card.resistances && card.resistances.length > 0 ? (
+                    <div className="flex gap-1 flex-wrap">
+                      {card.resistances.map((r, idx) => (
+                        <span key={idx} className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                          {TYPE_EMOJIS[r.type] && <span>{TYPE_EMOJIS[r.type]}</span>}
+                          <span>{r.value}</span>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500">-</span>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Stats - Compact */}
-        {stats && (stats.commentCount > 0 || (stats.reactionCounts && Object.keys(stats.reactionCounts).length > 0)) && (
-          <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3 mb-6">
-            <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-300">
-              {stats.commentCount > 0 && (
-                <div className="flex items-center gap-1">
-                  <span>💬</span>
-                  <span className="font-medium">{stats.commentCount}</span>
+                {/* Retreat */}
+                <div>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300 block mb-1">Retirada</span>
+                  {card.retreatCost && card.retreatCost.length > 0 ? (
+                    <div className="flex gap-0.5">
+                      {card.retreatCost.map((cost, idx) => (
+                        <span key={idx}>
+                          {TYPE_EMOJIS[cost] || '⭐'}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500">0</span>
+                  )}
                 </div>
-              )}
-              {stats.reactionCounts && Object.keys(stats.reactionCounts).length > 0 && (
-                <div className="flex items-center gap-2">
-                  {Object.entries(stats.reactionCounts).map(([emoji, count]) => (
-                    <span key={emoji} className="flex items-center gap-1">
-                      <span>{emoji}</span>
-                      <span className="font-medium">{count}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Comments Section - Below Attacks */}
+        {/* Comments Section */}
         {cardId && (
           <div className="mt-8">
             <CommentList cardId={cardId} />

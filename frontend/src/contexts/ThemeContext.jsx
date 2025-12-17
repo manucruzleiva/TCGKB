@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useEffect } from 'react'
+import { createContext, useState, useContext, useEffect, useCallback } from 'react'
 
 const ThemeContext = createContext()
 
@@ -28,33 +28,24 @@ export const ThemeProvider = ({ children }) => {
 
     // Save to localStorage
     localStorage.setItem('theme', theme)
-
-    // Debug log
-    console.log('Theme changed to:', theme)
-    console.log('Root classes:', root.className)
   }, [theme])
 
   /**
    * Toggle between light and dark themes
    */
-  const toggleTheme = () => {
-    console.log('toggleTheme called, current theme:', theme)
-    setTheme(prevTheme => {
-      const newTheme = prevTheme === 'light' ? 'dark' : 'light'
-      console.log('Toggling from', prevTheme, 'to', newTheme)
-      return newTheme
-    })
-  }
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light')
+  }, [])
 
   /**
    * Set specific theme
    * @param {string} newTheme - 'light' or 'dark'
    */
-  const setThemeMode = (newTheme) => {
+  const setThemeMode = useCallback((newTheme) => {
     if (['light', 'dark'].includes(newTheme)) {
       setTheme(newTheme)
     }
-  }
+  }, [])
 
   const value = {
     theme,

@@ -6,27 +6,36 @@ import CommentItem from './CommentItem'
 import CommentComposer from './CommentComposer'
 import Spinner from '../common/Spinner'
 
-const CommentList = ({ cardId }) => {
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Más nuevos' },
+  { value: 'oldest', label: 'Más antiguos' },
+  { value: 'popular', label: 'Más populares' }
+]
+
+const CommentList = ({ cardId, deckId, targetType = 'card' }) => {
   const { t } = useLanguage()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [sortBy, setSortBy] = useState('newest')
   const { socket, joinCardRoom, leaveCardRoom } = useSocket()
+
+  const targetId = targetType === 'deck' ? deckId : cardId
 
   useEffect(() => {
     loadComments()
 
     // Join socket room for real-time updates
-    if (cardId) {
-      joinCardRoom(cardId)
+    if (targetId) {
+      joinCardRoom(targetId) // Using same room mechanism for now
     }
 
     return () => {
-      if (cardId) {
-        leaveCardRoom(cardId)
+      if (targetId) {
+        leaveCardRoom(targetId)
       }
     }
-  }, [cardId])
+  }, [targetId, sortBy])
 
   // Socket event listeners
   useEffect(() => {
@@ -34,8 +43,20 @@ const CommentList = ({ cardId }) => {
 
     const handleNewComment = (data) => {
       if (!data.parentId) {
-        // Top-level comment
-        setComments(prev => [data.comment, ...prev])
+        // Top-level comment - check if it already exists (prevent duplicates)
+        setComments(prev => {
+          const exists = prev.some(c => c._id === data.comment._id)
+          if (exists) return prev
+
+          if (sortBy === 'newest') {
+            return [data.comment, ...prev]
+          }
+          return prev // Will reload for other sort orders
+        })
+
+        if (sortBy !== 'newest') {
+          loadComments() // Reload to maintain sort order
+        }
       } else {
         // Reply - reload to get updated tree
         loadComments()
@@ -65,14 +86,19 @@ const CommentList = ({ cardId }) => {
       socket.off('comment:hidden', handleCommentHidden)
       socket.off('comment:deleted', handleCommentDeleted)
     }
-  }, [socket])
+  }, [socket, sortBy])
 
   const loadComments = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const response = await commentService.getCommentsByCard(cardId)
+      let response
+      if (targetType === 'deck') {
+        response = await commentService.getCommentsByDeck(deckId, 1, 50, sortBy)
+      } else {
+        response = await commentService.getCommentsByCard(cardId, 1, 50, sortBy)
+      }
       setComments(response.data.comments)
     } catch (err) {
       setError(err.response?.data?.message || 'Error loading comments')
@@ -84,10 +110,27 @@ const CommentList = ({ cardId }) => {
 
   const handleCommentAdded = (newComment) => {
     if (!newComment.parentId) {
-      setComments(prev => [newComment, ...prev])
+      // Check if it already exists (socket may have added it)
+      setComments(prev => {
+        const exists = prev.some(c => c._id === newComment._id)
+        if (exists) return prev
+
+        if (sortBy === 'newest') {
+          return [newComment, ...prev]
+        }
+        return prev
+      })
+
+      if (sortBy !== 'newest') {
+        loadComments()
+      }
     } else {
       loadComments() // Reload to update tree
     }
+  }
+
+  const handleCommentDeleted = (commentId) => {
+    setComments(prev => prev.filter(c => c._id !== commentId))
   }
 
   if (loading && comments.length === 0) {
@@ -117,35 +160,58 @@ const CommentList = ({ cardId }) => {
         <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">{t('comments.leaveComment')}</h3>
         <CommentComposer
           cardId={cardId}
+          deckId={deckId}
+          targetType={targetType}
           onCommentAdded={handleCommentAdded}
         />
       </div>
 
-      {/* Comments list */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+      {/* Comments list header with sorting */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           {t('comments.title')} ({comments.length})
         </h3>
 
-        {comments.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500 dark:text-gray-400">
-              {t('comments.noCommentsPrompt')}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {comments.map((comment) => (
-              <CommentItem
-                key={comment._id}
-                comment={comment}
-                cardId={cardId}
-                onCommentAdded={handleCommentAdded}
-              />
-            ))}
+        {comments.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Ordenar:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
         )}
       </div>
+
+      {/* Comments list */}
+      {comments.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500 dark:text-gray-400">
+            {t('comments.noCommentsPrompt')}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <CommentItem
+              key={comment._id}
+              comment={comment}
+              cardId={cardId}
+              deckId={deckId}
+              targetType={targetType}
+              onCommentAdded={handleCommentAdded}
+              onCommentDeleted={handleCommentDeleted}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

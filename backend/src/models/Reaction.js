@@ -4,7 +4,7 @@ const reactionSchema = new mongoose.Schema({
   targetType: {
     type: String,
     required: [true, 'Target type is required'],
-    enum: ['card', 'comment']
+    enum: ['card', 'comment', 'attack', 'ability']
   },
   targetId: {
     type: String,

@@ -2,6 +2,9 @@ import Reaction from '../models/Reaction.js'
 import { generateFingerprint } from '../utils/fingerprint.js'
 import { getIO } from '../config/socket.js'
 
+// Allowed emojis
+const ALLOWED_EMOJIS = ['👍', '👎']
+
 /**
  * Get reactions for a target (card or comment)
  */
@@ -90,10 +93,18 @@ export const addReaction = async (req, res) => {
     }
 
     // Validate target type
-    if (!['card', 'comment'].includes(targetType)) {
+    if (!['card', 'comment', 'attack', 'ability'].includes(targetType)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid target type'
+      })
+    }
+
+    // Validate emoji
+    if (!ALLOWED_EMOJIS.includes(emoji)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid emoji. Only thumbs up and thumbs down are allowed'
       })
     }
 

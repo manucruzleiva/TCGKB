@@ -33,5 +33,10 @@ export const cardService = {
       params: { limit }
     })
     return response.data
+  },
+
+  getCardAlternateArts: async (cardId) => {
+    const response = await api.get(`/cards/${cardId}/alternate-arts`)
+    return response.data
   }
 }

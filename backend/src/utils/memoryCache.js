@@ -104,8 +104,8 @@ class MemoryCache {
   }
 }
 
-// Global cache instances
-export const searchCache = new MemoryCache(5000, 1800000) // 5k items, 30 min TTL
-export const cardCache = new MemoryCache(10000, 3600000) // 10k items, 1 hour TTL
+// Global cache instances - aggressive TTLs for better performance
+export const searchCache = new MemoryCache(10000, 14400000) // 10k items, 4 hours TTL
+export const cardCache = new MemoryCache(20000, 86400000) // 20k items, 24 hours TTL
 
 export default MemoryCache

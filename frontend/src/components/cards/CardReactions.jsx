@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import { reactionService } from '../../services/reactionService'
 import { useSocket } from '../../contexts/SocketContext'
-import { useLanguage } from '../../contexts/LanguageContext'
-import EmojiPicker from '../common/EmojiPicker'
+
+const THUMBS = ['👍', '👎']
 
 const CardReactions = ({ cardId }) => {
-  const { t } = useLanguage()
   const [reactions, setReactions] = useState([])
-  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [userReaction, setUserReaction] = useState(null)
   const { socket } = useSocket()
 
   useEffect(() => {
@@ -21,7 +20,7 @@ const CardReactions = ({ cardId }) => {
 
     const handleReactionUpdate = (data) => {
       if (data.targetType === 'card' && data.targetId === cardId) {
-        loadReactions() // Reload to get fresh counts
+        loadReactions()
       }
     }
 
@@ -36,26 +35,21 @@ const CardReactions = ({ cardId }) => {
     try {
       const response = await reactionService.getReactions('card', cardId)
       setReactions(response.data.reactions)
-      setTotal(response.data.total)
+      // Find which emoji the user reacted with
+      const userReacted = response.data.reactions.find(r => r.userReacted)
+      setUserReaction(userReacted ? userReacted.emoji : null)
     } catch (error) {
       console.error('Error loading reactions:', error)
     }
   }
 
-  const handleEmojiSelect = async (emoji) => {
-    // Find if user already reacted with this emoji
-    const existingReaction = reactions.find(
-      r => r.emoji === emoji && r.userReacted
-    )
-
+  const handleReaction = async (emoji) => {
     try {
       setLoading(true)
 
-      if (existingReaction) {
-        // Remove reaction
+      if (userReaction === emoji) {
+        // Remove reaction (clicking same emoji again)
         await reactionService.removeReaction('card', cardId, emoji)
-
-        // Optimistic update
         setReactions(prev =>
           prev.map(r =>
             r.emoji === emoji
@@ -63,14 +57,13 @@ const CardReactions = ({ cardId }) => {
               : r
           ).filter(r => r.count > 0)
         )
-        setTotal(prev => prev - 1)
+        setUserReaction(null)
       } else {
         // Add or change reaction
         const response = await reactionService.addReaction('card', cardId, emoji)
 
-        // If backend changed the reaction (removed old one), update UI accordingly
         if (response.data.changed && response.data.previousEmoji) {
-          // Remove previous emoji reaction
+          // Changed from one emoji to another
           setReactions(prev => {
             let updated = prev.map(r => {
               if (r.emoji === response.data.previousEmoji) {
@@ -79,7 +72,6 @@ const CardReactions = ({ cardId }) => {
               return r
             }).filter(r => r.count > 0)
 
-            // Add new emoji reaction
             const existing = updated.find(r => r.emoji === emoji)
             if (existing) {
               updated = updated.map(r =>
@@ -94,7 +86,7 @@ const CardReactions = ({ cardId }) => {
             return updated
           })
         } else {
-          // Just add the new reaction
+          // New reaction
           setReactions(prev => {
             const existing = prev.find(r => r.emoji === emoji)
             if (existing) {
@@ -107,51 +99,50 @@ const CardReactions = ({ cardId }) => {
               return [...prev, { emoji, count: 1, userReacted: true }]
             }
           })
-          setTotal(prev => prev + 1)
         }
+        setUserReaction(emoji)
       }
     } catch (error) {
       console.error('Error updating reaction:', error)
-      // Reload on error to sync state
       loadReactions()
     } finally {
       setLoading(false)
     }
   }
 
-  if (reactions.length === 0 && total === 0) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-500 dark:text-gray-400">{t('comments.beFirst')}</span>
-        <EmojiPicker onEmojiSelect={handleEmojiSelect} />
-      </div>
-    )
+  const getCount = (emoji) => {
+    const reaction = reactions.find(r => r.emoji === emoji)
+    return reaction ? reaction.count : 0
   }
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {/* Existing reactions */}
-      {reactions.map((reaction) => (
-        <button
-          key={reaction.emoji}
-          onClick={() => handleEmojiSelect(reaction.emoji)}
-          disabled={loading}
-          className={`
-            px-3 py-1 rounded-full text-sm flex items-center gap-1 transition-all
-            ${reaction.userReacted
-              ? 'bg-primary-100 dark:bg-primary-900 border-2 border-primary-500 dark:border-primary-400 text-primary-700 dark:text-primary-300'
-              : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border-2 border-transparent'
-            }
-          `}
-          title={reaction.userReacted ? t('reactions.change') : t('reactions.react')}
-        >
-          <span>{reaction.emoji}</span>
-          <span className="font-medium">{reaction.count}</span>
-        </button>
-      ))}
+    <div className="flex items-center gap-2">
+      {THUMBS.map((emoji) => {
+        const count = getCount(emoji)
+        const isSelected = userReaction === emoji
+        const isOther = userReaction && userReaction !== emoji
 
-      {/* Add new reaction */}
-      <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+        // Hide the other option if user has selected one
+        if (isOther && count === 0) return null
+
+        return (
+          <button
+            key={emoji}
+            onClick={() => handleReaction(emoji)}
+            disabled={loading}
+            className={`
+              px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5 transition-all
+              ${isSelected
+                ? 'bg-primary-100 dark:bg-primary-900 border-2 border-primary-500 dark:border-primary-400'
+                : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border-2 border-transparent'
+              }
+            `}
+          >
+            <span className="text-lg">{emoji}</span>
+            {count > 0 && <span className="font-medium">{count}</span>}
+          </button>
+        )
+      })}
     </div>
   )
 }

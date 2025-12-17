@@ -2,6 +2,7 @@ import express from 'express'
 import {
   getCards,
   getCardById,
+  getCardAlternateArts,
   searchCardsAutocomplete,
   getNewestCards,
   getMostCommentedCards
@@ -24,6 +25,9 @@ router.get('/most-commented', getMostCommentedCards)
 
 // Search cards for autocomplete
 router.get('/search', searchCardsAutocomplete)
+
+// Get alternate arts/reprints for a card
+router.get('/:cardId/alternate-arts', getCardAlternateArts)
 
 // Get card by ID (must be last to avoid conflicts)
 router.get('/:cardId', getCardById)

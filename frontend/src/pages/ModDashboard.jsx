@@ -1,14 +1,32 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { useNavigate, Link } from 'react-router-dom'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useDateFormat } from '../contexts/DateFormatContext'
 import api from '../services/api'
 import Button from '../components/common/Button'
+
+const STATUS_COLORS = {
+  new: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200',
+  reviewing: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200',
+  in_progress: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200',
+  resolved: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200',
+  wont_fix: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+}
+
+const STATUS_LABELS = {
+  new: { es: 'Nuevo', en: 'New' },
+  reviewing: { es: 'Revisando', en: 'Reviewing' },
+  in_progress: { es: 'En Progreso', en: 'In Progress' },
+  resolved: { es: 'Resuelto', en: 'Resolved' },
+  wont_fix: { es: 'No se arreglará', en: "Won't Fix" }
+}
 
 const ModDashboard = () => {
   const { user, isAuthenticated } = useAuth()
   const { language } = useLanguage()
+  const { timeAgo } = useDateFormat()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
@@ -17,6 +35,11 @@ const ModDashboard = () => {
   const [summary, setSummary] = useState(null)
   const [timeRange, setTimeRange] = useState(30)
   const [updatingUser, setUpdatingUser] = useState(null)
+  const [bugReports, setBugReports] = useState([])
+  const [bugCounts, setBugCounts] = useState({})
+  const [bugStatusFilter, setBugStatusFilter] = useState('all')
+  const [selectedBug, setSelectedBug] = useState(null)
+  const [updatingBug, setUpdatingBug] = useState(null)
 
   useEffect(() => {
     // Redirect if not admin
@@ -37,10 +60,11 @@ const ModDashboard = () => {
     try {
       setLoading(true)
 
-      const [timeSeriesRes, usersRes, summaryRes] = await Promise.all([
+      const [timeSeriesRes, usersRes, summaryRes, bugsRes] = await Promise.all([
         api.get(`/mod/time-series?days=${timeRange}`),
         api.get('/mod/users'),
-        api.get('/mod/summary')
+        api.get('/mod/summary'),
+        api.get(`/bugs?status=${bugStatusFilter}`)
       ])
 
       if (timeSeriesRes.data.success) {
@@ -54,10 +78,65 @@ const ModDashboard = () => {
       if (summaryRes.data.success) {
         setSummary(summaryRes.data.data)
       }
+
+      if (bugsRes.data.success) {
+        setBugReports(bugsRes.data.data.bugReports)
+        setBugCounts(bugsRes.data.data.counts || {})
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchBugReports = async () => {
+    try {
+      const response = await api.get(`/bugs?status=${bugStatusFilter}`)
+      if (response.data.success) {
+        setBugReports(response.data.data.bugReports)
+        setBugCounts(response.data.data.counts || {})
+      }
+    } catch (error) {
+      console.error('Error fetching bug reports:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'admin') {
+      fetchBugReports()
+    }
+  }, [bugStatusFilter])
+
+  const handleBugStatusChange = async (bugId, newStatus) => {
+    try {
+      setUpdatingBug(bugId)
+      const response = await api.put(`/bugs/${bugId}`, { status: newStatus })
+
+      if (response.data.success) {
+        setBugReports(prev =>
+          prev.map(b => b._id === bugId ? { ...b, status: newStatus } : b)
+        )
+        setSelectedBug(null)
+      }
+    } catch (error) {
+      console.error('Error updating bug status:', error)
+    } finally {
+      setUpdatingBug(null)
+    }
+  }
+
+  const handleDeleteBug = async (bugId) => {
+    if (!window.confirm(language === 'es' ? '¿Eliminar este reporte?' : 'Delete this report?')) {
+      return
+    }
+
+    try {
+      await api.delete(`/bugs/${bugId}`)
+      setBugReports(prev => prev.filter(b => b._id !== bugId))
+      setSelectedBug(null)
+    } catch (error) {
+      console.error('Error deleting bug:', error)
     }
   }
 
@@ -109,7 +188,7 @@ const ModDashboard = () => {
 
       {/* Summary Stats */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-blue-100 dark:bg-blue-900 rounded-lg p-5">
             <div className="text-3xl mb-2">💬</div>
             <div className="text-2xl font-bold text-blue-800 dark:text-blue-200">
@@ -126,7 +205,7 @@ const ModDashboard = () => {
               {summary.stats.moderatedComments}
             </div>
             <div className="text-sm text-red-700 dark:text-red-300">
-              {language === 'es' ? 'Comentarios Moderados' : 'Moderated Comments'}
+              {language === 'es' ? 'Moderados' : 'Moderated'}
             </div>
           </div>
 
@@ -136,7 +215,7 @@ const ModDashboard = () => {
               {summary.stats.totalUsers}
             </div>
             <div className="text-sm text-green-700 dark:text-green-300">
-              {language === 'es' ? 'Total Usuarios' : 'Total Users'}
+              {language === 'es' ? 'Usuarios' : 'Users'}
             </div>
           </div>
 
@@ -146,88 +225,164 @@ const ModDashboard = () => {
               {summary.stats.adminUsers}
             </div>
             <div className="text-sm text-purple-700 dark:text-purple-300">
-              {language === 'es' ? 'Administradores' : 'Administrators'}
+              {language === 'es' ? 'Admins' : 'Admins'}
             </div>
           </div>
+
+          <Link
+            to="/mod/bugs"
+            className="bg-orange-100 dark:bg-orange-900 rounded-lg p-5 hover:bg-orange-200 dark:hover:bg-orange-800 transition-colors"
+          >
+            <div className="text-3xl mb-2">🐛</div>
+            <div className="text-2xl font-bold text-orange-800 dark:text-orange-200">
+              {bugCounts.open || 0}
+            </div>
+            <div className="text-sm text-orange-700 dark:text-orange-300">
+              {language === 'es' ? 'Bugs Abiertos' : 'Open Bugs'}
+            </div>
+          </Link>
         </div>
       )}
 
-      {/* Time Series Chart */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {language === 'es' ? 'Actividad en el Tiempo' : 'Activity Over Time'}
+      {/* Time Range Selector */}
+      <div className="flex justify-end mb-4">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setTimeRange(7)}
+            className={`px-3 py-1 rounded text-sm ${
+              timeRange === 7
+                ? 'bg-primary-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            {language === 'es' ? '7 días' : '7 days'}
+          </button>
+          <button
+            onClick={() => setTimeRange(30)}
+            className={`px-3 py-1 rounded text-sm ${
+              timeRange === 30
+                ? 'bg-primary-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            {language === 'es' ? '30 días' : '30 days'}
+          </button>
+          <button
+            onClick={() => setTimeRange(90)}
+            className={`px-3 py-1 rounded text-sm ${
+              timeRange === 90
+                ? 'bg-primary-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            {language === 'es' ? '90 días' : '90 days'}
+          </button>
+        </div>
+      </div>
+
+      {/* Activity Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Comments Over Time */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            {language === 'es' ? 'Comentarios' : 'Comments'}
           </h2>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setTimeRange(7)}
-              className={`px-3 py-1 rounded text-sm ${
-                timeRange === 7
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              {language === 'es' ? '7 días' : '7 days'}
-            </button>
-            <button
-              onClick={() => setTimeRange(30)}
-              className={`px-3 py-1 rounded text-sm ${
-                timeRange === 30
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              {language === 'es' ? '30 días' : '30 days'}
-            </button>
-            <button
-              onClick={() => setTimeRange(90)}
-              className={`px-3 py-1 rounded text-sm ${
-                timeRange === 90
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              {language === 'es' ? '90 días' : '90 days'}
-            </button>
-          </div>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={timeSeriesData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="date" tick={{ fill: '#9CA3AF', fontSize: 10 }} />
+              <YAxis tick={{ fill: '#9CA3AF', fontSize: 10 }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1F2937',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#F3F4F6'
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="comments" stroke="#8b5cf6" strokeWidth={2} name={language === 'es' ? 'Activos' : 'Active'} dot={false} />
+              <Line type="monotone" dataKey="moderatedComments" stroke="#ef4444" strokeWidth={2} name={language === 'es' ? 'Moderados' : 'Moderated'} dot={false} />
+              <Line type="monotone" dataKey="hiddenComments" stroke="#f59e0b" strokeWidth={2} name={language === 'es' ? 'Ocultos' : 'Hidden'} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
 
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={timeSeriesData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="date"
-              tick={{ fill: 'currentColor' }}
-              className="text-gray-600 dark:text-gray-400"
-            />
-            <YAxis
-              tick={{ fill: 'currentColor' }}
-              className="text-gray-600 dark:text-gray-400"
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'var(--tooltip-bg)',
-                border: '1px solid var(--tooltip-border)',
-                borderRadius: '8px'
-              }}
-            />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="comments"
-              stroke="#8b5cf6"
-              strokeWidth={2}
-              name={language === 'es' ? 'Comentarios' : 'Comments'}
-            />
-            <Line
-              type="monotone"
-              dataKey="reactions"
-              stroke="#ec4899"
-              strokeWidth={2}
-              name={language === 'es' ? 'Reacciones' : 'Reactions'}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        {/* Reactions By Type */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            {language === 'es' ? 'Reacciones por Tipo' : 'Reactions by Type'}
+          </h2>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={timeSeriesData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="date" tick={{ fill: '#9CA3AF', fontSize: 10 }} />
+              <YAxis tick={{ fill: '#9CA3AF', fontSize: 10 }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1F2937',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#F3F4F6'
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="likes" stroke="#22c55e" strokeWidth={2} name="👍" dot={false} />
+              <Line type="monotone" dataKey="dislikes" stroke="#ef4444" strokeWidth={2} name="👎" dot={false} />
+              <Line type="monotone" dataKey="otherReactions" stroke="#3b82f6" strokeWidth={2} name={language === 'es' ? 'Otras' : 'Other'} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Users Over Time */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            {language === 'es' ? 'Usuarios en el Tiempo' : 'Users Over Time'}
+          </h2>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={timeSeriesData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="date" tick={{ fill: '#9CA3AF', fontSize: 10 }} />
+              <YAxis tick={{ fill: '#9CA3AF', fontSize: 10 }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1F2937',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#F3F4F6'
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="totalUsers" stroke="#8b5cf6" strokeWidth={2} name={language === 'es' ? 'Total Usuarios' : 'Total Users'} dot={false} />
+              <Line type="monotone" dataKey="newUsers" stroke="#22c55e" strokeWidth={2} name={language === 'es' ? 'Nuevos' : 'New Users'} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Total Activity Overview */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            {language === 'es' ? 'Actividad Total' : 'Total Activity'}
+          </h2>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={timeSeriesData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="date" tick={{ fill: '#9CA3AF', fontSize: 10 }} />
+              <YAxis tick={{ fill: '#9CA3AF', fontSize: 10 }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1F2937',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#F3F4F6'
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="comments" stroke="#8b5cf6" strokeWidth={2} name={language === 'es' ? 'Comentarios' : 'Comments'} dot={false} />
+              <Line type="monotone" dataKey="reactions" stroke="#ec4899" strokeWidth={2} name={language === 'es' ? 'Reacciones' : 'Reactions'} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* User Management */}
@@ -283,8 +438,13 @@ const ModDashboard = () => {
                       {u.role === 'admin' ? (language === 'es' ? 'Admin' : 'Admin') : (language === 'es' ? 'Usuario' : 'User')}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-sm">
-                    💬 {u.stats.comments} | 😀 {u.stats.reactions}
+                  <td className="py-3 px-4 text-sm">
+                    <button
+                      onClick={() => navigate(`/mod/user/${u._id}`)}
+                      className="text-primary-600 dark:text-primary-400 hover:underline"
+                    >
+                      💬 {u.stats.comments} | 😀 {u.stats.reactions}
+                    </button>
                   </td>
                   <td className="py-3 px-4">
                     {u._id !== user._id && u.email !== 'shieromanu@gmail.com' && (

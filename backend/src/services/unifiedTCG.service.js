@@ -276,8 +276,8 @@ class UnifiedTCGService {
             fromCache: true
           }
 
-          // Store in memory cache
-          searchCache.set('search', searchKey, result, 1800000) // 30 min
+          // Store in memory cache (4 hours)
+          searchCache.set('search', searchKey, result, 14400000)
 
           log.perf(MODULE, `L2 cache hit for "${name}"`, Date.now() - startTime)
           return result
@@ -332,8 +332,8 @@ class UnifiedTCGService {
         )
       }
 
-      // Store in memory cache
-      searchCache.set('search', searchKey, result, 1800000) // 30 min
+      // Store in memory cache (4 hours)
+      searchCache.set('search', searchKey, result, 14400000)
 
       log.perf(MODULE, `API search for "${name}"`, Date.now() - startTime)
       log.info(MODULE, `Found ${filteredPokemon.length} Pokemon + ${rifboundCardsTagged.length} Rifbound = ${limitedCards.length} total`)
@@ -423,10 +423,12 @@ class UnifiedTCGService {
             set: card.set,
             number: card.number,
             rarity: card.rarity,
-            tcgSystem: card.tcgSystem || 'pokemon'
+            tcgSystem: card.tcgSystem || 'pokemon',
+            attacks: card.attacks || [],
+            abilities: card.abilities || []
           }))
 
-        searchCache.set('autocomplete', searchKey, results, 1800000) // 30 min
+        searchCache.set('autocomplete', searchKey, results, 14400000) // 4 hours
         log.perf(MODULE, `L2 autocomplete hit "${searchKey}"`, Date.now() - startTime)
         return results
       }
@@ -462,11 +464,13 @@ class UnifiedTCGService {
           set: card.set,
           number: card.number,
           rarity: card.rarity,
-          tcgSystem: card.tcgSystem || 'pokemon'
+          tcgSystem: card.tcgSystem || 'pokemon',
+          attacks: card.attacks || [],
+          abilities: card.abilities || []
         }))
 
-      // Cache results
-      searchCache.set('autocomplete', searchKey, filteredResults, 1800000) // 30 min
+      // Cache results (4 hours)
+      searchCache.set('autocomplete', searchKey, filteredResults, 14400000)
 
       // Background cache to MongoDB
       if (pokemonResults.length > 0) {
@@ -496,7 +500,9 @@ class UnifiedTCGService {
             images: c.data.images,
             set: c.data.set,
             number: c.data.number,
-            tcgSystem: c.data.tcgSystem || 'pokemon'
+            tcgSystem: c.data.tcgSystem || 'pokemon',
+            attacks: c.data.attacks || [],
+            abilities: c.data.abilities || []
           }))
         }
       } catch (fallbackError) {
@@ -530,8 +536,8 @@ class UnifiedTCGService {
         cached.lastViewed = new Date()
         await cached.save()
 
-        // Store in memory cache
-        cardCache.set('card', cardId, cached.data, 3600000) // 1 hour
+        // Store in memory cache (24 hours)
+        cardCache.set('card', cardId, cached.data, 86400000)
 
         log.perf(MODULE, `L2 card cache hit ${cardId}`, Date.now() - startTime)
         return cached.data
@@ -543,7 +549,7 @@ class UnifiedTCGService {
         if (card) {
           const cardData = { ...card, tcgSystem: 'pokemon' }
           await this.cacheCard(cardData, 'pokemon')
-          cardCache.set('card', cardId, cardData, 3600000) // 1 hour
+          cardCache.set('card', cardId, cardData, 86400000) // 24 hours
           log.perf(MODULE, `Pokemon API card ${cardId}`, Date.now() - startTime)
           return cardData
         }
@@ -556,7 +562,7 @@ class UnifiedTCGService {
         const card = await riftboundService.getCardById(cardId)
         if (card) {
           await this.cacheCard(card, 'riftbound')
-          cardCache.set('card', cardId, card, 3600000) // 1 hour
+          cardCache.set('card', cardId, card, 86400000) // 24 hours
           log.perf(MODULE, `Riftbound API card ${cardId}`, Date.now() - startTime)
           return card
         }
@@ -675,7 +681,7 @@ class UnifiedTCGService {
    */
   async cacheCard(card, tcgSystem) {
     try {
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
       const cardData = { ...card, tcgSystem }
 
       await CardCache.findOneAndUpdate(

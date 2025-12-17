@@ -1,4 +1,5 @@
 import Comment from '../models/Comment.js'
+import Reaction from '../models/Reaction.js'
 import { getIO } from '../config/socket.js'
 
 /**
@@ -9,22 +10,83 @@ export const getCommentsByCard = async (req, res) => {
     const { cardId } = req.params
     const { page = 1, pageSize = 50, sortBy = 'newest' } = req.query
 
-    const sortOrder = sortBy === 'oldest' ? 1 : -1
-
-    // Get top-level comments (no parent)
     const skip = (parseInt(page) - 1) * parseInt(pageSize)
     const limit = parseInt(pageSize)
 
-    const topLevelComments = await Comment.find({
-      cardId,
-      parentId: null,
-      isModerated: false
-    })
-      .sort({ createdAt: sortOrder })
-      .skip(skip)
-      .limit(limit)
-      .populate('userId', 'username role')
-      .lean()
+    let topLevelComments
+
+    if (sortBy === 'popular') {
+      // Sort by reaction count (thumbs up - thumbs down)
+      const commentsWithReactions = await Comment.aggregate([
+        { $match: { cardId, parentId: null } },
+        {
+          $lookup: {
+            from: 'reactions',
+            let: { commentId: { $toString: '$_id' } },
+            pipeline: [
+              { $match: { $expr: { $and: [
+                { $eq: ['$targetType', 'comment'] },
+                { $eq: ['$targetId', '$$commentId'] }
+              ]}}},
+              { $group: {
+                _id: '$emoji',
+                count: { $sum: 1 }
+              }}
+            ],
+            as: 'reactionCounts'
+          }
+        },
+        {
+          $addFields: {
+            thumbsUp: {
+              $ifNull: [
+                { $arrayElemAt: [
+                  { $filter: { input: '$reactionCounts', cond: { $eq: ['$$this._id', '👍'] } } },
+                  0
+                ] },
+                { count: 0 }
+              ]
+            },
+            thumbsDown: {
+              $ifNull: [
+                { $arrayElemAt: [
+                  { $filter: { input: '$reactionCounts', cond: { $eq: ['$$this._id', '👎'] } } },
+                  0
+                ] },
+                { count: 0 }
+              ]
+            }
+          }
+        },
+        {
+          $addFields: {
+            popularityScore: { $subtract: [{ $ifNull: ['$thumbsUp.count', 0] }, { $ifNull: ['$thumbsDown.count', 0] }] }
+          }
+        },
+        { $sort: { popularityScore: -1, createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        { $project: { reactionCounts: 0, thumbsUp: 0, thumbsDown: 0, popularityScore: 0 } }
+      ])
+
+      // Populate userId
+      topLevelComments = await Comment.populate(commentsWithReactions, {
+        path: 'userId',
+        select: 'username role'
+      })
+    } else {
+      // Sort by date
+      const sortOrder = sortBy === 'oldest' ? 1 : -1
+      topLevelComments = await Comment.find({
+        cardId,
+        parentId: null
+      })
+        .sort({ createdAt: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .populate('userId', 'username role')
+        .lean()
+    }
 
     // For each top-level comment, get all nested replies
     const commentsWithReplies = await Promise.all(
@@ -46,8 +108,7 @@ export const getCommentsByCard = async (req, res) => {
 
     const totalCount = await Comment.countDocuments({
       cardId,
-      parentId: null,
-      isModerated: false
+      parentId: null
     })
 
     res.status(200).json({
@@ -98,26 +159,109 @@ function buildCommentTree(comments, parentId) {
 }
 
 /**
+ * Get comments for a deck
+ */
+export const getCommentsByDeck = async (req, res) => {
+  try {
+    const { deckId } = req.params
+    const { page = 1, pageSize = 50, sortBy = 'newest' } = req.query
+
+    const skip = (parseInt(page) - 1) * parseInt(pageSize)
+    const limit = parseInt(pageSize)
+
+    // Sort by date
+    const sortOrder = sortBy === 'oldest' ? 1 : -1
+    const topLevelComments = await Comment.find({
+      deckId,
+      targetType: 'deck',
+      parentId: null
+    })
+      .sort({ createdAt: sortOrder })
+      .skip(skip)
+      .limit(limit)
+      .populate('userId', 'username role')
+      .lean()
+
+    // For each top-level comment, get all nested replies
+    const commentsWithReplies = await Promise.all(
+      topLevelComments.map(async (comment) => {
+        const replies = await Comment.find({
+          deckId,
+          targetType: 'deck',
+          path: new RegExp(`^${comment._id}/`)
+        })
+          .sort({ path: 1 })
+          .populate('userId', 'username role')
+          .lean()
+
+        return {
+          ...comment,
+          replies: buildCommentTree(replies, comment._id.toString())
+        }
+      })
+    )
+
+    const totalCount = await Comment.countDocuments({
+      deckId,
+      targetType: 'deck',
+      parentId: null
+    })
+
+    res.status(200).json({
+      success: true,
+      data: {
+        comments: commentsWithReplies,
+        pagination: {
+          page: parseInt(page),
+          pageSize: limit,
+          totalCount
+        }
+      }
+    })
+  } catch (error) {
+    console.error('Get deck comments error:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+/**
  * Create a comment
  */
 export const createComment = async (req, res) => {
   try {
-    const { cardId, content, parentId, cardMentions } = req.body
+    const { cardId, deckId, targetType, content, parentId, cardMentions, deckMentions } = req.body
 
-    if (!cardId || !content) {
+    // Must have either cardId or deckId
+    if (!cardId && !deckId) {
       return res.status(400).json({
         success: false,
-        message: 'Card ID and content are required'
+        message: 'Card ID or Deck ID is required'
       })
     }
 
+    if (!content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Content is required'
+      })
+    }
+
+    // Determine target type
+    const commentTargetType = targetType || (deckId ? 'deck' : 'card')
+
     // Create comment instance (doesn't save yet)
     const comment = new Comment({
-      cardId,
+      targetType: commentTargetType,
+      cardId: cardId || null,
+      deckId: deckId || null,
       userId: req.user._id,
       content,
       parentId: parentId || null,
-      cardMentions: cardMentions || []
+      cardMentions: cardMentions || [],
+      deckMentions: deckMentions || []
     })
 
     // Save (triggers pre-save middleware)
@@ -129,7 +273,8 @@ export const createComment = async (req, res) => {
     // Emit socket event
     try {
       const io = getIO()
-      io.to(`card:${cardId}`).emit(parentId ? 'comment:reply' : 'comment:new', {
+      const room = commentTargetType === 'deck' ? `deck:${deckId}` : `card:${cardId}`
+      io.to(room).emit(parentId ? 'comment:reply' : 'comment:new', {
         comment: comment.toObject(),
         parentId
       })
@@ -241,13 +386,77 @@ export const hideComment = async (req, res) => {
 }
 
 /**
+ * Moderate comment (admin only)
+ */
+export const moderateComment = async (req, res) => {
+  try {
+    const { commentId } = req.params
+    const { isModerated, reason } = req.body
+
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only administrators can moderate comments'
+      })
+    }
+
+    const comment = await Comment.findById(commentId)
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found'
+      })
+    }
+
+    // Can't moderate your own comment
+    if (comment.userId.toString() === req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You cannot moderate your own comments'
+      })
+    }
+
+    comment.isModerated = isModerated
+    comment.moderatedBy = isModerated ? req.user._id : null
+    comment.moderatedAt = isModerated ? new Date() : null
+    comment.moderationReason = isModerated ? reason : null
+    await comment.save()
+
+    // Emit socket event
+    try {
+      const io = getIO()
+      io.to(`card:${comment.cardId}`).emit('comment:moderated', {
+        commentId,
+        isModerated,
+        moderationReason: comment.moderationReason
+      })
+    } catch (socketError) {
+      console.error('Socket emit error:', socketError)
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { comment }
+    })
+  } catch (error) {
+    console.error('Moderate comment error:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+/**
  * Delete comment (within grace period)
  */
 export const deleteComment = async (req, res) => {
   try {
     const { commentId } = req.params
 
-    const comment = await Comment.findById(commentId)
+    const comment = await Comment.findById(commentId).lean()
 
     if (!comment) {
       return res.status(404).json({
@@ -266,7 +475,7 @@ export const deleteComment = async (req, res) => {
 
     // Check grace period (5 minutes)
     const gracePeriod = 5 * 60 * 1000 // 5 minutes in ms
-    const timeSinceCreation = Date.now() - comment.createdAt.getTime()
+    const timeSinceCreation = Date.now() - new Date(comment.createdAt).getTime()
 
     if (timeSinceCreation > gracePeriod) {
       return res.status(403).json({
@@ -275,13 +484,8 @@ export const deleteComment = async (req, res) => {
       })
     }
 
-    // Delete the comment and all its replies
-    await Comment.deleteMany({
-      $or: [
-        { _id: commentId },
-        { path: new RegExp(`^${comment.path}/`) }
-      ]
-    })
+    // Delete just this comment (replies stay orphaned but hidden)
+    await Comment.deleteOne({ _id: commentId })
 
     // Emit socket event
     try {

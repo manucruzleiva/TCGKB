@@ -12,6 +12,8 @@ import commentsRoutes from './routes/comments.routes.js'
 import reactionsRoutes from './routes/reactions.routes.js'
 import statsRoutes from './routes/stats.routes.js'
 import modRoutes from './routes/mod.routes.js'
+import bugReportRoutes from './routes/bugReport.routes.js'
+import deckRoutes from './routes/deck.routes.js'
 
 // Load environment variables
 dotenv.config()
@@ -34,8 +36,8 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true
 }))
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+app.use(express.json({ limit: '10mb' })) // Increased for screenshots
+app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 // Routes
 app.get('/api/health', (req, res) => {
@@ -48,6 +50,8 @@ app.use('/api/comments', commentsRoutes)
 app.use('/api/reactions', reactionsRoutes)
 app.use('/api/stats', statsRoutes)
 app.use('/api/mod', modRoutes)
+app.use('/api/bugs', bugReportRoutes)
+app.use('/api/decks', deckRoutes)
 
 // Error handler (must be last)
 app.use(errorHandler)

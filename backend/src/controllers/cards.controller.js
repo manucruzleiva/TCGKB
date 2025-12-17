@@ -133,6 +133,110 @@ export const getNewestCards = async (req, res) => {
 }
 
 /**
+ * Get alternate arts/reprints of a card
+ * Cards are considered reprints if they have:
+ * - Same name
+ * - Same attacks (100% match)
+ * - Same abilities (100% match)
+ */
+export const getCardAlternateArts = async (req, res) => {
+  try {
+    const { cardId } = req.params
+
+    // Get the original card
+    const originalCard = await unifiedTCGService.getCardById(cardId)
+
+    if (!originalCard) {
+      return res.status(404).json({
+        success: false,
+        message: 'Card not found'
+      })
+    }
+
+    // Search for cards with the same name
+    const searchResults = await unifiedTCGService.searchCards(
+      originalCard.name,
+      1,
+      50 // Get up to 50 potential matches
+    )
+
+    const allCards = searchResults.cards || []
+
+    // Helper function to compare attacks
+    const attacksMatch = (attacks1, attacks2) => {
+      if (!attacks1 && !attacks2) return true
+      if (!attacks1 || !attacks2) return false
+      if (attacks1.length !== attacks2.length) return false
+
+      return attacks1.every((attack1, idx) => {
+        const attack2 = attacks2[idx]
+        return attack1.name === attack2.name &&
+          attack1.damage === attack2.damage &&
+          JSON.stringify(attack1.cost || []) === JSON.stringify(attack2.cost || [])
+      })
+    }
+
+    // Helper function to compare abilities
+    const abilitiesMatch = (abilities1, abilities2) => {
+      if (!abilities1 && !abilities2) return true
+      if (!abilities1 || !abilities2) return false
+      if (abilities1.length !== abilities2.length) return false
+
+      return abilities1.every((ability1, idx) => {
+        const ability2 = abilities2[idx]
+        return ability1.name === ability2.name &&
+          ability1.type === ability2.type
+      })
+    }
+
+    // Filter to find reprints/alternate arts
+    const alternateArts = allCards.filter(card => {
+      // Skip the original card
+      if (card.id === cardId) return false
+
+      // Must have exact same name
+      if (card.name !== originalCard.name) return false
+
+      // Attacks must match 100%
+      if (!attacksMatch(card.attacks, originalCard.attacks)) return false
+
+      // Abilities must match 100%
+      if (!abilitiesMatch(card.abilities, originalCard.abilities)) return false
+
+      return true
+    })
+
+    // Sort by release date (newest first)
+    alternateArts.sort((a, b) => {
+      const dateA = a.set?.releaseDate || '1999-01-01'
+      const dateB = b.set?.releaseDate || '1999-01-01'
+      return dateB.localeCompare(dateA)
+    })
+
+    // Include the original card at the beginning
+    const allArts = [originalCard, ...alternateArts]
+
+    log.info(MODULE, `Found ${alternateArts.length} alternate arts for ${originalCard.name}`)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        original: originalCard,
+        alternateArts,
+        allArts,
+        totalCount: allArts.length
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get alternate arts failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+/**
  * Get most commented cards
  */
 export const getMostCommentedCards = async (req, res) => {

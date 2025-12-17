@@ -137,6 +137,16 @@ const Header = () => {
             <p className="text-xs text-gray-500 dark:text-gray-400">TCG Knowledge Base</p>
           </Link>
 
+          {/* Main Navigation */}
+          <nav className="hidden md:flex items-center gap-4">
+            <Link
+              to="/decks"
+              className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              🃏 {language === 'es' ? 'Mazos' : 'Decks'}
+            </Link>
+          </nav>
+
           {/* Search Bar with Autocomplete */}
           <div ref={searchRef} className="flex-1 max-w-md hidden md:block" style={{ position: 'relative' }}>
             <form onSubmit={handleHeaderSearch}>
@@ -259,15 +269,26 @@ const Header = () => {
                           👑 {language === 'es' ? 'Panel de Moderación' : 'Mod Dashboard'}
                         </Link>
                       )}
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false)
-                          logout()
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        🚪 {t('nav.logout')}
-                      </button>
+                      <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
+                        <Link
+                          to="/changelog"
+                          onClick={() => setShowUserMenu(false)}
+                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          📋 {language === 'es' ? 'Changelog' : 'Changelog'}
+                        </Link>
+                      </div>
+                      <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false)
+                            logout()
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          🚪 {t('nav.logout')}
+                        </button>
+                      </div>
                     </>
                   ) : (
                     <>
@@ -285,6 +306,15 @@ const Header = () => {
                       >
                         {t('nav.register')}
                       </Link>
+                      <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
+                        <Link
+                          to="/changelog"
+                          onClick={() => setShowUserMenu(false)}
+                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          📋 {language === 'es' ? 'Changelog' : 'Changelog'}
+                        </Link>
+                      </div>
                     </>
                   )}
                 </div>

@@ -12,7 +12,13 @@
       "Bash(git commit:*)",
       "Bash(git restore:*)",
       "Bash(taskkill:*)",
-      "Bash(taskkill //F //PID 7824)"
+      "Bash(taskkill //F //PID 7824)",
+      "Bash(git push:*)",
+      "Bash(npm run dev:frontend:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm install:*)",
+      "Bash(vercel --version:*)",
+      "Bash(vercel link:*)"
     ]
   }
 }

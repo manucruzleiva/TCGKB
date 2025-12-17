@@ -1,9 +1,19 @@
 import mongoose from 'mongoose'
 
 const commentSchema = new mongoose.Schema({
+  // Target can be a card or a deck
+  targetType: {
+    type: String,
+    enum: ['card', 'deck'],
+    default: 'card'
+  },
   cardId: {
     type: String,
-    required: [true, 'Card ID is required'],
+    index: true
+  },
+  deckId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Deck',
     index: true
   },
   userId: {
@@ -25,7 +35,7 @@ const commentSchema = new mongoose.Schema({
   },
   path: {
     type: String,
-    required: true,
+    default: '',
     index: true
   },
   depth: {
@@ -39,6 +49,21 @@ const commentSchema = new mongoose.Schema({
       required: true
     },
     cardName: {
+      type: String,
+      required: true
+    },
+    position: {
+      type: Number,
+      required: true
+    }
+  }],
+  deckMentions: [{
+    deckId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Deck',
+      required: true
+    },
+    deckName: {
       type: String,
       required: true
     },

@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useEffect } from 'react'
+import { createContext, useState, useContext, useEffect, useCallback } from 'react'
 import { translations, defaultLanguage, getNestedValue } from '../i18n'
 
 const LanguageContext = createContext()
@@ -9,6 +9,8 @@ export const LanguageProvider = ({ children }) => {
     const saved = localStorage.getItem('language')
     return saved || defaultLanguage
   })
+
+  const [isMorphing, setIsMorphing] = useState(false)
 
   // Save language to localStorage when it changes
   useEffect(() => {
@@ -26,19 +28,35 @@ export const LanguageProvider = ({ children }) => {
   }
 
   /**
-   * Switch to a different language
+   * Switch to a different language with morph animation
    * @param {string} newLanguage - Language code (en, es)
    */
-  const changeLanguage = (newLanguage) => {
-    if (translations[newLanguage]) {
-      setLanguage(newLanguage)
+  const changeLanguage = useCallback((newLanguage) => {
+    if (translations[newLanguage] && newLanguage !== language) {
+      // Start morph animation
+      setIsMorphing(true)
+
+      // Add morphing class to body for global text animation
+      document.body.classList.add('lang-morphing')
+
+      // Change language after brief delay for effect
+      setTimeout(() => {
+        setLanguage(newLanguage)
+      }, 150)
+
+      // Remove animation class
+      setTimeout(() => {
+        setIsMorphing(false)
+        document.body.classList.remove('lang-morphing')
+      }, 400)
     }
-  }
+  }, [language])
 
   const value = {
     language,
     changeLanguage,
-    t
+    t,
+    isMorphing
   }
 
   return (

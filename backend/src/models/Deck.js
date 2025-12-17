@@ -1,0 +1,109 @@
+import mongoose from 'mongoose'
+
+const deckCardSchema = new mongoose.Schema({
+  cardId: {
+    type: String,
+    required: true
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 4
+  },
+  // Cached card info for display
+  name: String,
+  supertype: String, // Pokemon, Trainer, Energy
+  imageSmall: String
+}, { _id: false })
+
+const deckSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Deck name is required'],
+    trim: true,
+    maxlength: [100, 'Deck name cannot exceed 100 characters']
+  },
+  description: {
+    type: String,
+    trim: true,
+    maxlength: [2000, 'Description cannot exceed 2000 characters'],
+    default: ''
+  },
+  cards: {
+    type: [deckCardSchema],
+    default: [],
+    validate: {
+      validator: function(cards) {
+        // Max 60 cards total
+        const total = cards.reduce((sum, card) => sum + card.quantity, 0)
+        return total <= 60
+      },
+      message: 'Deck cannot exceed 60 cards'
+    }
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  isPublic: {
+    type: Boolean,
+    default: false
+  },
+  format: {
+    type: String,
+    enum: ['standard', 'expanded', 'unlimited'],
+    default: 'standard'
+  },
+  tags: [{
+    type: String,
+    trim: true,
+    maxlength: 30
+  }],
+  // Stats
+  views: {
+    type: Number,
+    default: 0
+  },
+  copies: {
+    type: Number,
+    default: 0
+  }
+}, {
+  timestamps: true
+})
+
+// Virtual for total card count
+deckSchema.virtual('totalCards').get(function() {
+  return this.cards.reduce((sum, card) => sum + card.quantity, 0)
+})
+
+// Virtual for card breakdown
+deckSchema.virtual('breakdown').get(function() {
+  const breakdown = { pokemon: 0, trainer: 0, energy: 0 }
+  this.cards.forEach(card => {
+    const type = (card.supertype || '').toLowerCase()
+    if (type === 'pokémon' || type === 'pokemon') {
+      breakdown.pokemon += card.quantity
+    } else if (type === 'trainer') {
+      breakdown.trainer += card.quantity
+    } else if (type === 'energy') {
+      breakdown.energy += card.quantity
+    }
+  })
+  return breakdown
+})
+
+// Include virtuals in JSON
+deckSchema.set('toJSON', { virtuals: true })
+deckSchema.set('toObject', { virtuals: true })
+
+// Indexes
+deckSchema.index({ userId: 1 })
+deckSchema.index({ isPublic: 1, createdAt: -1 })
+deckSchema.index({ name: 'text', description: 'text' })
+
+const Deck = mongoose.model('Deck', deckSchema)
+
+export default Deck

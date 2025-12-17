@@ -1,29 +1,27 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useDateFormat } from '../../contexts/DateFormatContext'
 import { commentService } from '../../services/commentService'
+import { useLiveTimeAgo } from '../../hooks/useLiveTime'
 import CommentComposer from './CommentComposer'
 import CommentReactions from './CommentReactions'
-import Button from '../common/Button'
+import CardMentionLink from './CardMentionLink'
 
 const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
   const { user, isAdmin } = useAuth()
   const { timeAgo } = useDateFormat()
   const [showReplyForm, setShowReplyForm] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(true)
   const [localComment, setLocalComment] = useState(comment)
-  const [deleting, setDeleting] = useState(false)
+  const [showModerateForm, setShowModerateForm] = useState(false)
+  const [moderationReason, setModerationReason] = useState('')
+  const [moderating, setModerating] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // Auto-updating relative time
+  const liveTimeAgo = useLiveTimeAgo(localComment.createdAt, timeAgo)
 
   const isOwnComment = user && localComment.userId._id === user.id
-  const canDelete = isOwnComment && isWithinGracePeriod(localComment.createdAt)
-
-  // Check if within 5 minute grace period
-  function isWithinGracePeriod(createdAt) {
-    const gracePeriod = 5 * 60 * 1000 // 5 minutes
-    const timeSince = Date.now() - new Date(createdAt).getTime()
-    return timeSince < gracePeriod
-  }
+  const hasReplies = localComment.replies && localComment.replies.length > 0
 
   const handleReply = () => {
     setShowReplyForm(!showReplyForm)
@@ -42,18 +40,22 @@ const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
     }
   }
 
-  const handleDelete = async () => {
-    if (!window.confirm('¿Estás seguro de eliminar este comentario? Esta acción no se puede deshacer.')) {
-      return
-    }
-
+  const handleModerate = async () => {
     try {
-      setDeleting(true)
-      await commentService.deleteComment(localComment._id)
-      // The component will be removed via socket event or parent refresh
+      setModerating(true)
+      await commentService.moderateComment(localComment._id, !localComment.isModerated, moderationReason)
+      setLocalComment({
+        ...localComment,
+        isModerated: !localComment.isModerated,
+        moderationReason: localComment.isModerated ? null : moderationReason
+      })
+      setShowModerateForm(false)
+      setModerationReason('')
     } catch (error) {
-      alert(error.response?.data?.message || 'Error al eliminar comentario')
-      setDeleting(false)
+      console.error('Error moderating comment:', error)
+      alert(error.response?.data?.message || 'Error al moderar comentario')
+    } finally {
+      setModerating(false)
     }
   }
 
@@ -69,165 +71,102 @@ const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
     }
   }
 
-  // Render card mentions as links
+  // Render content with card mentions as interactive links
   const renderContent = () => {
-    let content = localComment.content
+    const content = localComment.content
+    const mentions = localComment.cardMentions || []
 
-    if (localComment.cardMentions && localComment.cardMentions.length > 0) {
-      localComment.cardMentions.forEach(mention => {
-        const mentionText = `@${mention.cardName}`
-        const link = `<a href="/card/${mention.cardId}" class="text-primary-600 hover:text-primary-700 font-medium">${mentionText}</a>`
-        content = content.replace(mentionText, link)
-      })
+    // Build a map of cardName to mention data for quick lookup
+    const mentionsByName = new Map()
+    mentions.forEach(m => {
+      mentionsByName.set(m.cardName.toLowerCase(), m)
+    })
+
+    const parts = []
+    let lastIndex = 0
+
+    // Regex to find all mention patterns: [@CardName.AbilityName] or [@CardName] or @CardName
+    const mentionRegex = /\[@([^\]]+)\]|@([\w\s-]+?)(?=\s|$|[.,!?;:])/g
+    let match
+
+    while ((match = mentionRegex.exec(content)) !== null) {
+      const fullMatch = match[0]
+      const insideBrackets = match[1] // Content inside [@...]
+      const atMention = match[2] // Content after @ (old format)
+
+      // Add text before this match
+      if (match.index > lastIndex) {
+        parts.push(<span key={`text-${match.index}`}>{content.slice(lastIndex, match.index)}</span>)
+      }
+
+      let cardName, abilityName, abilityType
+
+      if (insideBrackets) {
+        // Parse [@CardName] or [@CardName.AbilityName]
+        const dotIndex = insideBrackets.indexOf('.')
+        if (dotIndex > 0) {
+          cardName = insideBrackets.substring(0, dotIndex)
+          abilityName = insideBrackets.substring(dotIndex + 1)
+        } else {
+          cardName = insideBrackets
+        }
+      } else if (atMention) {
+        cardName = atMention.trim()
+      }
+
+      // Find the mention data for this card
+      const mention = mentionsByName.get(cardName?.toLowerCase())
+
+      if (mention) {
+        // Use ability info from content if available, fallback to mention data
+        parts.push(
+          <CardMentionLink
+            key={`mention-${match.index}`}
+            cardId={mention.cardId}
+            cardName={mention.cardName}
+            abilityName={abilityName || mention.abilityName}
+            abilityType={abilityName ? (mention.abilityType || 'ability') : mention.abilityType}
+          />
+        )
+      } else {
+        // No mention data found, render as styled text
+        parts.push(
+          <span
+            key={`text-mention-${match.index}`}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+          >
+            🃏 {cardName}{abilityName ? ` • ${abilityName}` : ''}
+          </span>
+        )
+      }
+
+      lastIndex = match.index + fullMatch.length
     }
 
-    return <div dangerouslySetInnerHTML={{ __html: content }} />
+    // Add remaining text
+    if (lastIndex < content.length) {
+      parts.push(<span key="text-end">{content.slice(lastIndex)}</span>)
+    }
+
+    return parts.length > 0 ? <>{parts}</> : <span>{content}</span>
   }
 
-  // User hidden comment
-  if (localComment.isHiddenByUser && !isOwnComment) {
+  // Moderated comment - only admins see the original content
+  if (localComment.isModerated && !isAdmin) {
     return (
-      <div className="border-l-4 border-gray-300 pl-4 mb-4">
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <p className="text-gray-500 text-sm flex items-center gap-2">
-            <span>👁️‍🗨️</span>
-            <span>Comentario escondido por el autor</span>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-primary-600 hover:text-primary-700 text-xs ml-2"
-            >
-              {isExpanded ? 'Ocultar' : 'Mostrar'}
-            </button>
-          </p>
-          {isExpanded && (
-            <div className="mt-3 text-gray-600">
-              {renderContent()}
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // Admin moderated comment
-  if (localComment.isModerated) {
-    return (
-      <div className="border-l-4 border-yellow-500 pl-4 mb-4">
-        <div className="bg-yellow-50 p-4 rounded-lg">
-          <p className="text-yellow-700 text-sm flex items-center gap-2">
-            <span>⚠️</span>
-            <span className="font-medium">Comentario moderado por administrador</span>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-primary-600 hover:text-primary-700 text-xs ml-2"
-            >
-              {isExpanded ? 'Ocultar' : 'Mostrar'}
-            </button>
-          </p>
-          {localComment.moderationReason && (
-            <p className="text-yellow-600 text-xs mt-1">
-              Razón: {localComment.moderationReason}
-            </p>
-          )}
-          {isExpanded && (
-            <div className="mt-3 text-gray-600">
-              {renderContent()}
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className={`${level > 0 ? 'ml-6 md:ml-8 border-l-2 border-gray-200 pl-4' : ''} mb-4`}>
-      <div className="bg-white rounded-lg">
-        {/* Comment header */}
-        <div className="flex items-start gap-3 mb-2">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-gray-900">
-                {localComment.userId.username}
-              </span>
-              {localComment.userId.role === 'admin' && (
-                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
-                  Admin
-                </span>
-              )}
-              {localComment.isHiddenByUser && isOwnComment && (
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
-                  Escondido
-                </span>
-              )}
-              <span className="text-gray-500 text-sm">
-                {timeAgo(localComment.createdAt)}
-              </span>
-            </div>
+      <div className={`${level > 0 ? 'ml-4 md:ml-6 pl-3 border-l-2 border-gray-200 dark:border-gray-700' : ''}`}>
+        <div className="py-3">
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-red-500">🚫</span>
+            <span className="italic">Este comentario ha sido moderado</span>
+            {localComment.moderationReason && (
+              <span className="text-xs">- {localComment.moderationReason}</span>
+            )}
           </div>
         </div>
 
-        {/* Comment content */}
-        <div className="text-gray-800 mb-2 whitespace-pre-wrap break-words">
-          {renderContent()}
-        </div>
-
-        {/* Comment actions and reactions in same row */}
-        <div className="flex items-center gap-4 flex-wrap text-sm mb-2">
-          <button
-            onClick={handleReply}
-            className="text-gray-600 hover:text-primary-600 font-medium"
-          >
-            Responder
-          </button>
-
-          {isOwnComment && (
-            <>
-              <button
-                onClick={handleHideToggle}
-                className="text-gray-600 hover:text-gray-800 font-medium"
-              >
-                {localComment.isHiddenByUser ? 'Mostrar' : 'Esconder'}
-              </button>
-
-              {canDelete && (
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="text-red-600 hover:text-red-700 font-medium"
-                >
-                  {deleting ? 'Eliminando...' : 'Eliminar'}
-                </button>
-              )}
-            </>
-          )}
-
-          {level < 10 && localComment.replies && localComment.replies.length > 0 && (
-            <span className="text-gray-500">
-              {localComment.replies.length} {localComment.replies.length === 1 ? 'respuesta' : 'respuestas'}
-            </span>
-          )}
-
-          {/* Reactions inline with actions */}
-          <div className="ml-auto">
-            <CommentReactions commentId={localComment._id} compact={true} />
-          </div>
-        </div>
-
-        {/* Reply form */}
-        {showReplyForm && (
-          <div className="mt-4">
-            <CommentComposer
-              cardId={cardId}
-              parentId={localComment._id}
-              onCommentAdded={handleReplyAdded}
-              onCancel={() => setShowReplyForm(false)}
-            />
-          </div>
-        )}
-
-        {/* Nested replies */}
-        {localComment.replies && localComment.replies.length > 0 && (
-          <div className="mt-4">
+        {hasReplies && (
+          <div className="mt-2">
             {localComment.replies.map((reply) => (
               <CommentItem
                 key={reply._id}
@@ -240,6 +179,194 @@ const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
           </div>
         )}
       </div>
+    )
+  }
+
+  // User hidden comment
+  if (localComment.isHiddenByUser && !isOwnComment && !isAdmin) {
+    return (
+      <div className={`${level > 0 ? 'ml-4 md:ml-6 pl-3 border-l-2 border-gray-200 dark:border-gray-700' : ''}`}>
+        <div className="py-3">
+          <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 italic">
+            <span>👁️‍🗨️</span>
+            <span>Comentario oculto por el autor</span>
+          </div>
+        </div>
+
+        {hasReplies && (
+          <div className="mt-2">
+            {localComment.replies.map((reply) => (
+              <CommentItem
+                key={reply._id}
+                comment={reply}
+                cardId={cardId}
+                onCommentAdded={onCommentAdded}
+                level={level + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Determine background color based on status
+  const getCommentBgClass = () => {
+    if (localComment.isModerated && isAdmin) {
+      return 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400 dark:border-red-600 pl-3'
+    }
+    if (localComment.isHiddenByUser && (isOwnComment || isAdmin)) {
+      return 'bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 pl-3'
+    }
+    return ''
+  }
+
+  return (
+    <div className={`${level > 0 ? 'ml-4 md:ml-6 pl-3 border-l-2 border-gray-200 dark:border-gray-700' : ''}`}>
+      <div className={`py-3 rounded-r ${getCommentBgClass()}`}>
+        {/* Status badges */}
+        {(localComment.isHiddenByUser || localComment.isModerated) && (
+          <div className="flex gap-2 mb-2">
+            {localComment.isHiddenByUser && (
+              <span className="inline-flex items-center gap-1 text-xs text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/50 px-2 py-0.5 rounded">
+                👁️ Oculto públicamente
+              </span>
+            )}
+            {localComment.isModerated && isAdmin && (
+              <span className="inline-flex items-center gap-1 text-xs text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/50 px-2 py-0.5 rounded">
+                🚫 Moderado
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Comment header */}
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+            {localComment.userId.username}
+          </span>
+          {localComment.userId.role === 'admin' && (
+            <span className="px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 text-xs rounded font-medium">
+              Admin
+            </span>
+          )}
+          <span className="text-gray-400 dark:text-gray-500 text-xs">
+            {liveTimeAgo}
+          </span>
+        </div>
+
+        {/* Comment content */}
+        <div className="text-gray-700 dark:text-gray-300 text-sm mb-2 whitespace-pre-wrap break-words leading-relaxed">
+          {renderContent()}
+        </div>
+
+        {/* Actions row */}
+        <div className="flex items-center gap-3 text-xs">
+          <CommentReactions commentId={localComment._id} compact={true} />
+
+          <button
+            onClick={handleReply}
+            className="text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400"
+          >
+            Responder
+          </button>
+
+          {isOwnComment && (
+            <button
+              onClick={handleHideToggle}
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            >
+              {localComment.isHiddenByUser ? 'Mostrar' : 'Ocultar'}
+            </button>
+          )}
+
+          {isAdmin && (
+            <button
+              onClick={() => setShowModerateForm(!showModerateForm)}
+              className={localComment.isModerated
+                ? 'text-green-600 hover:text-green-700'
+                : 'text-orange-500 hover:text-orange-600'}
+            >
+              {localComment.isModerated ? 'Restaurar' : 'Moderar'}
+            </button>
+          )}
+
+          {hasReplies && (
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1"
+            >
+              <span className="transition-transform duration-200" style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
+                ▼
+              </span>
+              <span>{localComment.replies.length} {localComment.replies.length === 1 ? 'respuesta' : 'respuestas'}</span>
+            </button>
+          )}
+        </div>
+
+        {/* Moderation form */}
+        {showModerateForm && isAdmin && (
+          <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+            <p className="text-sm font-medium text-orange-800 dark:text-orange-300 mb-2">
+              {localComment.isModerated ? 'Restaurar comentario' : 'Moderar comentario'}
+            </p>
+            {!localComment.isModerated && (
+              <input
+                value={moderationReason}
+                onChange={(e) => setModerationReason(e.target.value)}
+                placeholder="Razón (opcional)"
+                className="w-full px-2 py-1 text-sm border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 mb-2"
+              />
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={handleModerate}
+                disabled={moderating}
+                className="px-3 py-1 text-xs rounded text-white bg-orange-600 hover:bg-orange-700"
+              >
+                {moderating ? '...' : 'Confirmar'}
+              </button>
+              <button
+                onClick={() => setShowModerateForm(false)}
+                className="px-3 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Reply form */}
+        {showReplyForm && (
+          <div className="mt-3">
+            <CommentComposer
+              cardId={cardId}
+              parentId={localComment._id}
+              onCommentAdded={handleReplyAdded}
+              onCancel={() => setShowReplyForm(false)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Nested replies - collapsible with animation */}
+      {hasReplies && (
+        <div
+          className={`mt-1 overflow-hidden transition-all duration-300 ease-in-out ${
+            isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'
+          }`}
+        >
+          {localComment.replies.map((reply) => (
+            <CommentItem
+              key={reply._id}
+              comment={reply}
+              cardId={cardId}
+              onCommentAdded={onCommentAdded}
+              level={level + 1}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
