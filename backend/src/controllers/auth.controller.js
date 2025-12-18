@@ -94,7 +94,11 @@ export const register = async (req, res) => {
           id: user._id,
           email: user.email,
           username: user.username,
-          role: user.role
+          role: user.role,
+          avatar: user.avatar,
+          isDev: user.isDev,
+          canComment: user.canComment,
+          canReact: user.canReact
         },
         token
       }
@@ -190,7 +194,11 @@ export const login = async (req, res) => {
           id: user._id,
           email: user.email,
           username: user.username,
-          role: user.role
+          role: user.role,
+          avatar: user.avatar,
+          isDev: user.isDev,
+          canComment: user.canComment,
+          canReact: user.canReact
         },
         token
       }
@@ -217,7 +225,11 @@ export const getMe = async (req, res) => {
           id: user._id,
           email: user.email,
           username: user.username,
-          role: user.role
+          role: user.role,
+          avatar: user.avatar,
+          isDev: user.isDev,
+          canComment: user.canComment,
+          canReact: user.canReact
         }
       }
     })
@@ -425,7 +437,11 @@ export const updateAccount = async (req, res) => {
           id: user._id,
           email: user.email,
           username: user.username,
-          role: user.role
+          role: user.role,
+          avatar: user.avatar,
+          isDev: user.isDev,
+          canComment: user.canComment,
+          canReact: user.canReact
         }
       }
     })

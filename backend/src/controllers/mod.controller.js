@@ -176,6 +176,8 @@ export const getAllUsers = async (req, res) => {
           username: user.username,
           email: user.email,
           role: user.role,
+          avatar: user.avatar,
+          isDev: user.isDev,
           createdAt: user.createdAt,
           stats: {
             comments: commentCount,

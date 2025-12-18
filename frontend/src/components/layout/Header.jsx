@@ -276,12 +276,24 @@ const Header = () => {
             <div ref={userMenuRef} className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-700 hover:border-primary-400 dark:hover:border-primary-500 transition-all shadow-sm"
                 aria-label="User menu"
               >
-                <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+                {isAuthenticated && user?.avatar ? (
+                  <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                ) : isAuthenticated ? (
+                  <div className="w-full h-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
+                    <span className="text-sm font-bold text-white">
+                      {user?.username?.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-full h-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                )}
               </button>
 
               {/* Dropdown Menu */}
@@ -292,9 +304,20 @@ const Header = () => {
                 >
                   {isAuthenticated ? (
                     <>
-                      <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.username}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
+                      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-primary-400 to-primary-600 flex-shrink-0 flex items-center justify-center">
+                          {user?.avatar ? (
+                            <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-bold text-white">
+                              {user?.username?.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{user?.username}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+                        </div>
                       </div>
                       <Link
                         to="/settings"

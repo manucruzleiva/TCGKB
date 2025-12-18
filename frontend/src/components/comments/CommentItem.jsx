@@ -242,6 +242,20 @@ const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
 
         {/* Comment header */}
         <div className="flex items-center gap-2 mb-1">
+          {/* User avatar */}
+          <div className="w-6 h-6 rounded-full overflow-hidden bg-gradient-to-br from-primary-400 to-primary-600 flex-shrink-0 flex items-center justify-center">
+            {localComment.userId.avatar ? (
+              <img
+                src={localComment.userId.avatar}
+                alt={localComment.userId.username}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-xs font-bold text-white">
+                {localComment.userId.username?.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
           <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
             {localComment.userId.username}
           </span>

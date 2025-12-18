@@ -343,12 +343,23 @@ const ModDashboard = () => {
                         className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         <td className="py-3 px-4 text-gray-900 dark:text-gray-100">
-                          {u.username}
-                          {u.email === 'shieromanu@gmail.com' && (
-                            <span className="ml-2 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">
-                              {language === 'es' ? 'DUEÑO' : 'OWNER'}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-primary-400 to-primary-600 flex-shrink-0 flex items-center justify-center">
+                              {u.avatar ? (
+                                <img src={u.avatar} alt={u.username} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xs font-bold text-white">
+                                  {u.username?.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <span>{u.username}</span>
+                            {u.email === 'shieromanu@gmail.com' && (
+                              <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">
+                                {language === 'es' ? 'DUEÑO' : 'OWNER'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-sm">
                           {u.email}

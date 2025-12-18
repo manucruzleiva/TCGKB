@@ -94,6 +94,7 @@ export const getUserActivityByUsername = async (req, res) => {
           username: user.username,
           email: user.email,
           role: user.role,
+          avatar: user.avatar,
           canComment: user.canComment,
           canReact: user.canReact,
           createdAt: user.createdAt

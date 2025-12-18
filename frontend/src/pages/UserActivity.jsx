@@ -217,8 +217,14 @@ const UserActivity = () => {
       {/* User Info */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-2xl font-bold text-primary-600 dark:text-primary-400 flex-shrink-0">
-            {userData.username.charAt(0).toUpperCase()}
+          <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center flex-shrink-0">
+            {userData.avatar ? (
+              <img src={userData.avatar} alt={userData.username} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-2xl font-bold text-white">
+                {userData.username.charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">

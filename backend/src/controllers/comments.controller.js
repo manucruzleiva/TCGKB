@@ -72,7 +72,7 @@ export const getCommentsByCard = async (req, res) => {
       // Populate userId
       topLevelComments = await Comment.populate(commentsWithReactions, {
         path: 'userId',
-        select: 'username role'
+        select: 'username role avatar'
       })
     } else {
       // Sort by date
@@ -84,7 +84,7 @@ export const getCommentsByCard = async (req, res) => {
         .sort({ createdAt: sortOrder })
         .skip(skip)
         .limit(limit)
-        .populate('userId', 'username role')
+        .populate('userId', 'username role avatar')
         .lean()
     }
 
@@ -96,7 +96,7 @@ export const getCommentsByCard = async (req, res) => {
           path: new RegExp(`^${comment._id}/`)
         })
           .sort({ path: 1 })
-          .populate('userId', 'username role')
+          .populate('userId', 'username role avatar')
           .lean()
 
         return {
@@ -179,7 +179,7 @@ export const getCommentsByDeck = async (req, res) => {
       .sort({ createdAt: sortOrder })
       .skip(skip)
       .limit(limit)
-      .populate('userId', 'username role')
+      .populate('userId', 'username role avatar')
       .lean()
 
     // For each top-level comment, get all nested replies
@@ -191,7 +191,7 @@ export const getCommentsByDeck = async (req, res) => {
           path: new RegExp(`^${comment._id}/`)
         })
           .sort({ path: 1 })
-          .populate('userId', 'username role')
+          .populate('userId', 'username role avatar')
           .lean()
 
         return {
@@ -268,7 +268,7 @@ export const createComment = async (req, res) => {
     await comment.save()
 
     // Populate user data
-    await comment.populate('userId', 'username role')
+    await comment.populate('userId', 'username role avatar')
 
     // Emit socket event
     try {
@@ -314,7 +314,7 @@ export const getCommentReplies = async (req, res) => {
       path: new RegExp(`^${commentId}/`)
     })
       .sort({ path: 1 })
-      .populate('userId', 'username role')
+      .populate('userId', 'username role avatar')
       .lean()
 
     const tree = buildCommentTree(replies, commentId)
