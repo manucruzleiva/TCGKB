@@ -194,6 +194,11 @@
 - [ ] **Página de artista (opcional):** `~35K tokens | ~2.5h`
   - Ver todas las cartas de un artista
   - Ranking de artistas más populares
+- [ ] **Link a catálogo filtrado por artista:** `~20K tokens | ~1.5h`
+  - Click en nombre de artista → catálogo filtrado
+  - URL: `/catalog?artist=Artist+Name`
+  - Mostrar todas las cartas de ese artista
+  - Breadcrumb o header indicando filtro activo
 
 ### Overhaul de Diseño Gráfico
 - [ ] **Rediseño de identidad visual:** `~30K tokens | ~2h`
@@ -328,10 +333,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~800K tokens | ~56h |
+| P1: UX/UI | ~820K tokens | ~58h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~625K tokens | ~44h |
-| **TOTAL** | **~1,590K tokens** | **~112h** |
+| **TOTAL** | **~1,610K tokens** | **~114h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
