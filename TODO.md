@@ -3,11 +3,11 @@
 ## Prioridad 1: UX/UI
 
 ### Navegación / Menú
-- [ ] **Hamburger Menu Refresh:**
+- [x] **Hamburger Menu Refresh:**
   - Eliminar ícono hamburguesa, usar logo de la app como invocador
   - Agregar sección Changelog
   - Agregar sección Roadmap
-- [ ] **Roadmap Automático desde TODO.md:**
+- [x] **Roadmap Automático desde TODO.md:**
   - Script/endpoint que parsea TODO.md
   - Extrae secciones de Prioridad 1, 2, 3
   - Genera JSON con items pendientes/completados
@@ -46,23 +46,23 @@
   - Más compacto y legible
 
 ### Sistema de Avatares
-- [ ] Búsqueda de Pokémon para avatar - permitir buscar todos los Pokémon en todas sus formas
-- [ ] Elegir background del avatar (colores, patrones, etc.)
+- [x] Búsqueda de Pokémon para avatar - permitir buscar todos los Pokémon en todas sus formas
+- [x] Elegir background del avatar (colores, patrones, etc.)
 - [ ] Sprites de entrenadores como opción de avatar (investigar fuente de sprites)
 - [ ] Sprites de backgrounds como opción (investigar disponibilidad)
 
 ### Relationship Map
-- [ ] RELATIONSHIP MAP en hamburger menu:
+- [x] RELATIONSHIP MAP en hamburger menu:
   - Canvas con zoom in/out
   - Mostrar cartas que tengan comentarios
   - Si un comentario tiene @ referenciando carta/habilidad/ataque, mostrar flecha de conexión
 
 ### Catálogo (/catalog)
-- [ ] Página de catálogo completo de cartas
-- [ ] Filtros por TCG (Pokemon / Riftbound)
-- [ ] Filtros por set, tipo, rareza, etc.
-- [ ] Vista grid/list toggle
-- [ ] Paginación o infinite scroll
+- [x] Página de catálogo completo de cartas
+- [x] Filtros por TCG (Pokemon / Riftbound)
+- [x] Filtros por set, tipo, rareza, etc.
+- [x] Vista grid/list toggle
+- [x] Paginación o infinite scroll
 
 ### Binder / Colección Personal
 - [ ] **Modelo de datos:**
@@ -190,22 +190,26 @@
 - [x] Add a reliable Riftbound API source of data
 
 ### Esta Sesión
-- **Riftbound API Integration:**
-  - Verificado que api.riftcodex.com funciona (656 cartas disponibles)
-  - Creado script de caching `npm run cache:riftbound`
-  - Endpoint POST `/api/mod/cache/sync/riftbound` para sync desde UI
-- **Pokemon Cache Super Sync:**
-  - Endpoint POST `/api/mod/cache/sync/pokemon` para sync de cartas Standard (Scarlet & Violet)
-  - Filtrado por regulation marks válidos (G, H, I, J, K)
-- **Cache Management Dashboard:**
-  - Nueva sección en Dev Dashboard para gestión de cache
-  - Stats de Pokemon y Riftbound (cantidad de cartas, último sync)
-  - Botones de sync manual para Pokemon y Riftbound
-  - Verificación de integridad del cache vs fuentes
-- **Daily Cache Sync Cron:**
-  - Script `npm run cache:daily` para sync diario automatizado
-  - Endpoint `/api/cron/daily-sync` para Vercel Cron
-  - Configurado cron en vercel.json (6AM UTC diario)
+- **Hamburger Menu Refresh:**
+  - Logo de la app como invocador del menú (eliminado ícono hamburguesa)
+  - Agregadas secciones Roadmap, Relationship Map y Catálogo
+- **Roadmap Automático:**
+  - Endpoint GET /api/stats/roadmap que parsea TODO.md desde GitHub
+  - Página /roadmap con progreso visual por prioridad y sección
+- **Sistema de Avatares Mejorado:**
+  - Búsqueda de Pokémon (todos los ~1500 disponibles via PokeAPI)
+  - 16 backgrounds de gradiente personalizables
+  - Campo avatarBackground agregado al modelo User
+- **Relationship Map:**
+  - Endpoint GET /api/stats/relationship-map
+  - Página /relationship-map con canvas SVG interactivo
+  - Zoom/pan con rueda del ratón y arrastre
+  - Visualización de conexiones entre cartas basadas en menciones @
+- **Catálogo de Cartas:**
+  - Endpoints GET /api/cards/catalog y /api/cards/catalog/filters
+  - Página /catalog con filtros (TCG, set, tipo, rareza)
+  - Vistas grid/list toggle
+  - Paginación completa
 
 ### Sesiones Anteriores
 - Fix API URL para producción (runtime detection en lugar de build-time)

@@ -141,11 +141,9 @@ const Header = () => {
             <button
               onClick={() => setShowMainMenu(!showMainMenu)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title={language === 'es' ? 'Menú' : 'Menu'}
             >
-              <svg className="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-              {/* Logo - switches based on theme */}
+              {/* Logo as menu invoker - switches based on theme */}
               <img
                 src="/logo-dark.png"
                 alt="TCG KB"
@@ -178,6 +176,13 @@ const Header = () => {
                 >
                   🃏 {language === 'es' ? 'Mazos' : 'Decks'}
                 </Link>
+                <Link
+                  to="/catalog"
+                  onClick={() => setShowMainMenu(false)}
+                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  📚 {language === 'es' ? 'Catalogo' : 'Catalog'}
+                </Link>
                 <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                 <Link
                   to="/changelog"
@@ -185,6 +190,20 @@ const Header = () => {
                   className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   📋 {language === 'es' ? 'Changelog' : 'Changelog'}
+                </Link>
+                <Link
+                  to="/roadmap"
+                  onClick={() => setShowMainMenu(false)}
+                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  🗺️ {language === 'es' ? 'Roadmap' : 'Roadmap'}
+                </Link>
+                <Link
+                  to="/relationship-map"
+                  onClick={() => setShowMainMenu(false)}
+                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  🔗 {language === 'es' ? 'Mapa de Relaciones' : 'Relationship Map'}
                 </Link>
               </div>
             )}
@@ -280,9 +299,11 @@ const Header = () => {
                 aria-label="User menu"
               >
                 {isAuthenticated && user?.avatar ? (
-                  <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                  <div className={`w-full h-full bg-gradient-to-br ${user?.avatarBackground || 'from-primary-400 to-primary-600'}`}>
+                    <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                  </div>
                 ) : isAuthenticated ? (
-                  <div className="w-full h-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
+                  <div className={`w-full h-full bg-gradient-to-br ${user?.avatarBackground || 'from-primary-400 to-primary-600'} flex items-center justify-center`}>
                     <span className="text-sm font-bold text-white">
                       {user?.username?.charAt(0).toUpperCase()}
                     </span>
@@ -305,7 +326,7 @@ const Header = () => {
                   {isAuthenticated ? (
                     <>
                       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-primary-400 to-primary-600 flex-shrink-0 flex items-center justify-center">
+                        <div className={`w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br ${user?.avatarBackground || 'from-primary-400 to-primary-600'} flex-shrink-0 flex items-center justify-center`}>
                           {user?.avatar ? (
                             <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
                           ) : (

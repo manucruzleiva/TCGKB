@@ -1,6 +1,7 @@
 import unifiedTCGService from '../services/unifiedTCG.service.js'
 import Reaction from '../models/Reaction.js'
 import Comment from '../models/Comment.js'
+import CardCache from '../models/CardCache.js'
 import log from '../utils/logger.js'
 
 const MODULE = 'CardsController'
@@ -348,6 +349,135 @@ export const getMostCommentedCards = async (req, res) => {
     })
   } catch (error) {
     log.error(MODULE, 'Get most commented cards failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+/**
+ * Get catalog with filters and pagination
+ */
+export const getCatalog = async (req, res) => {
+  const startTime = Date.now()
+  try {
+    const {
+      tcgSystem,
+      set,
+      supertype,
+      rarity,
+      name,
+      page = 1,
+      pageSize = 24,
+      sortBy = 'name',
+      sortOrder = 'asc'
+    } = req.query
+
+    const skip = (parseInt(page) - 1) * parseInt(pageSize)
+    const limit = Math.min(parseInt(pageSize), 48) // Max 48 per page
+
+    // Build MongoDB query
+    const query = {}
+
+    if (tcgSystem) {
+      query.tcgSystem = tcgSystem
+    }
+
+    if (set) {
+      query['set.id'] = set
+    }
+
+    if (supertype) {
+      query.supertype = supertype
+    }
+
+    if (rarity) {
+      query.rarity = rarity
+    }
+
+    if (name) {
+      query.name = { $regex: name, $options: 'i' }
+    }
+
+    // Build sort object
+    const sort = {}
+    const sortField = sortBy === 'releaseDate' ? 'set.releaseDate' : sortBy
+    sort[sortField] = sortOrder === 'desc' ? -1 : 1
+
+    // Get total count and cards
+    const [total, cards] = await Promise.all([
+      CardCache.countDocuments(query),
+      CardCache.find(query)
+        .select('id name supertype images set number rarity tcgSystem regulationMark')
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ])
+
+    const totalPages = Math.ceil(total / limit)
+
+    log.perf(MODULE, `GET /cards/catalog (${cards.length} cards, page ${page}/${totalPages})`, Date.now() - startTime)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        cards,
+        pagination: {
+          page: parseInt(page),
+          pageSize: limit,
+          total,
+          totalPages
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get catalog failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+/**
+ * Get available filter options for catalog
+ */
+export const getCatalogFilters = async (req, res) => {
+  try {
+    const { tcgSystem } = req.query
+
+    const matchStage = tcgSystem ? { tcgSystem } : {}
+
+    const [sets, supertypes, rarities] = await Promise.all([
+      CardCache.aggregate([
+        { $match: matchStage },
+        { $group: { _id: { id: '$set.id', name: '$set.name' }, count: { $sum: 1 } } },
+        { $sort: { '_id.name': 1 } }
+      ]),
+      CardCache.aggregate([
+        { $match: matchStage },
+        { $group: { _id: '$supertype', count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      CardCache.aggregate([
+        { $match: matchStage },
+        { $group: { _id: '$rarity', count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ])
+    ])
+
+    res.status(200).json({
+      success: true,
+      data: {
+        sets: sets.map(s => ({ id: s._id.id, name: s._id.name, count: s.count })).filter(s => s.id && s.name),
+        supertypes: supertypes.map(s => ({ name: s._id, count: s.count })).filter(s => s.name),
+        rarities: rarities.map(r => ({ name: r._id, count: r.count })).filter(r => r.name)
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get catalog filters failed', error)
     res.status(500).json({
       success: false,
       message: error.message
