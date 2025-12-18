@@ -1,6 +1,26 @@
-Antes de cada deploy manten tu documetacion al dia!
-manten tus dependencias lo mas actualizada que puedas siempre!
-verifica siempre que todos los textos que agregamos respondan al language toggle.
-antes de cada deploy verifica si hay informacion sensible como apikeys, correos, o cualquier PII para remediar el riesgo de seguridad.
-los deploy a vercel(produccion) se deben de hacer directo desde push commit en el repo,vercel debe de siempre usar el main para produccion.
-Antes de cada push realiza una revision del codigo y deja documentos de ingenieria en /docs.
+## Reglas de Desarrollo
+
+### Git Workflow (MUY IMPORTANTE)
+- **NUNCA hacer push directo a `main`** - main es producción
+- Todos los cambios van primero a `stage` (staging environment)
+- Esperar aprobación del usuario antes de merge a `main`
+- Flujo: `stage` -> revisión del usuario -> merge a `main`
+
+### Documentación
+- Antes de cada deploy mantener documentación al día
+- Antes de cada push realizar revisión del código y dejar documentos de ingeniería en /docs
+
+### Dependencias
+- Mantener dependencias lo más actualizadas posible
+
+### Internacionalización
+- Verificar siempre que todos los textos agregados respondan al language toggle (español/inglés)
+
+### Seguridad
+- Antes de cada deploy verificar si hay información sensible como API keys, correos, o cualquier PII
+- Remediar cualquier riesgo de seguridad antes del deploy
+
+### Vercel/Producción
+- Los deploys a Vercel (producción) se hacen automáticamente desde push a `main`
+- `main` = producción (tcgkb.app)
+- `stage` = staging (staging.tcgkb.app)
