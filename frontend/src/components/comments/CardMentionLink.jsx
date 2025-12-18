@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { cardService } from '../../services/cardService'
 import PokemonSprite from '../common/PokemonSprite'
@@ -7,11 +8,21 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
   const [showTooltip, setShowTooltip] = useState(false)
   const [cardData, setCardData] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
   const timeoutRef = useRef(null)
   const tooltipRef = useRef(null)
+  const linkRef = useRef(null)
 
   const handleMouseEnter = () => {
     timeoutRef.current = setTimeout(() => {
+      // Calculate position based on the link element
+      if (linkRef.current) {
+        const rect = linkRef.current.getBoundingClientRect()
+        setTooltipPosition({
+          top: rect.top + window.scrollY - 10, // Above the element
+          left: rect.left + rect.width / 2 + window.scrollX // Centered
+        })
+      }
       setShowTooltip(true)
       if (!cardData && !loading) {
         loadCardData()
@@ -70,6 +81,7 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
   return (
     <span className="relative inline-block align-middle">
       <Link
+        ref={linkRef}
         to={`/card/${cardId}`}
         className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-sm font-medium transition-all ${
           abilityName
@@ -93,10 +105,16 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
         )}
       </Link>
 
-      {showTooltip && (
+      {/* Tooltip rendered via portal to avoid z-index/overflow issues */}
+      {showTooltip && createPortal(
         <div
           ref={tooltipRef}
-          className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none"
+          className="fixed z-[9999] pointer-events-none"
+          style={{
+            top: tooltipPosition.top,
+            left: tooltipPosition.left,
+            transform: 'translate(-50%, -100%)'
+          }}
         >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-2 min-w-[120px]">
             {loading ? (
@@ -141,7 +159,8 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
           </div>
           {/* Arrow */}
           <div className="absolute left-1/2 -translate-x-1/2 -bottom-2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-white dark:border-t-gray-800"></div>
-        </div>
+        </div>,
+        document.body
       )}
     </span>
   )
