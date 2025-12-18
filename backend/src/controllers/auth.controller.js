@@ -2,8 +2,14 @@ import jwt from 'jsonwebtoken'
 import User from '../models/User.js'
 
 const generateToken = (id) => {
+  // Validate expiresIn - use default if invalid or empty
+  let expiresIn = process.env.JWT_EXPIRES_IN
+  if (!expiresIn || expiresIn.trim() === '') {
+    expiresIn = '7d'
+  }
+
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+    expiresIn: expiresIn.trim()
   })
 }
 
@@ -114,11 +120,13 @@ export const register = async (req, res) => {
       })
     }
 
-    // Generic error
+    // Generic error - include error details for debugging
     console.error('Registration error:', error)
     res.status(500).json({
       success: false,
-      message: 'An error occurred during registration. Please try again.'
+      message: 'An error occurred during registration. Please try again.',
+      error: process.env.NODE_ENV !== 'production' ? error.message : undefined,
+      errorType: error.name || 'Unknown'
     })
   }
 }
@@ -269,6 +277,44 @@ export const updatePreferences = async (req, res) => {
       success: true,
       data: {
         preferences: user.preferences
+      }
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+export const updateAvatar = async (req, res) => {
+  try {
+    const { avatar } = req.body
+
+    if (!avatar) {
+      return res.status(400).json({
+        success: false,
+        message: 'Avatar URL is required'
+      })
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { avatar },
+      { new: true, runValidators: true }
+    )
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        avatar: user.avatar
       }
     })
   } catch (error) {

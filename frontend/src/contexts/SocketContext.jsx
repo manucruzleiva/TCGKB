@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
-import { SOCKET_URL } from '../utils/constants'
+
+// Runtime socket URL detection
+const getSocketUrl = () => {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  return isLocalhost ? 'http://localhost:3001' : ''
+}
 
 const SocketContext = createContext(null)
 
@@ -11,7 +16,7 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('token')
 
-    const socketInstance = io(SOCKET_URL, {
+    const socketInstance = io(getSocketUrl(), {
       auth: {
         token
       },

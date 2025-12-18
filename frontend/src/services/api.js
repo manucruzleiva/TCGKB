@@ -1,17 +1,25 @@
 import axios from 'axios'
-import { API_URL } from '../utils/constants'
+
+// Runtime API URL detection - evaluated when requests are made, not at build time
+const getApiUrl = () => {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  return isLocalhost ? 'http://localhost:3001/api' : '/api'
+}
 
 const api = axios.create({
-  baseURL: API_URL,
   timeout: 60000, // 60 seconds timeout
   headers: {
     'Content-Type': 'application/json'
   }
 })
 
-// Request interceptor to add token
+// Request interceptor to set baseURL dynamically and add token
 api.interceptors.request.use(
   (config) => {
+    // Set baseURL at request time (runtime, not build time)
+    if (!config.baseURL) {
+      config.baseURL = getApiUrl()
+    }
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`

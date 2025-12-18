@@ -23,6 +23,20 @@ const bugReportSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  theme: {
+    type: String,
+    enum: ['light', 'dark'],
+    default: 'light'
+  },
+  language: {
+    type: String,
+    enum: ['en', 'es'],
+    default: 'en'
+  },
+  screenSize: {
+    type: String,
+    default: ''
+  },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

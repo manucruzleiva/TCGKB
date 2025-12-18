@@ -100,17 +100,17 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
         >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-2 min-w-[120px]">
             {loading ? (
-              <div className="w-[100px] h-[140px] flex items-center justify-center">
+              <div className="w-[140px] h-[140px] flex items-center justify-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary-500 border-t-transparent"></div>
               </div>
             ) : cardData ? (
-              <div className="text-center">
+              <div className={`text-center ${abilityDetails ? 'max-w-[280px]' : 'max-w-[140px]'}`}>
                 <img
                   src={cardData.images?.small || cardData.images?.large}
                   alt={cardName}
-                  className="w-[100px] h-auto rounded"
+                  className="w-[100px] h-auto rounded mx-auto"
                 />
-                <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 truncate max-w-[100px]">
+                <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 truncate">
                   {cardData.set?.name}
                 </p>
                 {/* Show ability details if mentioned */}
@@ -126,7 +126,7 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
                       </div>
                     )}
                     {abilityDetails.text && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-3">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
                         {abilityDetails.text}
                       </p>
                     )}
@@ -134,7 +134,7 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
                 )}
               </div>
             ) : (
-              <div className="w-[100px] h-[140px] flex items-center justify-center text-gray-500 dark:text-gray-400 text-xs">
+              <div className="w-[140px] h-[140px] flex items-center justify-center text-gray-500 dark:text-gray-400 text-xs">
                 No disponible
               </div>
             )}

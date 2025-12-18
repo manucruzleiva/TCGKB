@@ -1,39 +1,84 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useDateFormat } from '../contexts/DateFormatContext'
 import { deckService } from '../services/deckService'
 import Spinner from '../components/common/Spinner'
 
-const FORMAT_COLORS = {
+// Tag colors and labels
+const TAG_COLORS = {
+  // Format
   standard: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200',
   expanded: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200',
-  unlimited: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+  unlimited: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200',
+  // Archetype
+  aggro: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200',
+  control: 'bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200',
+  combo: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200',
+  midrange: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200',
+  stall: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200',
+  mill: 'bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200',
+  turbo: 'bg-pink-100 dark:bg-pink-900 text-pink-800 dark:text-pink-200',
+  // Strategy
+  meta: 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200',
+  budget: 'bg-lime-100 dark:bg-lime-900 text-lime-800 dark:text-lime-200',
+  fun: 'bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200',
+  competitive: 'bg-violet-100 dark:bg-violet-900 text-violet-800 dark:text-violet-200',
+  casual: 'bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200',
+  'beginner-friendly': 'bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200'
 }
 
-const FORMAT_LABELS = {
+const TAG_LABELS = {
+  // Format
   standard: { es: 'Estándar', en: 'Standard' },
   expanded: { es: 'Expandido', en: 'Expanded' },
-  unlimited: { es: 'Sin límite', en: 'Unlimited' }
+  unlimited: { es: 'Sin límite', en: 'Unlimited' },
+  // Archetype
+  aggro: { es: 'Aggro', en: 'Aggro' },
+  control: { es: 'Control', en: 'Control' },
+  combo: { es: 'Combo', en: 'Combo' },
+  midrange: { es: 'Midrange', en: 'Midrange' },
+  stall: { es: 'Stall', en: 'Stall' },
+  mill: { es: 'Mill', en: 'Mill' },
+  turbo: { es: 'Turbo', en: 'Turbo' },
+  // Strategy
+  meta: { es: 'Meta', en: 'Meta' },
+  budget: { es: 'Budget', en: 'Budget' },
+  fun: { es: 'Diversión', en: 'Fun' },
+  competitive: { es: 'Competitivo', en: 'Competitive' },
+  casual: { es: 'Casual', en: 'Casual' },
+  'beginner-friendly': { es: 'Para Principiantes', en: 'Beginner Friendly' }
+}
+
+const CATEGORY_LABELS = {
+  format: { es: 'Formato', en: 'Format' },
+  archetype: { es: 'Arquetipo', en: 'Archetype' },
+  strategy: { es: 'Estrategia', en: 'Strategy' }
+}
+
+const TAG_CATEGORIES = {
+  format: ['standard', 'expanded', 'unlimited'],
+  archetype: ['aggro', 'control', 'combo', 'midrange', 'stall', 'mill', 'turbo'],
+  strategy: ['meta', 'budget', 'fun', 'competitive', 'casual', 'beginner-friendly']
 }
 
 const DeckList = () => {
-  const { user, isAuthenticated } = useAuth()
+  const { isAuthenticated } = useAuth()
   const { language } = useLanguage()
   const { timeAgo } = useDateFormat()
-  const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
   const [decks, setDecks] = useState([])
-  const [filter, setFilter] = useState('all') // all, mine, public
-  const [formatFilter, setFormatFilter] = useState('all')
+  const [filter, setFilter] = useState('all')
+  const [selectedTags, setSelectedTags] = useState([])
+  const [showTagFilters, setShowTagFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 })
 
   useEffect(() => {
     fetchDecks()
-  }, [filter, formatFilter, pagination.page])
+  }, [filter, selectedTags, pagination.page])
 
   const fetchDecks = async () => {
     try {
@@ -46,8 +91,8 @@ const DeckList = () => {
       if (filter === 'mine') {
         params.mine = true
       }
-      if (formatFilter !== 'all') {
-        params.format = formatFilter
+      if (selectedTags.length > 0) {
+        params.tags = selectedTags.join(',')
       }
       if (searchQuery.trim()) {
         params.search = searchQuery.trim()
@@ -75,8 +120,21 @@ const DeckList = () => {
     fetchDecks()
   }
 
+  const toggleTag = (tag) => {
+    setSelectedTags(prev =>
+      prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    )
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }
+
+  const clearTags = () => {
+    setSelectedTags([])
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }
+
   const getDeckCoverImage = (deck) => {
-    // Get the first Pokemon card image as cover
     const pokemon = deck.cards?.find(c => c.supertype === 'Pokémon')
     return pokemon?.imageSmall || deck.cards?.[0]?.imageSmall || null
   }
@@ -110,75 +168,120 @@ const DeckList = () => {
 
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
-          <form onSubmit={handleSearch} className="flex-1">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={language === 'es' ? 'Buscar mazos...' : 'Search decks...'}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-              <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-          </form>
+        <div className="flex flex-col gap-4">
+          {/* Top Row: Search and Main Filters */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <form onSubmit={handleSearch} className="flex-1">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={language === 'es' ? 'Buscar mazos...' : 'Search decks...'}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+                <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </form>
 
-          {/* Filter Tabs */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setFilter('all'); setPagination(p => ({ ...p, page: 1 })) }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === 'all'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              {language === 'es' ? 'Todos' : 'All'}
-            </button>
-            {isAuthenticated && (
+            {/* Filter Tabs */}
+            <div className="flex gap-2">
               <button
-                onClick={() => { setFilter('mine'); setPagination(p => ({ ...p, page: 1 })) }}
+                onClick={() => { setFilter('all'); setPagination(p => ({ ...p, page: 1 })) }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'mine'
+                  filter === 'all'
                     ? 'bg-primary-600 text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
-                {language === 'es' ? 'Mis Mazos' : 'My Decks'}
+                {language === 'es' ? 'Todos' : 'All'}
               </button>
-            )}
-          </div>
-
-          {/* Format Filter */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setFormatFilter('all'); setPagination(p => ({ ...p, page: 1 })) }}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                formatFilter === 'all'
-                  ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              {language === 'es' ? 'Formato' : 'Format'}
-            </button>
-            {Object.entries(FORMAT_LABELS).map(([format, labels]) => (
+              {isAuthenticated && (
+                <button
+                  onClick={() => { setFilter('mine'); setPagination(p => ({ ...p, page: 1 })) }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    filter === 'mine'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {language === 'es' ? 'Mis Mazos' : 'My Decks'}
+                </button>
+              )}
               <button
-                key={format}
-                onClick={() => { setFormatFilter(format); setPagination(p => ({ ...p, page: 1 })) }}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  formatFilter === format
-                    ? FORMAT_COLORS[format]
+                onClick={() => setShowTagFilters(!showTagFilters)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  showTagFilters || selectedTags.length > 0
+                    ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
-                {labels[language]}
+                🏷️ {language === 'es' ? 'Tags' : 'Tags'}
+                {selectedTags.length > 0 && (
+                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary-500 text-white">
+                    {selectedTags.length}
+                  </span>
+                )}
               </button>
-            ))}
+            </div>
           </div>
+
+          {/* Tag Filters (Expandable) */}
+          {showTagFilters && (
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              {selectedTags.length > 0 && (
+                <div className="mb-4 flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {language === 'es' ? 'Filtros activos:' : 'Active filters:'}
+                  </span>
+                  {selectedTags.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTag(tag)}
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${TAG_COLORS[tag] || 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} flex items-center gap-1`}
+                    >
+                      {TAG_LABELS[tag]?.[language] || tag}
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  ))}
+                  <button
+                    onClick={clearTags}
+                    className="px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:underline"
+                  >
+                    {language === 'es' ? 'Limpiar todo' : 'Clear all'}
+                  </button>
+                </div>
+              )}
+
+              {Object.entries(TAG_CATEGORIES).map(([category, tags]) => (
+                <div key={category} className="mb-3">
+                  <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
+                    {CATEGORY_LABELS[category][language]}
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => toggleTag(tag)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                          selectedTags.includes(tag)
+                            ? `${TAG_COLORS[tag]} ring-2 ring-primary-500`
+                            : `${TAG_COLORS[tag]} opacity-60 hover:opacity-100`
+                        }`}
+                      >
+                        {TAG_LABELS[tag]?.[language] || tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -244,11 +347,11 @@ const DeckList = () => {
                       </span>
                     )}
                   </div>
-                  {/* Format Badge */}
-                  {deck.format && (
+                  {/* Format Badge (first format tag) */}
+                  {deck.tags?.find(t => ['standard', 'expanded', 'unlimited'].includes(t)) && (
                     <div className="absolute top-2 left-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${FORMAT_COLORS[deck.format]}`}>
-                        {FORMAT_LABELS[deck.format][language]}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${TAG_COLORS[deck.tags.find(t => ['standard', 'expanded', 'unlimited'].includes(t))]}`}>
+                        {TAG_LABELS[deck.tags.find(t => ['standard', 'expanded', 'unlimited'].includes(t))][language]}
                       </span>
                     </div>
                   )}
@@ -263,6 +366,19 @@ const DeckList = () => {
                     <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
                       {deck.description}
                     </p>
+                  )}
+                  {/* Tags */}
+                  {deck.tags?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {deck.tags.filter(t => !['standard', 'expanded', 'unlimited'].includes(t)).slice(0, 3).map(tag => (
+                        <span
+                          key={tag}
+                          className={`px-1.5 py-0.5 rounded text-xs ${TAG_COLORS[tag] || 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                        >
+                          {TAG_LABELS[tag]?.[language] || tag}
+                        </span>
+                      ))}
+                    </div>
                   )}
                   <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                     <span className="flex items-center gap-1">

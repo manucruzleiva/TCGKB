@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -17,7 +17,6 @@ const ModDashboard = () => {
   const [summary, setSummary] = useState(null)
   const [timeRange, setTimeRange] = useState(30)
   const [updatingUser, setUpdatingUser] = useState(null)
-  const [openBugsCount, setOpenBugsCount] = useState(0)
 
   useEffect(() => {
     // Redirect if not admin
@@ -38,11 +37,10 @@ const ModDashboard = () => {
     try {
       setLoading(true)
 
-      const [timeSeriesRes, usersRes, summaryRes, bugsRes] = await Promise.all([
+      const [timeSeriesRes, usersRes, summaryRes] = await Promise.all([
         api.get(`/mod/time-series?days=${timeRange}`),
         api.get('/mod/users'),
-        api.get('/mod/summary'),
-        api.get('/bugs?status=all')
+        api.get('/mod/summary')
       ])
 
       if (timeSeriesRes.data.success) {
@@ -55,10 +53,6 @@ const ModDashboard = () => {
 
       if (summaryRes.data.success) {
         setSummary(summaryRes.data.data)
-      }
-
-      if (bugsRes.data.success) {
-        setOpenBugsCount(bugsRes.data.data.counts?.open || 0)
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
@@ -115,7 +109,7 @@ const ModDashboard = () => {
 
       {/* Summary Stats */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-blue-100 dark:bg-blue-900 rounded-lg p-5">
             <div className="text-3xl mb-2">💬</div>
             <div className="text-2xl font-bold text-blue-800 dark:text-blue-200">
@@ -155,19 +149,6 @@ const ModDashboard = () => {
               {language === 'es' ? 'Admins' : 'Admins'}
             </div>
           </div>
-
-          <Link
-            to="/mod/bugs"
-            className="bg-orange-100 dark:bg-orange-900 rounded-lg p-5 hover:bg-orange-200 dark:hover:bg-orange-800 transition-colors"
-          >
-            <div className="text-3xl mb-2">🐛</div>
-            <div className="text-2xl font-bold text-orange-800 dark:text-orange-200">
-              {openBugsCount}
-            </div>
-            <div className="text-sm text-orange-700 dark:text-orange-300">
-              {language === 'es' ? 'Bugs Abiertos' : 'Open Bugs'}
-            </div>
-          </Link>
         </div>
       )}
 
@@ -318,105 +299,202 @@ const ModDashboard = () => {
           {language === 'es' ? 'Gestión de Usuarios' : 'User Management'}
         </h2>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left py-3 px-4 text-gray-700 dark:text-gray-300 font-semibold">
-                  {language === 'es' ? 'Usuario' : 'Username'}
-                </th>
-                <th className="text-left py-3 px-4 text-gray-700 dark:text-gray-300 font-semibold">
-                  Email
-                </th>
-                <th className="text-left py-3 px-4 text-gray-700 dark:text-gray-300 font-semibold">
-                  {language === 'es' ? 'Rol' : 'Role'}
-                </th>
-                <th className="text-left py-3 px-4 text-gray-700 dark:text-gray-300 font-semibold">
-                  {language === 'es' ? 'Actividad' : 'Activity'}
-                </th>
-                <th className="text-left py-3 px-4 text-gray-700 dark:text-gray-300 font-semibold">
-                  {language === 'es' ? 'Acciones' : 'Actions'}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr
-                  key={u._id}
-                  className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  <td className="py-3 px-4 text-gray-900 dark:text-gray-100">
-                    {u.username}
-                    {u.email === 'shieromanu@gmail.com' && (
-                      <span className="ml-2 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">
-                        {language === 'es' ? 'DUEÑO' : 'OWNER'}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-gray-600 dark:text-gray-400">
-                    {u.email}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      u.role === 'admin'
-                        ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                    }`}>
-                      {u.role === 'admin' ? (language === 'es' ? 'Admin' : 'Admin') : (language === 'es' ? 'Usuario' : 'User')}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-sm">
-                    <button
-                      onClick={() => navigate(`/mod/user/${u._id}`)}
-                      className="text-primary-600 dark:text-primary-400 hover:underline"
-                    >
-                      💬 {u.stats.comments} | 😀 {u.stats.reactions}
-                    </button>
-                  </td>
-                  <td className="py-3 px-4">
-                    {u._id !== user._id && u.email !== 'shieromanu@gmail.com' && (
-                      <div className="flex gap-2">
-                        {u.role === 'user' ? (
-                          <Button
-                            onClick={() => handleRoleChange(u._id, 'admin')}
-                            disabled={updatingUser === u._id}
-                            variant="primary"
-                            className="text-xs py-1 px-3"
+        {/* User Groups */}
+        {(() => {
+          // Categorize users
+          const DEV_EMAILS = ['shieromanu@gmail.com']
+          const admins = users.filter(u => u.role === 'admin')
+          const devs = users.filter(u => u.isDev || DEV_EMAILS.includes(u.email))
+          const regularUsers = users.filter(u => u.role !== 'admin' && !u.isDev && !DEV_EMAILS.includes(u.email))
+          const inactiveUsers = regularUsers.filter(u => u.stats.comments === 0 && u.stats.reactions === 0)
+          const activeRegularUsers = regularUsers.filter(u => u.stats.comments > 0 || u.stats.reactions > 0)
+
+          const UserTable = ({ userList, emptyMessage }) => (
+            userList.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400 text-sm italic py-4">
+                {emptyMessage}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 text-gray-700 dark:text-gray-300 font-semibold text-sm">
+                        {language === 'es' ? 'Usuario' : 'Username'}
+                      </th>
+                      <th className="text-left py-3 px-4 text-gray-700 dark:text-gray-300 font-semibold text-sm">
+                        Email
+                      </th>
+                      <th className="text-left py-3 px-4 text-gray-700 dark:text-gray-300 font-semibold text-sm">
+                        {language === 'es' ? 'Rol' : 'Role'}
+                      </th>
+                      <th className="text-left py-3 px-4 text-gray-700 dark:text-gray-300 font-semibold text-sm">
+                        {language === 'es' ? 'Actividad' : 'Activity'}
+                      </th>
+                      <th className="text-left py-3 px-4 text-gray-700 dark:text-gray-300 font-semibold text-sm">
+                        {language === 'es' ? 'Acciones' : 'Actions'}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userList.map((u) => (
+                      <tr
+                        key={u._id}
+                        className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <td className="py-3 px-4 text-gray-900 dark:text-gray-100">
+                          {u.username}
+                          {u.email === 'shieromanu@gmail.com' && (
+                            <span className="ml-2 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">
+                              {language === 'es' ? 'DUEÑO' : 'OWNER'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-sm">
+                          {u.email}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-wrap gap-1">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              u.role === 'admin'
+                                ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                            }`}>
+                              {u.role === 'admin' ? 'Admin' : 'User'}
+                            </span>
+                            {(u.isDev || DEV_EMAILS.includes(u.email)) && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                                Dev
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          <button
+                            onClick={() => navigate(`/mod/user/${u._id}`)}
+                            className="text-primary-600 dark:text-primary-400 hover:underline"
                           >
-                            {updatingUser === u._id
-                              ? '...'
-                              : (language === 'es' ? 'Promover a Admin' : 'Promote to Admin')}
-                          </Button>
-                        ) : (
-                          <Button
-                            onClick={() => handleRoleChange(u._id, 'user')}
-                            disabled={updatingUser === u._id}
-                            variant="secondary"
-                            className="text-xs py-1 px-3"
-                          >
-                            {updatingUser === u._id
-                              ? '...'
-                              : (language === 'es' ? 'Degradar a Usuario' : 'Demote to User')}
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                    {u._id === user._id && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {language === 'es' ? '(Tú)' : '(You)'}
-                      </span>
-                    )}
-                    {u.email === 'shieromanu@gmail.com' && u._id !== user._id && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {language === 'es' ? 'Protegido' : 'Protected'}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                            💬 {u.stats.comments} | 😀 {u.stats.reactions}
+                          </button>
+                        </td>
+                        <td className="py-3 px-4">
+                          {u._id !== user._id && u.email !== 'shieromanu@gmail.com' && (
+                            <div className="flex gap-2">
+                              {u.role === 'user' ? (
+                                <Button
+                                  onClick={() => handleRoleChange(u._id, 'admin')}
+                                  disabled={updatingUser === u._id}
+                                  variant="primary"
+                                  className="text-xs py-1 px-3"
+                                >
+                                  {updatingUser === u._id
+                                    ? '...'
+                                    : (language === 'es' ? 'Promover' : 'Promote')}
+                                </Button>
+                              ) : (
+                                <Button
+                                  onClick={() => handleRoleChange(u._id, 'user')}
+                                  disabled={updatingUser === u._id}
+                                  variant="secondary"
+                                  className="text-xs py-1 px-3"
+                                >
+                                  {updatingUser === u._id
+                                    ? '...'
+                                    : (language === 'es' ? 'Degradar' : 'Demote')}
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                          {u._id === user._id && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {language === 'es' ? '(Tú)' : '(You)'}
+                            </span>
+                          )}
+                          {u.email === 'shieromanu@gmail.com' && u._id !== user._id && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {language === 'es' ? 'Protegido' : 'Protected'}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )
+
+          return (
+            <div className="space-y-6">
+              {/* Admins Section */}
+              <div className="border border-purple-200 dark:border-purple-800 rounded-lg overflow-hidden">
+                <div className="bg-purple-50 dark:bg-purple-900/30 px-4 py-3 flex items-center gap-2">
+                  <span className="text-xl">👑</span>
+                  <h3 className="font-semibold text-purple-800 dark:text-purple-200">
+                    {language === 'es' ? 'Administradores' : 'Administrators'} ({admins.length})
+                  </h3>
+                </div>
+                <div className="bg-white dark:bg-gray-800">
+                  <UserTable
+                    userList={admins}
+                    emptyMessage={language === 'es' ? 'No hay administradores' : 'No administrators'}
+                  />
+                </div>
+              </div>
+
+              {/* Developers Section */}
+              <div className="border border-green-200 dark:border-green-800 rounded-lg overflow-hidden">
+                <div className="bg-green-50 dark:bg-green-900/30 px-4 py-3 flex items-center gap-2">
+                  <span className="text-xl">🔧</span>
+                  <h3 className="font-semibold text-green-800 dark:text-green-200">
+                    {language === 'es' ? 'Desarrolladores' : 'Developers'} ({devs.length})
+                  </h3>
+                </div>
+                <div className="bg-white dark:bg-gray-800">
+                  <UserTable
+                    userList={devs}
+                    emptyMessage={language === 'es' ? 'No hay desarrolladores' : 'No developers'}
+                  />
+                </div>
+              </div>
+
+              {/* Active Regular Users Section */}
+              <div className="border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
+                <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-3 flex items-center gap-2">
+                  <span className="text-xl">👥</span>
+                  <h3 className="font-semibold text-blue-800 dark:text-blue-200">
+                    {language === 'es' ? 'Usuarios Activos' : 'Active Users'} ({activeRegularUsers.length})
+                  </h3>
+                </div>
+                <div className="bg-white dark:bg-gray-800">
+                  <UserTable
+                    userList={activeRegularUsers}
+                    emptyMessage={language === 'es' ? 'No hay usuarios activos' : 'No active users'}
+                  />
+                </div>
+              </div>
+
+              {/* Inactive Users Section */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 flex items-center gap-2">
+                  <span className="text-xl">💤</span>
+                  <h3 className="font-semibold text-gray-600 dark:text-gray-300">
+                    {language === 'es' ? 'Usuarios Inactivos' : 'Inactive Users'} ({inactiveUsers.length})
+                  </h3>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    ({language === 'es' ? '0 comentarios, 0 reacciones' : '0 comments, 0 reactions'})
+                  </span>
+                </div>
+                <div className="bg-white dark:bg-gray-800">
+                  <UserTable
+                    userList={inactiveUsers}
+                    emptyMessage={language === 'es' ? 'No hay usuarios inactivos' : 'No inactive users'}
+                  />
+                </div>
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

@@ -17,6 +17,7 @@ import BugReports from './pages/BugReports'
 import DeckList from './pages/DeckList'
 import DeckBuilder from './pages/DeckBuilder'
 import DeckDetail from './pages/DeckDetail'
+import TypeChart from './pages/TypeChart'
 import BugReportButton from './components/common/BugReportButton'
 
 function App() {
@@ -45,6 +46,7 @@ function App() {
                       <Route path="/decks/new" element={<DeckBuilder />} />
                       <Route path="/decks/:deckId" element={<DeckDetail />} />
                       <Route path="/decks/:deckId/edit" element={<DeckBuilder />} />
+                      <Route path="/type-chart" element={<TypeChart />} />
                     </Routes>
                   </main>
                   <BugReportButton />

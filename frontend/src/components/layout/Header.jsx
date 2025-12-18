@@ -18,9 +18,11 @@ const Header = () => {
   const [isSearching, setIsSearching] = useState(false)
   const [mostCommented, setMostCommented] = useState([])
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showMainMenu, setShowMainMenu] = useState(false)
   const searchRef = useRef(null)
   const searchTimeoutRef = useRef(null)
   const userMenuRef = useRef(null)
+  const mainMenuRef = useRef(null)
 
   // Load most commented cards on mount
   useEffect(() => {
@@ -45,6 +47,9 @@ const Header = () => {
       }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false)
+      }
+      if (mainMenuRef.current && !mainMenuRef.current.contains(event.target)) {
+        setShowMainMenu(false)
       }
     }
 
@@ -124,28 +129,66 @@ const Header = () => {
     setShowDropdown(false)
     setSearchResults([])
     setShowUserMenu(false)
+    setShowMainMenu(false)
   }, [location])
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow-md transition-colors">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between gap-4">
-          <Link to="/" className="flex flex-col shrink-0">
-            <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-              TCG KB
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">TCG Knowledge Base</p>
-          </Link>
-
-          {/* Main Navigation */}
-          <nav className="hidden md:flex items-center gap-4">
-            <Link
-              to="/decks"
-              className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          {/* Hamburger Menu */}
+          <div ref={mainMenuRef} className="relative shrink-0">
+            <button
+              onClick={() => setShowMainMenu(!showMainMenu)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
-              🃏 {language === 'es' ? 'Mazos' : 'Decks'}
-            </Link>
-          </nav>
+              <svg className="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              <div className="flex flex-col text-left">
+                <span className="text-lg font-bold text-primary-600 dark:text-primary-400">TCG KB</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Knowledge Base</span>
+              </div>
+            </button>
+
+            {/* Main Menu Dropdown */}
+            {showMainMenu && (
+              <div
+                className="absolute left-0 mt-2 w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl z-[9999] py-1"
+                style={{ top: '100%' }}
+              >
+                <Link
+                  to="/"
+                  onClick={() => setShowMainMenu(false)}
+                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  🏠 {language === 'es' ? 'Inicio' : 'Home'}
+                </Link>
+                <Link
+                  to="/decks"
+                  onClick={() => setShowMainMenu(false)}
+                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  🃏 {language === 'es' ? 'Mazos' : 'Decks'}
+                </Link>
+                <Link
+                  to="/type-chart"
+                  onClick={() => setShowMainMenu(false)}
+                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  🔄 {language === 'es' ? 'Tabla de Tipos' : 'Type Chart'}
+                </Link>
+                <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                <Link
+                  to="/changelog"
+                  onClick={() => setShowMainMenu(false)}
+                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  📋 {language === 'es' ? 'Changelog' : 'Changelog'}
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* Search Bar with Autocomplete */}
           <div ref={searchRef} className="flex-1 max-w-md hidden md:block" style={{ position: 'relative' }}>
@@ -282,15 +325,6 @@ const Header = () => {
                         </Link>
                       )}
                       <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
-                        <Link
-                          to="/changelog"
-                          onClick={() => setShowUserMenu(false)}
-                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          📋 {language === 'es' ? 'Changelog' : 'Changelog'}
-                        </Link>
-                      </div>
-                      <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
                         <button
                           onClick={() => {
                             setShowUserMenu(false)
@@ -318,15 +352,6 @@ const Header = () => {
                       >
                         {t('nav.register')}
                       </Link>
-                      <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
-                        <Link
-                          to="/changelog"
-                          onClick={() => setShowUserMenu(false)}
-                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          📋 {language === 'es' ? 'Changelog' : 'Changelog'}
-                        </Link>
-                      </div>
                     </>
                   )}
                 </div>

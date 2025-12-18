@@ -1,5 +1,5 @@
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
-export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001'
+// Note: API_URL and SOCKET_URL are now dynamically determined at runtime
+// in api.js and SocketContext.jsx to avoid build-time evaluation issues
 
 export const EMOJIS = ['👍', '👎']
 

@@ -375,15 +375,15 @@ const CommentComposer = ({ cardId, deckId, targetType = 'card', parentId = null,
                       }}
                       className="px-3 py-2 hover:bg-primary-50 dark:hover:bg-primary-900/30 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{ability.type === 'attack' ? '⚔️' : '✨'}</span>
+                      <div className="flex items-start gap-2">
+                        <span className="text-sm mt-0.5">{ability.type === 'attack' ? '⚔️' : '✨'}</span>
                         <div className="flex-1">
                           <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{ability.name}</div>
                           {ability.damage && (
                             <span className="text-xs text-red-600 dark:text-red-400 font-semibold">💥 {ability.damage}</span>
                           )}
                           {ability.text && (
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">{ability.text}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-relaxed">{ability.text}</p>
                           )}
                         </div>
                       </div>

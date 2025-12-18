@@ -1,45 +1,63 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
+import html2canvas from 'html2canvas'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { useAuth } from '../../contexts/AuthContext'
+import { useTheme } from '../../contexts/ThemeContext'
 import api from '../../services/api'
 
 const BugReportButton = () => {
   const { language } = useLanguage()
   const { isAuthenticated } = useAuth()
+  const { isDark } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [screenshot, setScreenshot] = useState(null)
+  const [capturingScreenshot, setCapturingScreenshot] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const buttonRef = useRef(null)
 
   // Auto-capture screenshot when opening the modal
   const handleOpenModal = useCallback(async () => {
+    // First hide the bug report button
+    if (buttonRef.current) {
+      buttonRef.current.style.display = 'none'
+    }
+
+    setCapturingScreenshot(true)
+
     try {
-      // Capture screenshot before opening modal using canvas
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
+      // Small delay to ensure UI updates
+      await new Promise(resolve => setTimeout(resolve, 100))
 
-      // Use a simpler approach - capture visible viewport
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
+      const capturedCanvas = await html2canvas(document.body, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 0.5,
+        logging: false,
+        backgroundColor: isDark ? '#111827' : '#ffffff',
+        onclone: (clonedDoc) => {
+          // Remove any elements we don't want in the screenshot
+          const bugButton = clonedDoc.querySelector('[data-bug-button]')
+          if (bugButton) bugButton.remove()
+        }
+      })
 
-      // Try to use html2canvas if loaded, otherwise skip auto-capture
-      if (typeof window.html2canvas !== 'undefined') {
-        const capturedCanvas = await window.html2canvas(document.body, {
-          useCORS: true,
-          allowTaint: true,
-          scale: 0.5 // Reduce size for performance
-        })
-        setScreenshot(capturedCanvas.toDataURL('image/jpeg', 0.7))
-      }
+      setScreenshot(capturedCanvas.toDataURL('image/jpeg', 0.7))
     } catch (error) {
       console.error('Auto-screenshot failed:', error)
       // Continue without screenshot - user can still report
+    } finally {
+      setCapturingScreenshot(false)
+      // Show the button again
+      if (buttonRef.current) {
+        buttonRef.current.style.display = ''
+      }
     }
 
     setIsOpen(true)
-  }, [])
+  }, [isDark])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -56,7 +74,10 @@ const BugReportButton = () => {
         description: description.trim(),
         screenshot,
         pageUrl: window.location.href,
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent,
+        theme: isDark ? 'dark' : 'light',
+        language,
+        screenSize: `${window.innerWidth}x${window.innerHeight}`
       })
 
       setSuccess(true)
@@ -84,6 +105,28 @@ const BugReportButton = () => {
     setSuccess(false)
   }
 
+  // Retry screenshot capture
+  const handleRetryScreenshot = async () => {
+    setCapturingScreenshot(true)
+    try {
+      const capturedCanvas = await html2canvas(document.body, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 0.5,
+        logging: false,
+        backgroundColor: isDark ? '#111827' : '#ffffff',
+        ignoreElements: (element) => {
+          return element.closest('[data-bug-modal]') !== null
+        }
+      })
+      setScreenshot(capturedCanvas.toDataURL('image/jpeg', 0.7))
+    } catch (error) {
+      console.error('Screenshot retry failed:', error)
+    } finally {
+      setCapturingScreenshot(false)
+    }
+  }
+
   // Only show for authenticated users
   if (!isAuthenticated) {
     return null
@@ -93,6 +136,8 @@ const BugReportButton = () => {
     <>
       {/* Floating Bug Report Button - Only for logged-in users */}
       <button
+        ref={buttonRef}
+        data-bug-button
         onClick={handleOpenModal}
         className="fixed bottom-4 right-4 z-40 p-3 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all hover:scale-110"
         title={language === 'es' ? 'Reportar un Bug' : 'Report a Bug'}
@@ -104,7 +149,7 @@ const BugReportButton = () => {
 
       {/* Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div data-bug-modal className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -168,26 +213,60 @@ const BugReportButton = () => {
                   />
                 </div>
 
-                {/* Auto-captured screenshot preview (if available) */}
-                {screenshot && (
-                  <div className="relative">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {language === 'es' ? 'Captura automática' : 'Auto-captured screenshot'}
+                {/* Auto-captured screenshot preview */}
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {language === 'es' ? 'Captura de pantalla' : 'Screenshot'}
                     </label>
+                    {!capturingScreenshot && (
+                      <button
+                        type="button"
+                        onClick={handleRetryScreenshot}
+                        className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                      >
+                        {language === 'es' ? 'Recapturar' : 'Retake'}
+                      </button>
+                    )}
+                  </div>
+                  {capturingScreenshot ? (
+                    <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                        <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span className="text-sm">{language === 'es' ? 'Capturando...' : 'Capturing...'}</span>
+                      </div>
+                    </div>
+                  ) : screenshot ? (
                     <img
                       src={screenshot}
                       alt="Screenshot"
-                      className="w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600 opacity-75"
+                      className="w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
                     />
-                  </div>
-                )}
+                  ) : (
+                    <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm">
+                      {language === 'es' ? 'No se pudo capturar' : 'Could not capture'}
+                    </div>
+                  )}
+                </div>
 
-                {/* Info */}
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {language === 'es'
-                    ? 'Se incluirá automáticamente la URL actual y datos del navegador.'
-                    : "Current URL and browser info will be automatically included."}
-                </p>
+                {/* Context Info */}
+                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                  <p className="flex items-center gap-2">
+                    <span>{isDark ? '🌙' : '☀️'}</span>
+                    <span>{language === 'es' ? 'Tema:' : 'Theme:'} {isDark ? 'Dark' : 'Light'}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span>🌐</span>
+                    <span className="truncate">{window.location.pathname}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span>📐</span>
+                    <span>{window.innerWidth}x{window.innerHeight}</span>
+                  </p>
+                </div>
 
                 {/* Submit Button */}
                 <button

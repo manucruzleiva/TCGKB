@@ -101,9 +101,17 @@ export const getDetailedStats = async (req, res) => {
     // Combine and deduplicate active users
     const activeUserIds = [...new Set([...recentCommentUsers, ...recentReactionUsers])]
 
-    const [totalUsers, adminCount] = await Promise.all([
+    const DEV_EMAILS = ['shieromanu@gmail.com']
+
+    const [totalUsers, adminCount, devCount] = await Promise.all([
       User.countDocuments(),
-      User.countDocuments({ role: 'admin' })
+      User.countDocuments({ role: 'admin' }),
+      User.countDocuments({
+        $or: [
+          { isDev: true },
+          { email: { $in: DEV_EMAILS } }
+        ]
+      })
     ])
 
     const activeUsers = activeUserIds.length
@@ -112,7 +120,8 @@ export const getDetailedStats = async (req, res) => {
     const userCategories = {
       active: activeUsers,
       inactive: inactiveUsers,
-      admins: adminCount
+      admins: adminCount,
+      devs: devCount
     }
 
     // Top commented cards

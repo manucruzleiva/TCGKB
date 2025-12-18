@@ -7,7 +7,7 @@ const CardItem = ({ card }) => {
   const { formatDate } = useDateFormat()
   const [showTooltip, setShowTooltip] = useState(false)
   const imageUrl = card.images?.small || card.images?.large
-  const setName = card.set?.name || 'Unknown Set'
+  const setCode = card.set?.ptcgoCode || card.set?.id || card.set?.name || 'Unknown'
   const releaseDate = card.set?.releaseDate || ''
 
   // Check rotation status for Pokemon cards
@@ -77,7 +77,7 @@ const CardItem = ({ card }) => {
 
         <div>
           <h3 className="font-bold text-lg mb-1 line-clamp-2 text-gray-900 dark:text-gray-100">{card.name}</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{setName}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1 font-mono">{setCode}</p>
           {releaseDate && (
             <p className="text-xs text-gray-500 dark:text-gray-500">{formatDate(releaseDate)}</p>
           )}

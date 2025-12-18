@@ -55,37 +55,59 @@ export const deckService = {
     return response.data
   },
 
-  // Parse TCG Live format text
+  // Parse deck import text (supports multiple formats)
   parseTCGLiveFormat: (text) => {
     const lines = text.trim().split('\n')
     const cards = []
 
     for (const line of lines) {
       const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) continue
+      if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('Pokémon') ||
+          trimmed.startsWith('Trainer') || trimmed.startsWith('Energy') ||
+          trimmed.startsWith('Pokemon') || trimmed.startsWith('Total')) continue
 
-      // Format: "quantity cardId" or "quantity Card Name SET number"
-      const match = trimmed.match(/^(\d+)\s+(.+)$/)
-      if (match) {
-        const quantity = parseInt(match[1])
-        const cardInfo = match[2].trim()
+      // Format 1: "quantity Name SET Number" (e.g., "4 Pikachu SV1 25")
+      // The SET code is usually 2-6 alphanumeric chars, Number is at the end
+      const nameSetNumberMatch = trimmed.match(/^(\d+)\s+(.+?)\s+([A-Za-z]{2,6}\d*)\s+(\d+)$/)
+      if (nameSetNumberMatch) {
+        const quantity = parseInt(nameSetNumberMatch[1])
+        const name = nameSetNumberMatch[2].trim()
+        const setCode = nameSetNumberMatch[3].toLowerCase()
+        const number = nameSetNumberMatch[4]
+        const cardId = `${setCode}-${number}`
+        cards.push({ cardId, quantity, name })
+        continue
+      }
 
-        // Try to extract card ID (format: SET-NUMBER at the end)
-        const idMatch = cardInfo.match(/([A-Za-z0-9]+-[A-Za-z0-9]+)$/)
-        if (idMatch) {
-          cards.push({
-            cardId: idMatch[1],
-            quantity,
-            name: cardInfo.replace(idMatch[1], '').trim()
-          })
-        } else {
-          // Just use the whole thing as card ID
-          cards.push({
-            cardId: cardInfo,
-            quantity,
-            name: cardInfo
-          })
-        }
+      // Format 2: "quantity SET-NUMBER" (e.g., "4 sv1-25")
+      const setNumberMatch = trimmed.match(/^(\d+)\s+([A-Za-z0-9]+-[A-Za-z0-9]+)$/)
+      if (setNumberMatch) {
+        const quantity = parseInt(setNumberMatch[1])
+        const cardId = setNumberMatch[2].toLowerCase()
+        cards.push({ cardId, quantity, name: cardId })
+        continue
+      }
+
+      // Format 3: "quantity Name SET-NUMBER" (e.g., "4 Pikachu sv1-25")
+      const nameWithIdMatch = trimmed.match(/^(\d+)\s+(.+?)\s+([A-Za-z0-9]+-[A-Za-z0-9]+)$/)
+      if (nameWithIdMatch) {
+        const quantity = parseInt(nameWithIdMatch[1])
+        const name = nameWithIdMatch[2].trim()
+        const cardId = nameWithIdMatch[3].toLowerCase()
+        cards.push({ cardId, quantity, name })
+        continue
+      }
+
+      // Format 4: Generic fallback - "quantity anything"
+      const genericMatch = trimmed.match(/^(\d+)\s+(.+)$/)
+      if (genericMatch) {
+        const quantity = parseInt(genericMatch[1])
+        const cardInfo = genericMatch[2].trim()
+        cards.push({
+          cardId: cardInfo.toLowerCase().replace(/\s+/g, '-'),
+          quantity,
+          name: cardInfo
+        })
       }
     }
 

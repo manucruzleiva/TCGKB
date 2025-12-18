@@ -39,6 +39,7 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
   // Get the current card (either from alternateArts or the original card)
   const displayedCard = alternateArts.length > 0 ? alternateArts[currentArtIndex] : card
   const imageUrl = displayedCard?.images?.large || displayedCard?.images?.small || card.images?.large || card.images?.small
+  const setCode = card.set?.ptcgoCode || card.set?.id || 'Unknown'
   const setName = card.set?.name || 'Unknown Set'
   const releaseDate = card.set?.releaseDate || ''
   const hasMultipleArts = alternateArts.length > 1
@@ -124,7 +125,7 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
           {hasMultipleArts && (
             <div className="mt-4">
               <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Artes Alternativos ({alternateArts.length})
+                {t('card.alternateArts')} ({alternateArts.length})
               </div>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {alternateArts.map((art, idx) => (
@@ -174,7 +175,8 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
             {/* Set Info */}
             <div>
               <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.set')}:</span>
-              <span className="ml-2 text-gray-600 dark:text-gray-400">{setName}</span>
+              <span className="ml-2 font-mono font-semibold text-primary-600 dark:text-primary-400">{setCode}</span>
+              <span className="ml-2 text-gray-500 dark:text-gray-500 text-sm">({setName})</span>
             </div>
 
             {releaseDate && (

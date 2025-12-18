@@ -315,6 +315,48 @@ export const getUserActivity = async (req, res) => {
           .select('targetType targetId emoji createdAt'),
         Reaction.countDocuments({ userId: user._id })
       ])
+
+      // Enrich reactions with additional details
+      const enrichedReactions = await Promise.all(reactions.map(async (reaction) => {
+        const reactionObj = reaction.toObject()
+
+        // For comment reactions, fetch the comment content
+        if (reaction.targetType === 'comment') {
+          try {
+            const comment = await Comment.findById(reaction.targetId)
+              .select('content cardId')
+              .lean()
+            if (comment) {
+              reactionObj.commentPreview = comment.content?.substring(0, 100) + (comment.content?.length > 100 ? '...' : '')
+              reactionObj.cardId = comment.cardId
+            }
+          } catch (e) {
+            // Ignore errors, comment might be deleted
+          }
+        }
+
+        // For attack/ability reactions, parse the targetId to get card and index
+        // Format: cardId_type_index (e.g., "swsh1-1_attack_0")
+        if (reaction.targetType === 'attack' || reaction.targetType === 'ability') {
+          const parts = reaction.targetId.split('_')
+          if (parts.length >= 3) {
+            const index = parseInt(parts[parts.length - 1])
+            const itemType = parts[parts.length - 2]
+            const cardId = parts.slice(0, -2).join('_')
+            reactionObj.cardId = cardId
+            reactionObj.itemIndex = index
+          }
+        }
+
+        // For card reactions, the targetId is already the cardId
+        if (reaction.targetType === 'card') {
+          reactionObj.cardId = reaction.targetId
+        }
+
+        return reactionObj
+      }))
+
+      reactions = enrichedReactions
     }
 
     log.info(MODULE, `User activity retrieved for ${user.username}`)

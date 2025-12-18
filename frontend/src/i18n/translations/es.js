@@ -38,7 +38,8 @@ export const es = {
     abilities: 'Habilidades',
     notLegal: 'No legal',
     rotatingSoon: 'Rotando pronto',
-    communityActivity: 'Actividad de la comunidad'
+    communityActivity: 'Actividad de la comunidad',
+    alternateArts: 'Artes Alternativos'
   },
 
   // Comments

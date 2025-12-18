@@ -9,7 +9,7 @@ const MODULE = 'BugReportController'
  */
 export const createBugReport = async (req, res) => {
   try {
-    const { title, description, screenshot, pageUrl, userAgent } = req.body
+    const { title, description, screenshot, pageUrl, userAgent, theme, language, screenSize } = req.body
 
     if (!title || !description) {
       return res.status(400).json({
@@ -24,6 +24,9 @@ export const createBugReport = async (req, res) => {
       screenshot: screenshot || null,
       pageUrl: pageUrl || '',
       userAgent: userAgent || '',
+      theme: theme || 'light',
+      language: language || 'en',
+      screenSize: screenSize || '',
       userId: req.user?._id || null
     })
 

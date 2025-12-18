@@ -416,33 +416,55 @@ const UserActivity = () => {
             reactions.map((reaction) => (
               <div
                 key={reaction._id}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700 flex items-center gap-4"
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700"
               >
-                <span className="text-2xl">{reaction.emoji}</span>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {reaction.targetType === 'card' && (
-                      <CardLink cardId={reaction.targetId} />
+                <div className="flex items-start gap-4">
+                  <span className="text-2xl flex-shrink-0">{reaction.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      {reaction.targetType === 'card' && (
+                        <>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400">
+                            🃏 {language === 'es' ? 'Carta' : 'Card'}
+                          </span>
+                          <CardLink cardId={reaction.cardId || reaction.targetId} />
+                        </>
+                      )}
+                      {reaction.targetType === 'comment' && (
+                        <>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
+                            💬 {language === 'es' ? 'Comentario' : 'Comment'}
+                          </span>
+                          {reaction.cardId && <CardLink cardId={reaction.cardId} />}
+                        </>
+                      )}
+                      {reaction.targetType === 'attack' && (
+                        <>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400">
+                            ⚔️ {language === 'es' ? `Ataque #${(reaction.itemIndex || 0) + 1}` : `Attack #${(reaction.itemIndex || 0) + 1}`}
+                          </span>
+                          {reaction.cardId && <CardLink cardId={reaction.cardId} />}
+                        </>
+                      )}
+                      {reaction.targetType === 'ability' && (
+                        <>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400">
+                            ✨ {language === 'es' ? `Habilidad #${(reaction.itemIndex || 0) + 1}` : `Ability #${(reaction.itemIndex || 0) + 1}`}
+                          </span>
+                          {reaction.cardId && <CardLink cardId={reaction.cardId} />}
+                        </>
+                      )}
+                    </div>
+                    {/* Show comment preview for comment reactions */}
+                    {reaction.targetType === 'comment' && reaction.commentPreview && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 italic mt-1 line-clamp-2">
+                        "{reaction.commentPreview}"
+                      </p>
                     )}
-                    {reaction.targetType === 'comment' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
-                        💬 {language === 'es' ? 'Comentario' : 'Comment'}
-                      </span>
-                    )}
-                    {reaction.targetType === 'attack' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400">
-                        ⚔️ {language === 'es' ? 'Ataque' : 'Attack'}
-                      </span>
-                    )}
-                    {reaction.targetType === 'ability' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400">
-                        ✨ {language === 'es' ? 'Habilidad' : 'Ability'}
-                      </span>
-                    )}
-                  </p>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {timeAgo(reaction.createdAt)}
-                  </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
+                      {timeAgo(reaction.createdAt)}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))

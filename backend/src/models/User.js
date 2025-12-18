@@ -45,6 +45,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  avatar: {
+    type: String,
+    default: null
+  },
   preferences: {
     language: {
       type: String,
@@ -116,9 +120,8 @@ userSchema.set('toObject', {
   }
 })
 
-// Indexes
-userSchema.index({ email: 1 })
-userSchema.index({ username: 1 })
+// Note: email and username already have indexes via unique: true
+// No need for additional index() calls
 
 const User = mongoose.model('User', userSchema)
 

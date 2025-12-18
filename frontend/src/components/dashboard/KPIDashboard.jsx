@@ -176,6 +176,18 @@ const KPIDashboard = () => {
                 {userCats?.admins || 0}
               </span>
             </div>
+
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span>💻</span>
+                <span className="text-indigo-800 dark:text-indigo-200">
+                  {language === 'es' ? 'Desarrolladores' : 'Developers'}
+                </span>
+              </div>
+              <span className="font-semibold text-indigo-900 dark:text-indigo-100">
+                {userCats?.devs || 0}
+              </span>
+            </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-indigo-200 dark:border-indigo-800 text-xs text-indigo-700 dark:text-indigo-300">

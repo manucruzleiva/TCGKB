@@ -59,6 +59,30 @@ const BugReports = () => {
     }
   }, [statusFilter, isAuthenticated, canAccessBugDashboard])
 
+  // Real-time polling - refresh every 30 seconds
+  useEffect(() => {
+    if (!isAuthenticated || !canAccessBugDashboard) return
+
+    const pollInterval = setInterval(() => {
+      // Silent fetch without setting loading state
+      const silentFetch = async () => {
+        try {
+          const response = await api.get(`/bugs?status=${statusFilter}`)
+          if (response.data.success) {
+            setBugReports(response.data.data.bugReports)
+            setBugCounts(response.data.data.counts || {})
+            setTimeSeries(response.data.data.timeSeries || [])
+          }
+        } catch (error) {
+          console.error('Polling error:', error)
+        }
+      }
+      silentFetch()
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(pollInterval)
+  }, [statusFilter, isAuthenticated, canAccessBugDashboard])
+
   // Fetch assignees for admin users
   useEffect(() => {
     if (isAuthenticated && isAdmin) {
@@ -108,20 +132,6 @@ const BugReports = () => {
       console.error('Error updating bug status:', error)
     } finally {
       setUpdating(null)
-    }
-  }
-
-  const handleDelete = async (bugId) => {
-    if (!window.confirm(language === 'es' ? '¿Eliminar este reporte?' : 'Delete this report?')) {
-      return
-    }
-    try {
-      await api.delete(`/bugs/${bugId}`)
-      setBugReports(prev => prev.filter(b => b._id !== bugId))
-      setSelectedBug(null)
-      fetchBugReports()
-    } catch (error) {
-      console.error('Error deleting bug:', error)
     }
   }
 
@@ -399,13 +409,54 @@ const BugReports = () => {
               >
                 <div className="flex items-start gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    {/* Header Row with Title, Status, and Assignment */}
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                         {bug.title}
                       </h3>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[bug.status].bg} ${STATUS_COLORS[bug.status].text}`}>
-                        {STATUS_LABELS[bug.status][language]}
-                      </span>
+                      {/* Quick Status Selector */}
+                      {isAdmin ? (
+                        <select
+                          value={bug.status}
+                          onChange={(e) => handleStatusChange(bug._id, e.target.value)}
+                          disabled={updating === bug._id}
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium border-0 cursor-pointer ${STATUS_COLORS[bug.status].bg} ${STATUS_COLORS[bug.status].text}`}
+                        >
+                          {Object.entries(STATUS_LABELS).map(([status, labels]) => (
+                            <option key={status} value={status}>
+                              {labels[language]}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[bug.status].bg} ${STATUS_COLORS[bug.status].text}`}>
+                          {STATUS_LABELS[bug.status][language]}
+                        </span>
+                      )}
+                      {/* Quick Assignment Selector */}
+                      {isAdmin && assignees.length > 0 ? (
+                        <select
+                          value={bug.assignedTo?._id || ''}
+                          onChange={(e) => handleAssignmentChange(bug._id, e.target.value)}
+                          disabled={assigningBug === bug._id}
+                          className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 border-0 cursor-pointer"
+                        >
+                          <option value="">{language === 'es' ? '🎯 Sin asignar' : '🎯 Unassigned'}</option>
+                          {assignees.map((assignee) => (
+                            <option key={assignee._id} value={assignee._id}>
+                              🎯 {assignee.username}
+                            </option>
+                          ))}
+                        </select>
+                      ) : bug.assignedTo ? (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200">
+                          🎯 {bug.assignedTo.username}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                          {language === 'es' ? 'Sin asignar' : 'Unassigned'}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
                       {bug.description}
@@ -413,11 +464,6 @@ const BugReports = () => {
                     <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                       <span>👤 {bug.userId?.username || 'Anonymous'}</span>
                       <span>🕐 {timeAgo(bug.createdAt)}</span>
-                      {bug.assignedTo && (
-                        <span className="text-primary-600 dark:text-primary-400">
-                          🎯 {bug.assignedTo.username}
-                        </span>
-                      )}
                       {bug.pageUrl && (
                         <a
                           href={bug.pageUrl}
@@ -435,6 +481,7 @@ const BugReports = () => {
                     <button
                       onClick={() => setSelectedBug(selectedBug === bug._id ? null : bug._id)}
                       className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      title={language === 'es' ? 'Ver detalles' : 'View details'}
                     >
                       <svg className={`w-5 h-5 transition-transform ${selectedBug === bug._id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -459,6 +506,41 @@ const BugReports = () => {
                       </div>
                     )}
 
+                    {/* Context Info */}
+                    <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {language === 'es' ? 'Contexto:' : 'Context:'}
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span>{bug.theme === 'dark' ? '🌙' : '☀️'}</span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            {bug.theme === 'dark' ? 'Dark' : 'Light'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span>🌐</span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            {bug.language === 'es' ? 'Español' : 'English'}
+                          </span>
+                        </div>
+                        {bug.screenSize && (
+                          <div className="flex items-center gap-2">
+                            <span>📐</span>
+                            <span className="text-gray-600 dark:text-gray-400">{bug.screenSize}</span>
+                          </div>
+                        )}
+                        {bug.pageUrl && (
+                          <div className="flex items-center gap-2">
+                            <span>📍</span>
+                            <span className="text-gray-600 dark:text-gray-400 truncate">
+                              {bug.pageUrl.replace(/^https?:\/\/[^/]+/, '')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     {bug.userAgent && (
                       <div className="mb-4">
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -470,62 +552,6 @@ const BugReports = () => {
                       </div>
                     )}
 
-                    {/* Assignment Section - Admin Only */}
-                    {isAdmin && assignees.length > 0 && (
-                      <div className="mb-4 flex items-center gap-3">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          🎯 {language === 'es' ? 'Asignado a:' : 'Assigned to:'}
-                        </span>
-                        <select
-                          value={bug.assignedTo?._id || ''}
-                          onChange={(e) => handleAssignmentChange(bug._id, e.target.value)}
-                          disabled={assigningBug === bug._id}
-                          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent disabled:opacity-50"
-                        >
-                          <option value="">
-                            {language === 'es' ? '-- Sin asignar --' : '-- Unassigned --'}
-                          </option>
-                          {assignees.map((assignee) => (
-                            <option key={assignee._id} value={assignee._id}>
-                              {assignee.username} {assignee.role === 'admin' ? '(Admin)' : assignee.isDev ? '(Dev)' : ''}
-                            </option>
-                          ))}
-                        </select>
-                        {assigningBug === bug._id && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {language === 'es' ? 'Guardando...' : 'Saving...'}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-2 mt-4">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {language === 'es' ? 'Cambiar estado:' : 'Change status:'}
-                      </span>
-                      {Object.entries(STATUS_LABELS).map(([status, labels]) => (
-                        <button
-                          key={status}
-                          onClick={() => handleStatusChange(bug._id, status)}
-                          disabled={updating === bug._id || bug.status === status || !isAdmin}
-                          className={`px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50 ${
-                            bug.status === status
-                              ? `${STATUS_COLORS[status].bg} ${STATUS_COLORS[status].text} ring-2 ring-primary-500`
-                              : `${STATUS_COLORS[status].bg} ${STATUS_COLORS[status].text} hover:opacity-80`
-                          }`}
-                        >
-                          {updating === bug._id ? '...' : labels[language]}
-                        </button>
-                      ))}
-                      {isAdmin && (
-                        <button
-                          onClick={() => handleDelete(bug._id)}
-                          className="px-3 py-1 rounded text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900 transition-colors ml-auto"
-                        >
-                          🗑️ {language === 'es' ? 'Eliminar' : 'Delete'}
-                        </button>
-                      )}
-                    </div>
                   </div>
                 )}
               </div>
