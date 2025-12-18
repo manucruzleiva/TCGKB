@@ -1,4 +1,11 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "stage": true,
+      "dev": true
+    }
+  },
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/index.js": {
