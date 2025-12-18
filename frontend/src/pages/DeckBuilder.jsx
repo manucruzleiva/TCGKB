@@ -328,11 +328,21 @@ const DeckBuilder = () => {
     }
   }
 
+  // Helper to normalize supertype (handle Pokemon vs Pokémon)
+  const normalizeType = (type) => {
+    if (!type) return 'Unknown'
+    const lower = type.toLowerCase()
+    if (lower === 'pokémon' || lower === 'pokemon') return 'Pokémon'
+    if (lower === 'trainer') return 'Trainer'
+    if (lower === 'energy') return 'Energy'
+    return type
+  }
+
   // Calculate deck stats
   const totalCards = cards.reduce((sum, c) => sum + c.quantity, 0)
-  const pokemonCount = cards.filter(c => c.supertype === 'Pokémon').reduce((sum, c) => sum + c.quantity, 0)
-  const trainerCount = cards.filter(c => c.supertype === 'Trainer').reduce((sum, c) => sum + c.quantity, 0)
-  const energyCount = cards.filter(c => c.supertype === 'Energy').reduce((sum, c) => sum + c.quantity, 0)
+  const pokemonCount = cards.filter(c => normalizeType(c.supertype) === 'Pokémon').reduce((sum, c) => sum + c.quantity, 0)
+  const trainerCount = cards.filter(c => normalizeType(c.supertype) === 'Trainer').reduce((sum, c) => sum + c.quantity, 0)
+  const energyCount = cards.filter(c => normalizeType(c.supertype) === 'Energy').reduce((sum, c) => sum + c.quantity, 0)
 
   if (loading) {
     return (
@@ -611,7 +621,7 @@ const DeckBuilder = () => {
               <div className="space-y-4">
                 {/* Group by supertype */}
                 {['Pokémon', 'Trainer', 'Energy'].map(supertype => {
-                  const supertypeCards = cards.filter(c => c.supertype === supertype)
+                  const supertypeCards = cards.filter(c => normalizeType(c.supertype) === supertype)
                   if (supertypeCards.length === 0) return null
 
                   return (
@@ -675,13 +685,13 @@ const DeckBuilder = () => {
                 })}
 
                 {/* Unknown supertype cards */}
-                {cards.filter(c => !['Pokémon', 'Trainer', 'Energy'].includes(c.supertype)).length > 0 && (
+                {cards.filter(c => !['Pokémon', 'Trainer', 'Energy'].includes(normalizeType(c.supertype))).length > 0 && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
                       {language === 'es' ? 'Otros' : 'Other'}
                     </h3>
                     <div className="space-y-1">
-                      {cards.filter(c => !['Pokémon', 'Trainer', 'Energy'].includes(c.supertype)).map(card => (
+                      {cards.filter(c => !['Pokémon', 'Trainer', 'Energy'].includes(normalizeType(c.supertype))).map(card => (
                         <div
                           key={card.cardId}
                           className="flex items-center justify-between p-2 bg-gray-100 dark:bg-gray-700 rounded"
