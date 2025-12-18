@@ -176,18 +176,23 @@ const DevDashboard = () => {
     }
   }
 
-  const syncPokemonCards = async (allSets = false) => {
+  const syncPokemonCards = async (allSets = false, offset = 0) => {
     try {
       setSyncingPokemon(true)
-      setSyncResult(null)
-      const url = allSets ? '/mod/cache/sync/pokemon?allSets=true' : '/mod/cache/sync/pokemon'
-      const response = await api.post(url, {}, { timeout: 600000 })
+      if (offset === 0) setSyncResult(null) // Only clear on first batch
+      const params = new URLSearchParams()
+      if (allSets) params.append('allSets', 'true')
+      params.append('limit', '5') // 5 sets per batch to avoid timeout
+      params.append('offset', offset.toString())
+      const url = `/mod/cache/sync/pokemon?${params.toString()}`
+      const response = await api.post(url, {}, { timeout: 120000 }) // 2 min timeout
       if (response.data.success) {
         setSyncResult({
           success: true,
           type: 'pokemon',
           message: response.data.message,
-          data: response.data.data
+          data: response.data.data,
+          allSets // Remember the mode for continue button
         })
         fetchCacheStats()
       }
@@ -778,12 +783,47 @@ const DevDashboard = () => {
                   </p>
                 )}
                 {syncResult.data && syncResult.type === 'pokemon' && (
-                  <p className="text-xs mt-1">
-                    {language === 'es'
-                      ? `Modo: ${syncResult.data.mode === 'all' ? 'TODOS' : 'Standard'} | Sincronizadas: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Omitidas: ${syncResult.data.skipped || 0} | Errores: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
-                      : `Mode: ${syncResult.data.mode === 'all' ? 'ALL' : 'Standard'} | Synced: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Skipped: ${syncResult.data.skipped || 0} | Errors: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
-                    }
-                  </p>
+                  <div className="mt-1">
+                    <p className="text-xs">
+                      {language === 'es'
+                        ? `Modo: ${syncResult.data.mode === 'all' ? 'TODOS' : 'Standard'} | Sincronizadas: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Omitidas: ${syncResult.data.skipped || 0} | Errores: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
+                        : `Mode: ${syncResult.data.mode === 'all' ? 'ALL' : 'Standard'} | Synced: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Skipped: ${syncResult.data.skipped || 0} | Errors: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
+                      }
+                    </p>
+                    {syncResult.data.pagination && (
+                      <div className="mt-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div
+                              className="bg-green-500 h-2 rounded-full transition-all"
+                              style={{ width: `${Math.round(((syncResult.data.pagination.offset + syncResult.data.setsProcessed) / syncResult.data.pagination.totalSets) * 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs">
+                            {syncResult.data.pagination.offset + syncResult.data.setsProcessed}/{syncResult.data.pagination.totalSets} sets
+                          </span>
+                        </div>
+                        {syncResult.data.pagination.hasMore && (
+                          <button
+                            onClick={() => syncPokemonCards(syncResult.allSets, syncResult.data.pagination.nextOffset)}
+                            disabled={syncingPokemon}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors disabled:opacity-50 flex items-center gap-1"
+                          >
+                            {syncingPokemon ? (
+                              <>⏳ {language === 'es' ? 'Sincronizando...' : 'Syncing...'}</>
+                            ) : (
+                              <>▶️ {language === 'es' ? `Continuar (${syncResult.data.pagination.setsRemaining} sets restantes)` : `Continue (${syncResult.data.pagination.setsRemaining} sets remaining)`}</>
+                            )}
+                          </button>
+                        )}
+                        {!syncResult.data.pagination.hasMore && (
+                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                            ✅ {language === 'es' ? 'Sincronización completa!' : 'Sync complete!'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
