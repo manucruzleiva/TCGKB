@@ -8,6 +8,14 @@
 
 ## Prioridad 1: UX/UI
 
+### Bugs Críticos
+- [ ] **Fix Sync Manual Pokemon (Dev Dashboard):** `~15K tokens | ~1h`
+  - Error: "Cannot read properties of undefined (reading 'length')"
+  - Revisar endpoint POST `/api/mod/cache/sync/pokemon`
+  - Verificar respuesta de Pokemon TCG API
+  - Agregar validación de datos antes de acceder a `.length`
+  - Mejorar manejo de errores con mensaje descriptivo
+
 ### Navegación / Menú
 - [x] **Hamburger Menu Refresh:**
   - Eliminar ícono hamburguesa, usar logo de la app como invocador
@@ -200,10 +208,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~520K tokens | ~37h |
+| P1: UX/UI | ~535K tokens | ~38h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,180K tokens** | **~83.5h** |
+| **TOTAL** | **~1,195K tokens** | **~84.5h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
