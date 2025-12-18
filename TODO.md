@@ -100,6 +100,11 @@
 - [x] Elegir background del avatar (colores, patrones, etc.)
 - [ ] Sprites de entrenadores como opción de avatar `~15K tokens | ~1h`
 - [ ] Sprites de backgrounds como opción `~20K tokens | ~1.5h`
+- [ ] **Runas de Riftbound como opción de avatar:** `~15K tokens | ~1h`
+  - Agregar sprites de runas (Might, Grace, Will, etc.) como avatares
+  - Sección "Riftbound" en selector de avatar
+  - Usar assets existentes de Drive
+  - Combinable con backgrounds personalizados
 
 ### Relationship Map
 - [x] RELATIONSHIP MAP en hamburger menu
@@ -377,10 +382,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~995K tokens | ~71h |
+| P1: UX/UI | ~1,010K tokens | ~72h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~625K tokens | ~44h |
-| **TOTAL** | **~1,785K tokens** | **~127h** |
+| **TOTAL** | **~1,800K tokens** | **~128h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
