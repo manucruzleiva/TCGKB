@@ -84,6 +84,16 @@
 - [x] **Fase 2: Doble Iconografía en Chips**
 - [x] **Fase 3: Desambiguación Visual**
 - [x] **Tooltip Horizontal para Atributos**
+- [ ] **Expandir @ para más atributos de carta:** `~40K tokens | ~3h`
+  - Referenciar card text: `@[CardName.cardtext]`
+  - Referenciar weakness: `@[CardName.weakness]`
+  - Referenciar resistance: `@[CardName.resistance]`
+  - Referenciar retreat cost: `@[CardName.retreat]`
+  - Referenciar HP: `@[CardName.hp]`
+  - Pokemon: energy cost, power cost de ataques
+  - Riftbound: might, domain, power cost
+  - Autocompletado de atributos disponibles según TCG
+  - Chips con ícono indicando tipo de atributo
 
 ### Sistema de Avatares
 - [x] Búsqueda de Pokémon para avatar
@@ -367,10 +377,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~955K tokens | ~68h |
+| P1: UX/UI | ~995K tokens | ~71h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~625K tokens | ~44h |
-| **TOTAL** | **~1,745K tokens** | **~124h** |
+| **TOTAL** | **~1,785K tokens** | **~127h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
