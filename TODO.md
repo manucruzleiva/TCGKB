@@ -75,6 +75,12 @@
   - Comparar stats (HP, daño, costo de energía)
   - Script de análisis masivo para cartas existentes en cache
   - Marcar como "pendiente de revisión" si match es parcial
+- [ ] **Botón "Discover Reprints" en Dev Dashboard:** `~20K tokens | ~1.5h`
+  - Botón en Dev Dashboard para ejecutar detección masiva
+  - Endpoint POST `/api/mod/reprints/discover`
+  - Mostrar progreso de análisis (X de Y cartas procesadas)
+  - Reporte de reprints encontrados con estadísticas
+  - Opción de revisar/aprobar matches parciales
 - [ ] **UI en página de carta:** `~30K tokens | ~2h`
   - Sección "Otras versiones de esta carta"
   - Mostrar thumbnail de cada reprint con set y rareza
@@ -213,10 +219,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~550K tokens | ~39h |
+| P1: UX/UI | ~570K tokens | ~40.5h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,210K tokens** | **~85.5h** |
+| **TOTAL** | **~1,230K tokens** | **~87h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
