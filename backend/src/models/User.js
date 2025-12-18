@@ -57,6 +57,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  avatarBackground: {
+    type: String,
+    default: 'from-primary-400 to-primary-600' // Default gradient
+  },
   preferences: {
     language: {
       type: String,

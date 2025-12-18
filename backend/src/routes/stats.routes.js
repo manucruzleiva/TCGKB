@@ -1,5 +1,5 @@
 import express from 'express'
-import { getStats, getDetailedStats, getGitHubCommits } from '../controllers/stats.controller.js'
+import { getStats, getDetailedStats, getGitHubCommits, getRoadmap, getRelationshipMap } from '../controllers/stats.controller.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
 
 const router = express.Router()
@@ -12,5 +12,11 @@ router.get('/detailed', generalLimiter, getDetailedStats)
 
 // Get GitHub commits for changelog (supports ?branch=main|stage)
 router.get('/commits', generalLimiter, getGitHubCommits)
+
+// Get roadmap parsed from TODO.md
+router.get('/roadmap', generalLimiter, getRoadmap)
+
+// Get relationship map data (cards with connections via mentions)
+router.get('/relationship-map', generalLimiter, getRelationshipMap)
 
 export default router

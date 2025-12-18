@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Spinner from '../common/Spinner'
 import CardReactions from './CardReactions'
 import ItemReactions from './ItemReactions'
@@ -6,6 +6,8 @@ import CommentList from '../comments/CommentList'
 import { getRotationInfo, formatDaysUntilRotation } from '../../config/rotation'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { useDateFormat } from '../../contexts/DateFormatContext'
+import { useAuth } from '../../contexts/AuthContext'
+import { collectionService } from '../../services/collectionService'
 
 // Type emoji mapping for Pokemon
 const TYPE_EMOJIS = {
@@ -47,9 +49,59 @@ const RARITY_COLORS = {
 }
 
 const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { formatDate } = useDateFormat()
+  const { isAuthenticated } = useAuth()
   const [currentArtIndex, setCurrentArtIndex] = useState(0)
+  const [collectionData, setCollectionData] = useState({ quantity: 0, playsetMax: 4, hasPlayset: false })
+  const [loadingCollection, setLoadingCollection] = useState(false)
+
+  // Fetch collection status when card changes
+  useEffect(() => {
+    const fetchCollectionStatus = async () => {
+      if (!isAuthenticated || !card?.id) return
+
+      try {
+        setLoadingCollection(true)
+        const response = await collectionService.getCardOwnership(card.id)
+        if (response.success) {
+          setCollectionData(response.data)
+        }
+      } catch (error) {
+        console.error('Error fetching collection status:', error)
+      } finally {
+        setLoadingCollection(false)
+      }
+    }
+
+    fetchCollectionStatus()
+  }, [card?.id, isAuthenticated])
+
+  // Handle adding/removing from collection
+  const handleCollectionChange = async (delta) => {
+    if (!isAuthenticated || !card) return
+
+    const newQuantity = Math.max(0, collectionData.quantity + delta)
+    const tcgSystem = card.tcgSystem || 'pokemon'
+
+    try {
+      const response = await collectionService.setQuantity({
+        cardId: card.id,
+        quantity: newQuantity,
+        tcgSystem,
+        cardName: card.name,
+        cardImage: card.images?.small || card.images?.large,
+        cardSet: card.set?.name || card.set?.id,
+        cardRarity: card.rarity
+      })
+
+      if (response.success) {
+        setCollectionData(response.data)
+      }
+    } catch (error) {
+      console.error('Error updating collection:', error)
+    }
+  }
 
   if (!card) {
     return (
@@ -193,6 +245,72 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
               <CardReactions cardId={card.id} />
             </div>
           </div>
+
+          {/* Collection Counter */}
+          {isAuthenticated && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📦</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    {language === 'es' ? 'Mi Colección' : 'My Collection'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Quantity display with playset indicator */}
+                  <div className="text-center">
+                    <span className={`text-2xl font-bold ${collectionData.hasPlayset ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                      {collectionData.quantity}
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm"> / {collectionData.playsetMax}</span>
+                    {collectionData.hasPlayset && (
+                      <span className="ml-1 text-green-500" title={language === 'es' ? 'Playset completo' : 'Playset complete'}>✓</span>
+                    )}
+                  </div>
+
+                  {/* Counter buttons */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleCollectionChange(-1)}
+                      disabled={loadingCollection || collectionData.quantity === 0}
+                      className="w-8 h-8 flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title={language === 'es' ? 'Quitar una' : 'Remove one'}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleCollectionChange(1)}
+                      disabled={loadingCollection}
+                      className="w-8 h-8 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title={language === 'es' ? 'Agregar una' : 'Add one'}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {/* Playset progress bar */}
+              <div className="mt-3">
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${collectionData.hasPlayset ? 'bg-green-500' : 'bg-amber-500'}`}
+                    style={{ width: `${Math.min(100, (collectionData.quantity / collectionData.playsetMax) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
+                  {collectionData.hasPlayset
+                    ? (language === 'es' ? '¡Playset completo!' : 'Playset complete!')
+                    : (language === 'es'
+                      ? `${collectionData.playsetMax - collectionData.quantity} más para playset`
+                      : `${collectionData.playsetMax - collectionData.quantity} more for playset`)}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Card Data */}
           <div className="space-y-3 mb-6">

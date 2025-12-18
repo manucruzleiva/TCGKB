@@ -1,4 +1,4 @@
-# TODO - TCG Knowledge Base
+# TODO
 
 > **Leyenda de Estimados:**
 > - 🎯 **Tokens**: Consumo estimado de tokens de Claude para implementar

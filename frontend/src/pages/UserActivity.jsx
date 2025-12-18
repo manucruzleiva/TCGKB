@@ -217,7 +217,7 @@ const UserActivity = () => {
       {/* User Info */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center flex-shrink-0">
+          <div className={`w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br ${userData.avatarBackground || 'from-primary-400 to-primary-600'} flex items-center justify-center flex-shrink-0`}>
             {userData.avatar ? (
               <img src={userData.avatar} alt={userData.username} className="w-full h-full object-cover" />
             ) : (
