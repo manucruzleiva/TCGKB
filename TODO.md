@@ -20,6 +20,20 @@
   - Página /roadmap que muestra lista de features por prioridad
   - Sin barra de progreso general (solo lista de items)
   - Actualización automática al hacer deploy
+- [ ] **Votación de Features (Roadmap):** `~45K tokens | ~3h`
+  - Cada feature en roadmap tiene botón "Me interesa" (toggle)
+  - Usuario autenticado puede votar por features que quiere
+  - Contador visible de votos por feature
+  - Ordenar features por popularidad (opcional)
+  - Un voto por usuario por feature
+  - Animación al votar (corazón, estrella, etc.)
+- [ ] **Dashboard de Interés Comunitario (Dev):** `~40K tokens | ~3h`
+  - Nueva sección en Dev Dashboard: "Interés del Roadmap"
+  - Gráfico de barras/ranking con features más votadas
+  - Filtrar por prioridad (P1/P2/P3)
+  - Ver quién votó por cada feature (lista de usuarios)
+  - Exportar datos a CSV
+  - Histórico de cambios en votos (tendencias)
 - [ ] **Changelog con commits de Staging:** `~50K tokens | ~3.5h`
   - Endpoint que consulta GitHub API para commits de `stage` branch
   - Mostrar lista de commits recientes con mensaje, autor, fecha
@@ -356,10 +370,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~945K tokens | ~67h |
+| P1: UX/UI | ~1,030K tokens | ~73h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,605K tokens** | **~113.5h** |
+| **TOTAL** | **~1,690K tokens** | **~119.5h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
