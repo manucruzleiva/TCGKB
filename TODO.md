@@ -218,8 +218,21 @@
 ## Prioridad 2: Funcionalidad
 
 ### Decks
-- [ ] Import Deck `~35K tokens | ~2.5h`
-  - Botón directo en Decks para importar decks de Riftbound o Pokemon
+- [ ] **Import Deck (mejoras):** `~50K tokens | ~4h`
+  - Botón "Importar Deck" visible en página /decks (no solo en builder)
+  - Modal de importación con textarea para pegar lista
+  - **Soporte Pokemon TCG:**
+    - Formato PTCGO/PTCGL (Pokemon TCG Live)
+    - Detectar automáticamente formato por patrones
+    - Parsear: cantidad, nombre, set code, número
+    - Ejemplo: `4 Charizard ex SVI 234`
+  - **Soporte Riftbound:**
+    - Investigar formato oficial de exportación
+    - Parsear formato de riftcodex.com o similar
+    - Detectar TCG automáticamente por contenido
+  - Validación: mostrar cartas no encontradas
+  - Preview del deck antes de confirmar importación
+  - Opción: crear nuevo deck o agregar a existente
 
 ### Autenticación / Usuario
 - [x] User data chips - reemplazar chip 'admin' por tags actuales (mod/dev/ambos)
@@ -371,9 +384,9 @@
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
 | P1: UX/UI | ~1,030K tokens | ~73h |
-| P2: Funcionalidad | ~165K tokens | ~12h |
+| P2: Funcionalidad | ~180K tokens | ~13.5h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,690K tokens** | **~119.5h** |
+| **TOTAL** | **~1,705K tokens** | **~121h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
