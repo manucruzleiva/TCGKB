@@ -42,8 +42,87 @@ app.use(express.json({ limit: '10mb' })) // Increased for screenshots
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 // Routes
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server is running' })
+app.get('/api/health', async (req, res) => {
+  try {
+    // Check MongoDB connection
+    const mongoose = (await import('mongoose')).default
+    const dbState = mongoose.connection.readyState
+    const dbStates = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' }
+
+    res.json({
+      status: dbState === 1 ? 'ok' : 'degraded',
+      message: 'Server is running',
+      database: {
+        status: dbStates[dbState] || 'unknown',
+        connected: dbState === 1
+      },
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    res.json({
+      status: 'error',
+      message: error.message,
+      database: { status: 'error', connected: false },
+      timestamp: new Date().toISOString()
+    })
+  }
+})
+
+// Comprehensive health check for all major endpoints
+app.get('/api/health/endpoints', async (req, res) => {
+  const endpoints = [
+    { name: 'Cards Search', path: '/api/cards?name=pikachu&pageSize=1' },
+    { name: 'Stats MVP', path: '/api/stats/mvp' },
+    { name: 'Catalog', path: '/api/cards/catalog?pageSize=1' },
+    { name: 'Decks', path: '/api/decks?limit=1' },
+    { name: 'Roadmap', path: '/api/stats/roadmap' }
+  ]
+
+  const results = await Promise.all(
+    endpoints.map(async (endpoint) => {
+      const start = Date.now()
+      try {
+        // Internal request simulation
+        const baseUrl = `http://localhost:${process.env.PORT || 3001}`
+        const response = await fetch(`${baseUrl}${endpoint.path}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(5000) // 5 second timeout
+        })
+        const latency = Date.now() - start
+
+        return {
+          name: endpoint.name,
+          path: endpoint.path,
+          status: response.ok ? 'healthy' : 'error',
+          statusCode: response.status,
+          latency,
+          message: response.ok ? 'OK' : `HTTP ${response.status}`
+        }
+      } catch (error) {
+        return {
+          name: endpoint.name,
+          path: endpoint.path,
+          status: 'error',
+          statusCode: 0,
+          latency: Date.now() - start,
+          message: error.message
+        }
+      }
+    })
+  )
+
+  const healthyCount = results.filter(r => r.status === 'healthy').length
+  const overallStatus = healthyCount === results.length ? 'healthy' :
+                        healthyCount > 0 ? 'degraded' : 'unhealthy'
+
+  res.json({
+    status: overallStatus,
+    healthy: healthyCount,
+    total: results.length,
+    endpoints: results,
+    timestamp: new Date().toISOString()
+  })
 })
 
 app.use('/api/auth', authRoutes)

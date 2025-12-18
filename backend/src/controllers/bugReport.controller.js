@@ -53,12 +53,24 @@ export const createBugReport = async (req, res) => {
  */
 export const getAllBugReports = async (req, res) => {
   try {
-    const { status, page = 1, limit = 20 } = req.query
+    const { status, page = 1, limit = 20, assignedTo, sort = 'newest' } = req.query
 
     const query = {}
     if (status && status !== 'all') {
       query.status = status
     }
+
+    // Filter by assignee
+    if (assignedTo) {
+      if (assignedTo === 'unassigned') {
+        query.assignedTo = null
+      } else {
+        query.assignedTo = assignedTo
+      }
+    }
+
+    // Sort option
+    const sortOption = sort === 'oldest' ? { createdAt: 1 } : { createdAt: -1 }
 
     const skip = (parseInt(page) - 1) * parseInt(limit)
 
@@ -67,7 +79,7 @@ export const getAllBugReports = async (req, res) => {
         .populate('userId', 'username email')
         .populate('resolvedBy', 'username')
         .populate('assignedTo', 'username')
-        .sort({ createdAt: -1 })
+        .sort(sortOption)
         .skip(skip)
         .limit(parseInt(limit))
         .lean(),
