@@ -98,28 +98,12 @@ export const getDetailedStats = async (req, res) => {
       return acc
     }, {})
 
-    // User categories
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-    // Get users with recent comments or reactions
-    const [recentCommentUsers, recentReactionUsers] = await Promise.all([
-      Comment.distinct('userId', {
-        isModerated: false,
-        createdAt: { $gte: thirtyDaysAgo }
-      }),
-      Reaction.distinct('userId', {
-        createdAt: { $gte: thirtyDaysAgo }
-      })
-    ])
-
-    // Combine and deduplicate active users
-    const activeUserIds = [...new Set([...recentCommentUsers, ...recentReactionUsers])]
-
+    // User categories - using isInactive flag (computed daily by cron)
     const DEV_EMAILS = ['shieromanu@gmail.com']
 
-    const [totalUsers, adminCount, devCount] = await Promise.all([
+    const [totalUsers, inactiveCount, adminCount, devCount] = await Promise.all([
       User.countDocuments(),
+      User.countDocuments({ isInactive: true }),
       User.countDocuments({ role: 'admin' }),
       User.countDocuments({
         $or: [
@@ -129,12 +113,11 @@ export const getDetailedStats = async (req, res) => {
       })
     ])
 
-    const activeUsers = activeUserIds.length
-    const inactiveUsers = totalUsers - activeUsers
+    const activeUsers = totalUsers - inactiveCount
 
     const userCategories = {
       active: activeUsers,
-      inactive: inactiveUsers,
+      inactive: inactiveCount,
       admins: adminCount,
       devs: devCount
     }

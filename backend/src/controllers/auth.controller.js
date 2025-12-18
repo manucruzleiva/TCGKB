@@ -197,6 +197,12 @@ export const login = async (req, res) => {
       await user.save()
     }
 
+    // Update lastActivity and mark as active on login
+    await User.updateOne(
+      { _id: user._id },
+      { lastActivity: new Date(), isInactive: false }
+    )
+
     // Generate token
     const token = generateToken(user._id)
 

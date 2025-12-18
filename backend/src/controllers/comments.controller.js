@@ -1,5 +1,6 @@
 import Comment from '../models/Comment.js'
 import Reaction from '../models/Reaction.js'
+import User from '../models/User.js'
 import { getIO } from '../config/socket.js'
 
 /**
@@ -266,6 +267,12 @@ export const createComment = async (req, res) => {
 
     // Save (triggers pre-save middleware)
     await comment.save()
+
+    // Update user's lastActivity
+    await User.updateOne(
+      { _id: userId },
+      { lastActivity: new Date(), isInactive: false }
+    )
 
     // Populate user data
     await comment.populate('userId', 'username role avatar isDev')

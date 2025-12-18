@@ -55,6 +55,53 @@ const KPIDashboard = () => {
   }
 
   const renderDetailedContent = (cardType) => {
+    if (cardType === 'cards') {
+      return (
+        <div className="mt-4 pt-4 border-t border-blue-300 dark:border-blue-700">
+          <h4 className="font-semibold text-sm mb-3 text-blue-900 dark:text-blue-100">
+            {language === 'es' ? 'Desglose por Juego' : 'Breakdown by Game'}
+          </h4>
+
+          <div className="space-y-3 text-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <img
+                  src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png"
+                  alt="Pokeball"
+                  className="w-5 h-5"
+                  style={{ imageRendering: 'pixelated' }}
+                />
+                <span className="text-blue-800 dark:text-blue-200">Pokemon TCG</span>
+              </div>
+              <span className="font-semibold text-blue-900 dark:text-blue-100">
+                {stats.pokemonCards.toLocaleString()}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg viewBox="0 0 100 100" className="w-5 h-5">
+                  <defs>
+                    <linearGradient id="riftGradSmall" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#8b5cf6"/>
+                      <stop offset="100%" stopColor="#3b82f6"/>
+                    </linearGradient>
+                  </defs>
+                  <rect x="10" y="5" width="80" height="90" rx="8" fill="url(#riftGradSmall)" stroke="#1e293b" strokeWidth="3"/>
+                  <path d="M30 25 L50 45 L70 25 M30 45 L50 65 L70 45 M30 65 L50 85 L70 65"
+                        fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="text-blue-800 dark:text-blue-200">Riftbound</span>
+              </div>
+              <span className="font-semibold text-blue-900 dark:text-blue-100">
+                {stats.riftboundCards.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     if (!detailedStats) return null
 
     if (cardType === 'comments') {
@@ -196,8 +243,8 @@ const KPIDashboard = () => {
 
           <div className="mt-3 pt-3 border-t border-indigo-200 dark:border-indigo-800 text-xs text-indigo-700 dark:text-indigo-300">
             {language === 'es'
-              ? '* Activos: actividad en los últimos 30 días'
-              : '* Active: activity in the last 30 days'}
+              ? '* Inactivos: sin actividad en los últimos 2 meses'
+              : '* Inactive: no activity in the last 2 months'}
           </div>
         </div>
       )
@@ -206,15 +253,14 @@ const KPIDashboard = () => {
     return null
   }
 
-  // Pokeball SVG icon component
+  // Pokeball sprite icon
   const PokeballIcon = () => (
-    <svg viewBox="0 0 100 100" className="w-8 h-8">
-      <circle cx="50" cy="50" r="48" fill="#fff" stroke="#333" strokeWidth="4"/>
-      <path d="M2 50 H98" stroke="#333" strokeWidth="4"/>
-      <path d="M2 50 A48 48 0 0 0 98 50" fill="#ff1a1a"/>
-      <circle cx="50" cy="50" r="18" fill="#fff" stroke="#333" strokeWidth="4"/>
-      <circle cx="50" cy="50" r="10" fill="#fff" stroke="#333" strokeWidth="3"/>
-    </svg>
+    <img
+      src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png"
+      alt="Pokeball"
+      className="w-8 h-8"
+      style={{ imageRendering: 'pixelated' }}
+    />
   )
 
   // Riftbound logo icon component
@@ -260,7 +306,7 @@ const KPIDashboard = () => {
       icon: '🃏',
       color: 'bg-blue-100 dark:bg-blue-900',
       textColor: 'text-blue-800 dark:text-blue-200',
-      hasDetails: false
+      hasDetails: true
     },
     {
       type: 'comments',
@@ -316,25 +362,15 @@ const KPIDashboard = () => {
               key={tcg.name}
               className={`${tcg.color} border-2 rounded-lg p-4 transition-all hover:shadow-md`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="flex-shrink-0">{tcg.icon}</span>
-                  <div>
-                    <h3 className={`font-semibold ${tcg.textColor}`}>{tcg.name}</h3>
-                    <p className={`text-sm ${tcg.textColor} opacity-80`}>
-                      {tcg.status === 'completed'
-                        ? (language === 'es' ? '✅ 100% Soportado' : '✅ 100% Supported')
-                        : (language === 'es' ? '🚧 En progreso' : '🚧 In Progress')
-                      }
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className={`text-2xl font-bold ${tcg.textColor}`}>
-                    {tcg.cardCount.toLocaleString()}
-                  </span>
-                  <p className={`text-xs ${tcg.textColor} opacity-70`}>
-                    {language === 'es' ? 'cartas' : 'cards'}
+              <div className="flex items-center gap-3">
+                <span className="flex-shrink-0">{tcg.icon}</span>
+                <div>
+                  <h3 className={`font-semibold ${tcg.textColor}`}>{tcg.name}</h3>
+                  <p className={`text-sm ${tcg.textColor} opacity-80`}>
+                    {tcg.status === 'completed'
+                      ? (language === 'es' ? '✅ 100% Soportado' : '✅ 100% Supported')
+                      : (language === 'es' ? '🚧 En progreso' : '🚧 In Progress')
+                    }
                   </p>
                 </div>
               </div>

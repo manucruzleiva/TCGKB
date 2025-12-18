@@ -45,6 +45,14 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isInactive: {
+    type: Boolean,
+    default: false
+  },
+  lastActivity: {
+    type: Date,
+    default: Date.now
+  },
   avatar: {
     type: String,
     default: null

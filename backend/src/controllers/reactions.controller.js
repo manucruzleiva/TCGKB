@@ -1,4 +1,5 @@
 import Reaction from '../models/Reaction.js'
+import User from '../models/User.js'
 import { generateFingerprint } from '../utils/fingerprint.js'
 import { getIO } from '../config/socket.js'
 
@@ -149,6 +150,12 @@ export const addReaction = async (req, res) => {
           new: true,
           setDefaultsOnInsert: true
         }
+      )
+
+      // Update user's lastActivity
+      await User.updateOne(
+        { _id: req.user._id },
+        { lastActivity: new Date(), isInactive: false }
       )
     } else {
       const fingerprint = generateFingerprint(req)

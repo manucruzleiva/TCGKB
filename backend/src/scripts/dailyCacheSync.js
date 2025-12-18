@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import dotenv from 'dotenv'
 import pokemon from 'pokemontcgsdk'
 import CardCache from '../models/CardCache.js'
+import User from '../models/User.js'
 import riftboundService from '../services/riftboundTCG.service.js'
 import log from '../utils/logger.js'
 
@@ -42,6 +43,12 @@ async function dailyCacheSync() {
       synced: 0,
       errors: 0
     },
+    users: {
+      checked: 0,
+      markedInactive: 0,
+      markedActive: 0,
+      errors: 0
+    },
     endTime: null,
     success: true
   }
@@ -60,6 +67,10 @@ async function dailyCacheSync() {
     log.info(MODULE, '\n--- Riftbound Sync ---')
     await syncRiftboundCards(report)
 
+    // 3. Update inactive users
+    log.info(MODULE, '\n--- User Activity Check ---')
+    await updateInactiveUsers(report)
+
     report.endTime = new Date()
     const duration = (report.endTime - report.startTime) / 1000
 
@@ -67,6 +78,7 @@ async function dailyCacheSync() {
     log.info(MODULE, `Duration: ${duration.toFixed(1)} seconds`)
     log.info(MODULE, `Pokemon: ${report.pokemon.synced} synced, ${report.pokemon.errors} errors`)
     log.info(MODULE, `Riftbound: ${report.riftbound.synced} synced, ${report.riftbound.errors} errors`)
+    log.info(MODULE, `Users: ${report.users.markedInactive} marked inactive, ${report.users.markedActive} marked active`)
 
     return report
 
@@ -220,6 +232,59 @@ async function syncRiftboundCards(report) {
   } catch (error) {
     log.error(MODULE, 'Riftbound sync failed:', error.message)
     report.riftbound.errors++
+  }
+}
+
+/**
+ * Update inactive users - mark users as inactive if no activity in 2 months
+ */
+async function updateInactiveUsers(report) {
+  try {
+    const twoMonthsAgo = new Date()
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+
+    // Get all users
+    const allUsers = await User.find({}, '_id lastActivity isInactive')
+    report.users.checked = allUsers.length
+
+    log.info(MODULE, `Checking ${allUsers.length} users for activity status`)
+
+    for (const user of allUsers) {
+      try {
+        // User's last activity (use createdAt as fallback if lastActivity not set)
+        const lastActivityDate = user.lastActivity || user.createdAt
+
+        // Check if user should be marked inactive (no activity in 2 months)
+        const shouldBeInactive = !lastActivityDate || lastActivityDate < twoMonthsAgo
+
+        if (shouldBeInactive && !user.isInactive) {
+          // Mark user as inactive
+          await User.updateOne(
+            { _id: user._id },
+            { isInactive: true }
+          )
+          report.users.markedInactive++
+          log.info(MODULE, `  User ${user._id} marked inactive (last activity: ${lastActivityDate?.toISOString() || 'never'})`)
+        } else if (!shouldBeInactive && user.isInactive) {
+          // Mark user as active (they've had recent activity)
+          await User.updateOne(
+            { _id: user._id },
+            { isInactive: false }
+          )
+          report.users.markedActive++
+          log.info(MODULE, `  User ${user._id} marked active`)
+        }
+      } catch (userError) {
+        report.users.errors++
+        log.error(MODULE, `  Failed to update user ${user._id}:`, userError.message)
+      }
+    }
+
+    log.info(MODULE, `User activity check complete: ${report.users.checked} users checked, ${report.users.markedInactive} marked inactive, ${report.users.markedActive} marked active`)
+
+  } catch (error) {
+    log.error(MODULE, 'User activity check failed:', error.message)
+    report.users.errors++
   }
 }
 
