@@ -1,11 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
+import { collectionService } from '../services/collectionService'
 import Spinner from '../components/common/Spinner'
+
+const PLAYSET = { pokemon: 4, riftbound: 3 }
 
 const Catalog = () => {
   const { language } = useLanguage()
+  const { isAuthenticated } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [cards, setCards] = useState([])
@@ -13,7 +18,8 @@ const Catalog = () => {
   const [error, setError] = useState(null)
   const [filters, setFilters] = useState(null)
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 })
-  const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list'
+  const [viewMode, setViewMode] = useState('grid')
+  const [collection, setCollection] = useState({}) // { cardId: quantity }
 
   // Filter states from URL
   const tcgSystem = searchParams.get('tcgSystem') || ''
@@ -34,6 +40,13 @@ const Catalog = () => {
   useEffect(() => {
     fetchCards()
   }, [tcgSystem, set, supertype, rarity, name, page, sortBy, sortOrder])
+
+  // Fetch collection data when cards change
+  useEffect(() => {
+    if (isAuthenticated && cards.length > 0) {
+      fetchCollectionData()
+    }
+  }, [cards, isAuthenticated])
 
   const fetchFilters = async () => {
     try {
@@ -76,6 +89,22 @@ const Catalog = () => {
     }
   }
 
+  const fetchCollectionData = async () => {
+    try {
+      const cardIds = cards.map(c => c.id)
+      const response = await collectionService.batchCheckOwnership(cardIds)
+      if (response.success) {
+        const collectionMap = {}
+        Object.entries(response.data).forEach(([cardId, data]) => {
+          collectionMap[cardId] = data.quantity
+        })
+        setCollection(collectionMap)
+      }
+    } catch (err) {
+      console.error('Error fetching collection:', err)
+    }
+  }
+
   const updateFilter = useCallback((key, value) => {
     const newParams = new URLSearchParams(searchParams)
     if (value) {
@@ -83,7 +112,6 @@ const Catalog = () => {
     } else {
       newParams.delete(key)
     }
-    // Reset to page 1 when filters change (except page changes)
     if (key !== 'page') {
       newParams.set('page', '1')
     }
@@ -100,6 +128,39 @@ const Catalog = () => {
     updateFilter('name', formData.get('search'))
   }
 
+  // Handle collection quantity change
+  const handleCollectionChange = async (e, card, delta) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!isAuthenticated) return
+
+    const currentQty = collection[card.id] || 0
+    const newQty = Math.max(0, currentQty + delta)
+    const tcg = card.tcgSystem || 'pokemon'
+
+    // Optimistic update
+    setCollection(prev => ({ ...prev, [card.id]: newQty }))
+
+    try {
+      await collectionService.setQuantity({
+        cardId: card.id,
+        quantity: newQty,
+        tcgSystem: tcg,
+        cardName: card.name,
+        cardImage: card.images?.small || card.images?.large,
+        cardSet: card.set?.name || card.set?.id,
+        cardRarity: card.rarity
+      })
+    } catch (err) {
+      // Revert on error
+      setCollection(prev => ({ ...prev, [card.id]: currentQty }))
+      console.error('Error updating collection:', err)
+    }
+  }
+
+  const getPlaysetMax = (tcgSystem) => PLAYSET[tcgSystem] || 4
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
@@ -115,6 +176,11 @@ const Catalog = () => {
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
           {pagination.total.toLocaleString()} {language === 'es' ? 'cartas disponibles' : 'cards available'}
+          {isAuthenticated && (
+            <span className="ml-2 text-primary-600 dark:text-primary-400">
+              • {language === 'es' ? 'Usa +/- para agregar a tu colección' : 'Use +/- to add to your collection'}
+            </span>
+          )}
         </p>
       </div>
 
@@ -287,68 +353,136 @@ const Catalog = () => {
           ) : viewMode === 'grid' ? (
             /* Grid View */
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {cards.map(card => (
-                <Link
-                  key={card.id}
-                  to={`/card/${card.id}`}
-                  className="group bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden"
-                >
-                  <div className="aspect-[2.5/3.5] bg-gray-100 dark:bg-gray-700">
-                    {card.images?.small && (
-                      <img
-                        src={card.images.small}
-                        alt={card.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        loading="lazy"
-                      />
+              {cards.map(card => {
+                const qty = collection[card.id] || 0
+                const playsetMax = getPlaysetMax(card.tcgSystem)
+                const hasPlayset = qty >= playsetMax
+
+                return (
+                  <div
+                    key={card.id}
+                    className="group bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden relative"
+                  >
+                    <Link to={`/card/${card.id}`}>
+                      <div className="aspect-[2.5/3.5] bg-gray-100 dark:bg-gray-700">
+                        {card.images?.small && (
+                          <img
+                            src={card.images.small}
+                            alt={card.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
+                    </Link>
+
+                    {/* Collection Counter Overlay */}
+                    {isAuthenticated && (
+                      <div className="absolute top-1 right-1 flex items-center gap-0.5 bg-black/70 rounded-full px-1 py-0.5">
+                        <button
+                          onClick={(e) => handleCollectionChange(e, card, -1)}
+                          disabled={qty === 0}
+                          className="w-5 h-5 flex items-center justify-center text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M20 12H4" />
+                          </svg>
+                        </button>
+                        <span className={`text-xs font-bold min-w-[20px] text-center ${hasPlayset ? 'text-green-400' : 'text-white'}`}>
+                          {qty}
+                        </span>
+                        <button
+                          onClick={(e) => handleCollectionChange(e, card, 1)}
+                          className="w-5 h-5 flex items-center justify-center text-green-400 hover:text-green-300"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+                          </svg>
+                        </button>
+                      </div>
                     )}
+
+                    <Link to={`/card/${card.id}`} className="block p-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {card.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {card.set?.name}
+                      </p>
+                    </Link>
                   </div>
-                  <div className="p-2">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {card.name}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {card.set?.name}
-                    </p>
-                  </div>
-                </Link>
-              ))}
+                )
+              })}
             </div>
           ) : (
             /* List View */
             <div className="space-y-2">
-              {cards.map(card => (
-                <Link
-                  key={card.id}
-                  to={`/card/${card.id}`}
-                  className="flex items-center gap-4 p-3 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow"
-                >
-                  {card.images?.small && (
-                    <img
-                      src={card.images.small}
-                      alt={card.name}
-                      className="w-12 h-16 object-cover rounded"
-                      loading="lazy"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{card.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{card.set?.name} - #{card.number}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      card.tcgSystem === 'pokemon'
-                        ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300'
-                        : 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
-                    }`}>
-                      {card.tcgSystem}
-                    </span>
-                    {card.rarity && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{card.rarity}</p>
+              {cards.map(card => {
+                const qty = collection[card.id] || 0
+                const playsetMax = getPlaysetMax(card.tcgSystem)
+                const hasPlayset = qty >= playsetMax
+
+                return (
+                  <div
+                    key={card.id}
+                    className="flex items-center gap-4 p-3 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow"
+                  >
+                    <Link to={`/card/${card.id}`} className="flex items-center gap-4 flex-1 min-w-0">
+                      {card.images?.small && (
+                        <img
+                          src={card.images.small}
+                          alt={card.name}
+                          className="w-12 h-16 object-cover rounded"
+                          loading="lazy"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{card.name}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{card.set?.name} - #{card.number}</p>
+                      </div>
+                    </Link>
+
+                    {/* Collection Counter */}
+                    {isAuthenticated && (
+                      <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-full px-2 py-1">
+                        <button
+                          onClick={(e) => handleCollectionChange(e, card, -1)}
+                          disabled={qty === 0}
+                          className="w-6 h-6 flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M20 12H4" />
+                          </svg>
+                        </button>
+                        <span className={`text-sm font-bold min-w-[24px] text-center ${hasPlayset ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                          {qty}/{playsetMax}
+                        </span>
+                        <button
+                          onClick={(e) => handleCollectionChange(e, card, 1)}
+                          className="w-6 h-6 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 hover:bg-green-200"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+                          </svg>
+                        </button>
+                      </div>
                     )}
+
+                    <div className="text-right">
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        card.tcgSystem === 'pokemon'
+                          ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300'
+                          : 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
+                      }`}>
+                        {card.tcgSystem}
+                      </span>
+                      {card.rarity && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{card.rarity}</p>
+                      )}
+                    </div>
                   </div>
-                </Link>
-              ))}
+                )
+              })}
             </div>
           )}
 
