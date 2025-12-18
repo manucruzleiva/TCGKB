@@ -202,6 +202,18 @@
   - Mantener proporciones y nitidez del sprite
   - Verificar en móvil y desktop
 
+### PWA (Progressive Web App)
+- [ ] **Fix/Implementar PWA correctamente:** `~25K tokens | ~2h`
+  - Verificar manifest.json (nombre, iconos, theme_color, background_color)
+  - Service Worker funcional para offline básico
+  - Iconos en todos los tamaños requeridos (192x192, 512x512, etc.)
+  - Splash screens para iOS/Android
+  - Meta tags para iOS (apple-mobile-web-app-capable, status-bar-style)
+  - Prompt "Agregar a pantalla de inicio" funcional
+  - Cache de assets estáticos (CSS, JS, imágenes)
+  - Testear instalación en iOS Safari y Android Chrome
+  - Verificar en Lighthouse PWA audit
+
 ### Overhaul de Diseño Gráfico
 - [ ] **Rediseño de identidad visual:** `~30K tokens | ~2h`
   - Definir paleta de colores consistente (light/dark mode)
@@ -410,10 +422,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~1,063K tokens | ~75.5h |
+| P1: UX/UI | ~1,088K tokens | ~77.5h |
 | P2: Funcionalidad | ~210K tokens | ~15.5h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,768K tokens** | **~125.5h** |
+| **TOTAL** | **~1,793K tokens** | **~127.5h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
