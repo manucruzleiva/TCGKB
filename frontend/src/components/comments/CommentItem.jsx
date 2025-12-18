@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useDateFormat } from '../../contexts/DateFormatContext'
 import { commentService } from '../../services/commentService'
@@ -125,7 +126,6 @@ const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
             cardId={mention.cardId}
             cardName={mention.cardName}
             abilityName={abilityName || mention.abilityName}
-            abilityType={abilityName ? (mention.abilityType || 'ability') : mention.abilityType}
           />
         )
       } else {
@@ -256,9 +256,12 @@ const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
               </span>
             )}
           </div>
-          <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+          <Link
+            to={`/activity/${localComment.userId._id}`}
+            className="font-semibold text-gray-900 dark:text-gray-100 text-sm hover:text-primary-600 dark:hover:text-primary-400 hover:underline"
+          >
             {localComment.userId.username}
-          </span>
+          </Link>
           {/* Role badges - Mod and/or Dev */}
           {localComment.userId.role === 'admin' && (
             <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-xs rounded font-medium">

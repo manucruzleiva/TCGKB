@@ -3,37 +3,15 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { cardService } from '../../services/cardService'
 import PokemonSprite from '../common/PokemonSprite'
-import GameLogo from '../common/GameLogo'
 
-const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = null }) => {
+const CardMentionLink = ({ cardId, cardName, abilityName = null }) => {
   const [showTooltip, setShowTooltip] = useState(false)
   const [cardData, setCardData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
-  const [detectedAbilityType, setDetectedAbilityType] = useState(abilityType)
   const timeoutRef = useRef(null)
   const tooltipRef = useRef(null)
   const linkRef = useRef(null)
-
-  // Load card data immediately if we have an abilityName but no abilityType
-  // This ensures we can detect attack vs ability for old comments
-  useEffect(() => {
-    if (abilityName && !abilityType && !cardData && !loading) {
-      loadCardData()
-    }
-  }, [abilityName, abilityType, cardData, loading])
-
-  // Update detected ability type when card data is loaded
-  useEffect(() => {
-    if (cardData && abilityName && !abilityType) {
-      // Check if it's an attack
-      if (cardData.attacks?.some(a => a.name === abilityName)) {
-        setDetectedAbilityType('attack')
-      } else if (cardData.abilities?.some(a => a.name === abilityName)) {
-        setDetectedAbilityType('ability')
-      }
-    }
-  }, [cardData, abilityName, abilityType])
 
   const handleMouseEnter = () => {
     timeoutRef.current = setTimeout(() => {
@@ -105,45 +83,27 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
   const tcgSystem = cardData?.tcgSystem || 'pokemon'
   const isPokemon = tcgSystem === 'pokemon' || !tcgSystem
 
-  // Style classes based on mention type (Phase 3: Visual Disambiguation)
-  const getChipStyles = () => {
-    if (abilityName) {
-      // Attack: Red/orange gradient
-      if (detectedAbilityType === 'attack') {
-        return 'bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/50 dark:to-orange-900/50 text-red-700 dark:text-red-300 hover:from-red-200 hover:to-orange-200 dark:hover:from-red-800/50 dark:hover:to-orange-800/50 border border-red-300 dark:border-red-700'
-      }
-      // Ability: Purple gradient
-      return 'bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/50 dark:to-indigo-900/50 text-purple-700 dark:text-purple-300 hover:from-purple-200 hover:to-indigo-200 dark:hover:from-purple-800/50 dark:hover:to-indigo-800/50 border border-purple-300 dark:border-purple-700'
-    }
-    // Card: Blue with solid border
-    return 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50 border border-blue-300 dark:border-blue-700'
-  }
+  // Unified chip style for all mentions
+  const chipStyles = 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50 border border-blue-300 dark:border-blue-700'
 
   return (
     <span className="relative inline-block align-middle">
       <Link
         ref={linkRef}
         to={`/card/${cardId}`}
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-medium transition-all ${getChipStyles()}`}
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-medium transition-all ${chipStyles}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Game Logo (Pokeball or Riftbound) */}
-        <GameLogo tcgSystem={tcgSystem} size="xs" />
-
-        {abilityName ? (
-          <>
-            {/* Category icon for ability/attack */}
-            <span className="text-xs">{detectedAbilityType === 'attack' ? '⚔️' : '✨'}</span>
-            <span className="italic text-xs">{abilityName}</span>
-          </>
+        {/* Pokemon sprite or card emoji for Riftbound */}
+        {isPokemon ? (
+          <PokemonSprite cardName={cardName} size="sm" fallbackEmoji="🃏" showFallback={true} />
         ) : (
-          <>
-            {/* Pokemon sprite for Pokemon cards, or just the name for Riftbound */}
-            {isPokemon && <PokemonSprite cardName={cardName} size="sm" fallbackEmoji="" showFallback={false} />}
-            <span className="text-xs">{cardName}</span>
-          </>
+          <span className="text-xs">🃏</span>
         )}
+
+        {/* Card name or ability name */}
+        <span className="text-xs">{abilityName ? abilityName : cardName}</span>
       </Link>
 
       {/* Tooltip rendered via portal to avoid z-index/overflow issues */}
@@ -180,12 +140,8 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
                   {/* Ability details on the right */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                        abilityDetails.type === 'attack'
-                          ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'
-                          : 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
-                      }`}>
-                        {abilityDetails.type === 'attack' ? '⚔️ Attack' : '✨ Ability'}
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                        {abilityDetails.type === 'attack' ? 'Attack' : 'Ability'}
                       </span>
                     </div>
                     <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
