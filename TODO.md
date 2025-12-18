@@ -81,8 +81,15 @@
   - Colores, patrones, etc.
 - [ ] Sprites de entrenadores como opción de avatar `~15K tokens | ~1h`
   - Investigar fuente de sprites
-- [ ] Sprites de backgrounds como opción `~15K tokens | ~1h`
-  - Investigar disponibilidad
+- [ ] Sprites de backgrounds como opción `~20K tokens | ~1.5h`
+  - **Fuentes identificadas:**
+    - The Spriters Resource (tiles de Pokemon Emerald/FireRed)
+    - itch.io free Pokemon assets (pixel art patterns)
+    - GitHub pokemon-assets (compilación completa)
+    - Veekun Downloads (overworld sprites)
+  - Categorías: naturaleza, ciudades, arenas, tipos (fuego, agua, etc.)
+  - Patterns tileable para fondos
+  - Preview en selector de avatar
 - [ ] **Shiny Pokemon para Devs/Mods:** `~20K tokens | ~1.5h`
   - Opción de usar sprites shiny solo para roles dev/mod/admin
   - Toggle "Usar versión shiny" en selector de avatar
@@ -246,6 +253,13 @@
   - Requiere input del email actual para mayor seguridad
 - [x] Login con username - permitir login con username además de correo
 - [x] Username único - validar que no existan duplicados al registrar o cambiar username (case-insensitive)
+- [ ] **Live Settings (auto-guardado):** `~30K tokens | ~2h`
+  - Eliminar botón "Guardar cambios" de Settings
+  - Cada cambio se guarda automáticamente (debounce 500ms)
+  - Indicador visual de "Guardando..." / "Guardado ✓"
+  - Toast sutil confirmando cambio guardado
+  - Rollback automático si falla el guardado
+  - Aplicar a: idioma, tema, formato de fecha, avatar, preferencias
 
 ### Ranking Híbrido de Popularidad
 - [ ] Endpoint `GET /api/cards/popular` `~30K tokens | ~2h`
@@ -389,10 +403,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~1,050K tokens | ~74.5h |
-| P2: Funcionalidad | ~180K tokens | ~13.5h |
+| P1: UX/UI | ~1,055K tokens | ~75h |
+| P2: Funcionalidad | ~210K tokens | ~15.5h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,725K tokens** | **~122.5h** |
+| **TOTAL** | **~1,760K tokens** | **~125h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
