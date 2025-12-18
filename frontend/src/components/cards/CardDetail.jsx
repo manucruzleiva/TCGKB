@@ -80,14 +80,21 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
     fetchCollectionStatus()
   }, [card?.id, isAuthenticated])
 
-  // Fetch artist info when card changes
+  // Get the currently displayed card (handles reprint cycling)
+  const displayedCard = alternateArts.length > 0 ? alternateArts[currentArtIndex] : card
+  const currentArtist = displayedCard?.artist || card?.artist
+
+  // Fetch artist info when displayed card changes
   useEffect(() => {
     const fetchArtistInfo = async () => {
-      if (!card?.artist) return
+      if (!currentArtist) {
+        setArtistData({ fanCount: 0, isFan: false })
+        return
+      }
 
       try {
         setLoadingArtist(true)
-        const response = await artistsService.getArtistInfo(card.artist)
+        const response = await artistsService.getArtistInfo(currentArtist)
         if (response.success) {
           setArtistData({
             fanCount: response.data.fanCount,
@@ -96,21 +103,22 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
         }
       } catch (error) {
         console.error('Error fetching artist info:', error)
+        setArtistData({ fanCount: 0, isFan: false })
       } finally {
         setLoadingArtist(false)
       }
     }
 
     fetchArtistInfo()
-  }, [card?.artist])
+  }, [currentArtist])
 
   // Handle toggling fan status
   const handleToggleFan = async () => {
-    if (!isAuthenticated || !card?.artist) return
+    if (!isAuthenticated || !currentArtist) return
 
     try {
       setLoadingArtist(true)
-      const response = await artistsService.toggleFan(card.artist)
+      const response = await artistsService.toggleFan(currentArtist)
       if (response.success) {
         setArtistData({
           fanCount: response.data.fanCount,
@@ -158,12 +166,12 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
     )
   }
 
-  // Get the current card (either from alternateArts or the original card)
-  const displayedCard = alternateArts.length > 0 ? alternateArts[currentArtIndex] : card
+  // displayedCard is already defined above (line 84) - use it for all version-specific data
   const imageUrl = displayedCard?.images?.large || displayedCard?.images?.small || card.images?.large || card.images?.small
-  const setCode = card.set?.ptcgoCode || card.set?.id || 'Unknown'
-  const setName = card.set?.name || 'Unknown Set'
-  const releaseDate = card.set?.releaseDate || ''
+  // Use displayedCard for version-specific info so it updates when cycling through reprints
+  const setCode = displayedCard?.set?.ptcgoCode || displayedCard?.set?.id || 'Unknown'
+  const setName = displayedCard?.set?.name || 'Unknown Set'
+  const releaseDate = displayedCard?.set?.releaseDate || ''
   const hasMultipleArts = alternateArts.length > 1
 
   const goToPrevArt = () => {
@@ -188,9 +196,9 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
   const isPokemonCard = card.tcgSystem === 'pokemon' || !card.tcgSystem
   const isRiftboundCard = card.tcgSystem === 'riftbound'
 
-  // Pokemon-specific calculations
+  // Pokemon-specific calculations - use displayedCard for version-specific info
   const legalFormatDate = isPokemonCard ? calculateLegalDate(releaseDate) : null
-  const rotationInfo = isPokemonCard && card.regulationMark ? getRotationInfo(card.regulationMark) : null
+  const rotationInfo = isPokemonCard && displayedCard?.regulationMark ? getRotationInfo(displayedCard.regulationMark) : null
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
@@ -406,8 +414,8 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
               </div>
             )}
 
-            {/* Pokemon-specific: Regulation Mark with status */}
-            {isPokemonCard && card.regulationMark && (
+            {/* Pokemon-specific: Regulation Mark with status - version specific */}
+            {isPokemonCard && displayedCard.regulationMark && (
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.regulationMark')}:</span>
                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-bold rounded ${
@@ -417,7 +425,7 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
                     ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300'
                     : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
                 }`}>
-                  <span className="text-lg">{card.regulationMark}</span>
+                  <span className="text-lg">{displayedCard.regulationMark}</span>
                   {rotationInfo?.status === 'rotating-soon' && (
                     <span className="text-xs font-normal">⚠️</span>
                   )}
@@ -462,25 +470,26 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
               </div>
             )}
 
-            {card.supertype && (
+            {displayedCard.supertype && (
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.type')}:</span>
                 <span className="ml-2 text-gray-600 dark:text-gray-400">
-                  {card.supertype}
-                  {card.subtypes && card.subtypes.length > 0 && (
+                  {displayedCard.supertype}
+                  {displayedCard.subtypes && displayedCard.subtypes.length > 0 && (
                     <span className="ml-1 text-gray-500 dark:text-gray-500">
-                      ({card.subtypes.join(', ')})
+                      ({displayedCard.subtypes.join(', ')})
                     </span>
                   )}
                 </span>
               </div>
             )}
 
-            {card.types && card.types.length > 0 && (
+            {/* Use displayedCard for version-specific fields (changes when cycling reprints) */}
+            {displayedCard.types && displayedCard.types.length > 0 && (
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.types')}:</span>
                 <div className="inline-flex gap-2 ml-2">
-                  {card.types.map((type, idx) => (
+                  {displayedCard.types.map((type, idx) => (
                     <span
                       key={idx}
                       className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded flex items-center gap-1"
@@ -493,29 +502,33 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
               </div>
             )}
 
-            {card.hp && (
+            {displayedCard.hp && (
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.hp')}:</span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">{card.hp}</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">{displayedCard.hp}</span>
               </div>
             )}
 
-            {/* Card Number */}
-            {card.number && (
+            {/* Card Number - version specific */}
+            {displayedCard.number && (
               <div>
-                <span className="font-semibold text-gray-700 dark:text-gray-300">Número:</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                  {language === 'es' ? 'Número' : 'Number'}:
+                </span>
                 <span className="ml-2 text-gray-600 dark:text-gray-400">
-                  {card.number}{card.set?.printedTotal ? ` / ${card.set.printedTotal}` : ''}
+                  {displayedCard.number}{displayedCard.set?.printedTotal ? ` / ${displayedCard.set.printedTotal}` : ''}
                 </span>
               </div>
             )}
 
-            {/* Rarity */}
-            {card.rarity && (
+            {/* Rarity - version specific */}
+            {displayedCard.rarity && (
               <div>
-                <span className="font-semibold text-gray-700 dark:text-gray-300">Rareza:</span>
-                <span className={`ml-2 px-2 py-0.5 rounded text-sm ${isRiftboundCard ? (RARITY_COLORS[card.rarity] || 'text-gray-600 dark:text-gray-400') : 'text-gray-600 dark:text-gray-400'}`}>
-                  {card.rarity}
+                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                  {language === 'es' ? 'Rareza' : 'Rarity'}:
+                </span>
+                <span className={`ml-2 px-2 py-0.5 rounded text-sm ${isRiftboundCard ? (RARITY_COLORS[displayedCard.rarity] || 'text-gray-600 dark:text-gray-400') : 'text-gray-600 dark:text-gray-400'}`}>
+                  {displayedCard.rarity}
                 </span>
               </div>
             )}
@@ -579,19 +592,19 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
               </div>
             )}
 
-            {/* Artist with Fan System */}
-            {card.artist && (
+            {/* Artist with Fan System - uses currentArtist which updates with reprint selection */}
+            {currentArtist && (
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-semibold text-gray-700 dark:text-gray-300">
                     {language === 'es' ? 'Artista' : 'Artist'}:
                   </span>
-                  <span className="ml-2 text-gray-600 dark:text-gray-400">{card.artist}</span>
+                  <span className="ml-2 text-gray-600 dark:text-gray-400">{currentArtist}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Fan count */}
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {artistData.fanCount} {artistData.fanCount === 1 ? 'fan' : 'fans'}
+                    {loadingArtist ? '...' : artistData.fanCount} {artistData.fanCount === 1 ? 'fan' : 'fans'}
                   </span>
                   {/* Fan toggle button */}
                   {isAuthenticated && (
