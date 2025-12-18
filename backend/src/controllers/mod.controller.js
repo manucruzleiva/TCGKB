@@ -677,13 +677,17 @@ export const getCacheStats = async (req, res) => {
  * Sync Pokemon cards from Pokemon TCG API
  * By default syncs Standard-legal sets (Regulation Marks G, H, I, J, K)
  * Use ?allSets=true to sync ALL sets (warning: very large dataset)
+ * Use ?limit=N to sync only N sets at a time (default: 5 for Vercel timeout)
+ * Use ?offset=N to start from set N (for pagination)
  */
 export const syncPokemonCards = async (req, res) => {
   try {
-    const { allSets: syncAllSets } = req.query
+    const { allSets: syncAllSets, limit: limitParam, offset: offsetParam } = req.query
     const syncAll = syncAllSets === 'true'
+    const limit = parseInt(limitParam) || 5 // Default 5 sets per batch to avoid timeout
+    const offset = parseInt(offsetParam) || 0
 
-    log.info(MODULE, `Pokemon sync initiated by admin ${req.user.username} (allSets=${syncAll})`)
+    log.info(MODULE, `Pokemon sync initiated by admin ${req.user.username} (allSets=${syncAll}, limit=${limit}, offset=${offset})`)
 
     // Valid regulation marks for Standard format
     const VALID_REGULATION_MARKS = ['G', 'H', 'I', 'J', 'K']
@@ -730,17 +734,17 @@ export const syncPokemonCards = async (req, res) => {
     log.info(MODULE, `Found ${allSets.length} total Pokemon sets`)
 
     // Filter sets based on sync mode
-    let setsToSync
+    let filteredSets
     if (syncAll) {
-      setsToSync = allSets
-      log.info(MODULE, `Syncing ALL ${setsToSync.length} sets`)
+      filteredSets = allSets
+      log.info(MODULE, `Total sets available: ${filteredSets.length}`)
     } else {
       // Default: Filter for Scarlet & Violet series (Standard legal)
-      setsToSync = allSets.filter(set => set.series === 'Scarlet & Violet')
-      log.info(MODULE, `Found ${setsToSync.length} Scarlet & Violet sets to sync`)
+      filteredSets = allSets.filter(set => set.series === 'Scarlet & Violet')
+      log.info(MODULE, `Found ${filteredSets.length} Scarlet & Violet sets`)
     }
 
-    if (setsToSync.length === 0) {
+    if (filteredSets.length === 0) {
       return res.status(200).json({
         success: true,
         data: { synced: 0, errors: 0, setsProcessed: 0, totalPokemon: 0, totalCache: 0 },
@@ -748,12 +752,35 @@ export const syncPokemonCards = async (req, res) => {
       })
     }
 
+    // Apply pagination
+    const totalSets = filteredSets.length
+    const setsToSync = filteredSets.slice(offset, offset + limit)
+    const hasMore = offset + limit < totalSets
+    const nextOffset = hasMore ? offset + limit : null
+
+    if (setsToSync.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          synced: 0,
+          errors: 0,
+          setsProcessed: 0,
+          totalPokemon: await CardCache.countDocuments({ tcgSystem: 'pokemon' }),
+          totalCache: await CardCache.countDocuments(),
+          pagination: { offset, limit, totalSets, hasMore: false, nextOffset: null }
+        },
+        message: 'No more sets to sync at this offset'
+      })
+    }
+
+    log.info(MODULE, `Syncing sets ${offset + 1} to ${offset + setsToSync.length} of ${totalSets}`)
+
     let totalCardsCached = 0
     let totalErrors = 0
     let totalSkipped = 0
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
 
-    // Process each set
+    // Process each set in this batch
     for (let setIndex = 0; setIndex < setsToSync.length; setIndex++) {
       const set = setsToSync[setIndex]
       try {
@@ -762,9 +789,9 @@ export const syncPokemonCards = async (req, res) => {
         // Fetch all cards from this set using direct API
         let allCardsFromSet = []
         let page = 1
-        let hasMore = true
+        let hasMoreCards = true
 
-        while (hasMore) {
+        while (hasMoreCards) {
           try {
             const cardsResponse = await fetch(
               `https://api.pokemontcg.io/v2/cards?q=set.id:${set.id}&page=${page}&pageSize=250`,
@@ -775,16 +802,16 @@ export const syncPokemonCards = async (req, res) => {
             allCardsFromSet = allCardsFromSet.concat(cards)
 
             if (cards.length < 250) {
-              hasMore = false
+              hasMoreCards = false
             } else {
               page++
             }
 
             // Rate limit - Pokemon API has 1000 requests/day for free tier
-            await new Promise(resolve => setTimeout(resolve, 200))
+            await new Promise(resolve => setTimeout(resolve, 100))
           } catch (fetchError) {
             log.error(MODULE, `Error fetching page ${page} for ${set.id}:`, fetchError.message)
-            hasMore = false
+            hasMoreCards = false
           }
         }
 
@@ -829,7 +856,7 @@ export const syncPokemonCards = async (req, res) => {
     const totalPokemon = await CardCache.countDocuments({ tcgSystem: 'pokemon' })
     const totalCache = await CardCache.countDocuments()
 
-    log.info(MODULE, `Pokemon sync completed: ${totalCardsCached} cards cached, ${totalSkipped} skipped, ${totalErrors} errors`)
+    log.info(MODULE, `Pokemon sync batch completed: ${totalCardsCached} cards cached, ${totalSkipped} skipped, ${totalErrors} errors`)
 
     res.status(200).json({
       success: true,
@@ -840,9 +867,19 @@ export const syncPokemonCards = async (req, res) => {
         setsProcessed: setsToSync.length,
         totalPokemon,
         totalCache,
-        mode: syncAll ? 'all' : 'standard'
+        mode: syncAll ? 'all' : 'standard',
+        pagination: {
+          offset,
+          limit,
+          totalSets,
+          hasMore,
+          nextOffset,
+          setsRemaining: hasMore ? totalSets - (offset + limit) : 0
+        }
       },
-      message: `Synced ${totalCardsCached} Pokemon cards from ${setsToSync.length} sets${syncAll ? ' (ALL sets)' : ' (Standard only)'}`
+      message: hasMore
+        ? `Synced ${totalCardsCached} cards from ${setsToSync.length} sets. ${totalSets - (offset + limit)} sets remaining. Use offset=${nextOffset} to continue.`
+        : `Synced ${totalCardsCached} Pokemon cards from ${setsToSync.length} sets${syncAll ? ' (ALL sets)' : ' (Standard only)'} - COMPLETE!`
     })
   } catch (error) {
     log.error(MODULE, 'Pokemon sync failed', error)
