@@ -29,8 +29,8 @@ const DevDashboard = () => {
 
   // Health check state
   const [healthStatus, setHealthStatus] = useState({
-    api: { status: 'checking', message: '' },
-    database: { status: 'checking', message: '' }
+    database: { status: 'checking', message: '' },
+    environments: []
   })
   const [endpointsHealth, setEndpointsHealth] = useState(null)
   const [checkingEndpoints, setCheckingEndpoints] = useState(false)
@@ -68,6 +68,7 @@ const DevDashboard = () => {
   useEffect(() => {
     if (isAuthenticated && canAccessBugDashboard) {
       checkHealth()
+      fetchEndpoints()
       fetchCacheStats()
     }
   }, [isAuthenticated, canAccessBugDashboard])
@@ -86,34 +87,41 @@ const DevDashboard = () => {
   const checkHealth = async () => {
     try {
       const response = await api.get('/health')
-      setHealthStatus(prev => ({
-        ...prev,
-        api: {
-          status: response.data.status === 'ok' ? 'healthy' : 'degraded',
-          message: response.data.status === 'ok' ? 'API operational' : 'API issues detected'
-        },
+      setHealthStatus({
         database: {
           status: response.data.database?.connected ? 'healthy' : 'error',
-          message: response.data.database?.connected ? 'Database connected' : 'Database not connected'
-        }
-      }))
+          message: response.data.database?.message || (response.data.database?.connected ? 'Database connected' : 'Database not connected')
+        },
+        environments: response.data.environments || []
+      })
     } catch (error) {
       setHealthStatus(prev => ({
         ...prev,
-        api: { status: 'error', message: error.message || 'API unreachable' },
-        database: { status: 'unknown', message: 'Could not verify' }
+        database: { status: 'error', message: error.message || 'Could not verify' },
+        environments: []
       }))
     }
   }
 
-  const checkEndpointsHealth = async () => {
-    setCheckingEndpoints(true)
+  // Fetch endpoints list on mount (without health check)
+  const fetchEndpoints = async () => {
     try {
       const response = await api.get('/health/endpoints')
       setEndpointsHealth(response.data)
     } catch (error) {
+      console.error('Error fetching endpoints:', error)
+    }
+  }
+
+  // Check endpoints health (runs actual health checks)
+  const checkEndpointsHealth = async () => {
+    setCheckingEndpoints(true)
+    try {
+      const response = await api.get('/health/endpoints?check=true')
+      setEndpointsHealth(response.data)
+    } catch (error) {
       console.error('Error checking endpoints health:', error)
-      setEndpointsHealth({ status: 'error', message: error.message })
+      setEndpointsHealth(prev => ({ ...prev, healthCheck: { status: 'error', message: error.message } }))
     } finally {
       setCheckingEndpoints(false)
     }
@@ -345,25 +353,9 @@ const DevDashboard = () => {
             🔄 {language === 'es' ? 'Actualizar' : 'Refresh'}
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* API Status */}
-          <div className={`p-4 rounded-lg ${
-            healthStatus.api.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30' :
-            healthStatus.api.status === 'error' ? 'bg-red-100 dark:bg-red-900/30' :
-            'bg-yellow-100 dark:bg-yellow-900/30'
-          }`}>
-            <div className="flex items-center gap-2">
-              <span className={`w-3 h-3 rounded-full ${
-                healthStatus.api.status === 'healthy' ? 'bg-green-500' :
-                healthStatus.api.status === 'error' ? 'bg-red-500' :
-                'bg-yellow-500 animate-pulse'
-              }`}></span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">API</span>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {healthStatus.api.message || (language === 'es' ? 'Verificando...' : 'Checking...')}
-            </p>
-          </div>
+
+        {/* Environments Status */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           {/* Database Status */}
           <div className={`p-4 rounded-lg ${
             healthStatus.database.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30' :
@@ -376,19 +368,56 @@ const DevDashboard = () => {
                 healthStatus.database.status === 'error' ? 'bg-red-500' :
                 'bg-yellow-500 animate-pulse'
               }`}></span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">Database</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">🗄️ Database</span>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               {healthStatus.database.message || (language === 'es' ? 'Verificando...' : 'Checking...')}
             </p>
           </div>
+          {/* Production Environment */}
+          {healthStatus.environments?.map((env, idx) => (
+            <div key={idx} className={`p-4 rounded-lg ${
+              env.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30' :
+              env.status === 'error' ? 'bg-red-100 dark:bg-red-900/30' :
+              'bg-yellow-100 dark:bg-yellow-900/30'
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className={`w-3 h-3 rounded-full ${
+                  env.status === 'healthy' ? 'bg-green-500' :
+                  env.status === 'error' ? 'bg-red-500' :
+                  'bg-yellow-500 animate-pulse'
+                }`}></span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                  {env.name === 'Production' ? '🚀' : '🧪'} {env.name}
+                </span>
+              </div>
+              <a
+                href={env.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary-600 dark:text-primary-400 hover:underline block mt-1"
+              >
+                {env.url}
+              </a>
+              <div className="flex items-center justify-between mt-1">
+                <span className={`text-xs ${
+                  env.status === 'healthy' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {env.message}
+                </span>
+                {env.latency && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{env.latency}ms</span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Data Sources Health Check */}
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {language === 'es' ? 'Fuentes de Datos' : 'Data Sources'}
+              {language === 'es' ? 'Fuentes de Datos Externas' : 'External Data Sources'}
             </h3>
             <button
               onClick={checkSourcesHealth}
@@ -418,7 +447,7 @@ const DevDashboard = () => {
                 {sourcesHealth.healthy}/{sourcesHealth.total} {language === 'es' ? 'fuentes saludables' : 'sources healthy'}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {sourcesHealth.sources?.map((source, idx) => (
                   <div
                     key={idx}
@@ -441,6 +470,17 @@ const DevDashboard = () => {
                         {source.latency}ms
                       </span>
                     </div>
+                    {source.url && (
+                      <a
+                        href={source.docsUrl || source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary-600 dark:text-primary-400 hover:underline block mt-1 truncate"
+                        title={source.url}
+                      >
+                        {source.url}
+                      </a>
+                    )}
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         {source.type === 'database' ? '🗄️' : '🌐'} {source.type}
@@ -464,11 +504,11 @@ const DevDashboard = () => {
           )}
         </div>
 
-        {/* Endpoints Health Check */}
+        {/* API Endpoints - Honeycomb View */}
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {language === 'es' ? 'Estado de Endpoints API' : 'API Endpoints Status'}
+              {language === 'es' ? 'Endpoints API' : 'API Endpoints'} ({endpointsHealth?.total || 0})
             </h3>
             <button
               onClick={checkEndpointsHealth}
@@ -482,61 +522,78 @@ const DevDashboard = () => {
                 </>
               ) : (
                 <>
-                  🔍 {language === 'es' ? 'Verificar Endpoints' : 'Check Endpoints'}
+                  🔍 {language === 'es' ? 'Verificar Salud' : 'Check Health'}
                 </>
               )}
             </button>
           </div>
 
-          {endpointsHealth ? (
-            <div className="space-y-2">
-              <div className={`p-3 rounded-lg text-sm ${
-                endpointsHealth.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
-                endpointsHealth.status === 'degraded' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
-                'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
-              }`}>
-                {endpointsHealth.healthy}/{endpointsHealth.total} endpoints {language === 'es' ? 'saludables' : 'healthy'}
+          {/* Health Check Result */}
+          {endpointsHealth?.healthCheck && (
+            <div className={`p-3 rounded-lg text-sm mb-3 ${
+              endpointsHealth.healthCheck.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+              endpointsHealth.healthCheck.status === 'degraded' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
+              'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+            }`}>
+              {endpointsHealth.healthCheck.healthy}/{endpointsHealth.healthCheck.checked} {language === 'es' ? 'categorías saludables' : 'categories healthy'}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {Object.entries(endpointsHealth.healthCheck.results || {}).map(([name, result]) => (
+                  <span key={name} className={`px-2 py-1 rounded text-xs ${
+                    result.status === 'healthy' ? 'bg-green-200 dark:bg-green-800' : 'bg-red-200 dark:bg-red-800'
+                  }`}>
+                    {result.status === 'healthy' ? '✓' : '✗'} {name} ({result.latency}ms)
+                  </span>
+                ))}
               </div>
+            </div>
+          )}
 
-              {(() => {
-                const categories = {}
-                endpointsHealth.endpoints?.forEach(endpoint => {
-                  const cat = endpoint.category || 'other'
-                  if (!categories[cat]) categories[cat] = []
-                  categories[cat].push(endpoint)
-                })
-                return Object.entries(categories).map(([category, endpoints]) => (
-                  <div key={category} className="mt-2">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">
+          {/* Honeycomb Endpoints Grid */}
+          {endpointsHealth?.categories ? (
+            <div className="space-y-3">
+              {Object.entries(endpointsHealth.categories).map(([category, endpoints]) => (
+                <div key={category}>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded">
                       {category}
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
-                      {endpoints.map((endpoint, idx) => (
-                        <div
-                          key={idx}
-                          className={`p-2 rounded text-xs flex items-center justify-between ${
-                            endpoint.status === 'healthy'
-                              ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
-                              : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
-                          }`}
-                        >
-                          <span className="font-medium truncate">{endpoint.name}</span>
-                          <span className="flex items-center gap-1">
-                            {endpoint.status === 'healthy' ? '✓' : '✗'}
-                            <span className="text-gray-500 dark:text-gray-400">{endpoint.latency}ms</span>
+                    </span>
+                    <span className="text-gray-400">({endpoints.length})</span>
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1">
+                    {endpoints.map((endpoint, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded text-xs ${
+                          endpoint.protected
+                            ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
+                            : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                        }`}
+                        title={`${endpoint.method} ${endpoint.path}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={`px-1 py-0.5 rounded text-[10px] font-mono ${
+                            endpoint.method === 'GET' ? 'bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200' :
+                            endpoint.method === 'POST' ? 'bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200' :
+                            endpoint.method === 'PUT' ? 'bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200' :
+                            endpoint.method === 'PATCH' ? 'bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200' :
+                            'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200'
+                          }`}>
+                            {endpoint.method}
                           </span>
+                          {endpoint.protected && <span title="Protected">🔒</span>}
                         </div>
-                      ))}
-                    </div>
+                        <p className="font-medium text-gray-700 dark:text-gray-300 truncate mt-1" title={endpoint.name}>
+                          {endpoint.name}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                ))
-              })()}
+                </div>
+              ))}
             </div>
           ) : (
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-              {language === 'es'
-                ? 'Haz clic en "Verificar Endpoints" para comprobar el estado'
-                : 'Click "Check Endpoints" to verify status'}
+              {language === 'es' ? 'Cargando endpoints...' : 'Loading endpoints...'}
             </p>
           )}
         </div>

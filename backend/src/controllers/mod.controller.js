@@ -688,18 +688,43 @@ export const syncPokemonCards = async (req, res) => {
     // Valid regulation marks for Standard format
     const VALID_REGULATION_MARKS = ['G', 'H', 'I', 'J', 'K']
 
-    // Fetch all sets using the SDK
-    let allSets
+    // Fetch all sets - try SDK first, then direct API
+    let allSets = []
     try {
-      allSets = await pokemon.set.all()
+      const sdkResult = await pokemon.set.all()
+      // SDK may return array directly or {data: [...]}
+      allSets = Array.isArray(sdkResult) ? sdkResult : (sdkResult?.data || sdkResult || [])
+      log.info(MODULE, `SDK returned ${allSets.length} sets`)
     } catch (setsError) {
-      log.error(MODULE, 'Failed to fetch Pokemon sets:', setsError.message)
-      // Fallback: try direct API call
-      const setsResponse = await fetch('https://api.pokemontcg.io/v2/sets', {
-        headers: { 'X-Api-Key': process.env.POKEMON_TCG_API_KEY || '' }
+      log.error(MODULE, 'SDK failed, trying direct API:', setsError.message)
+    }
+
+    // Fallback to direct API if SDK failed or returned empty
+    if (!allSets || allSets.length === 0) {
+      try {
+        const setsResponse = await fetch('https://api.pokemontcg.io/v2/sets', {
+          headers: { 'X-Api-Key': process.env.POKEMON_TCG_API_KEY || '' }
+        })
+        if (!setsResponse.ok) {
+          throw new Error(`HTTP ${setsResponse.status}: ${setsResponse.statusText}`)
+        }
+        const setsData = await setsResponse.json()
+        allSets = setsData?.data || []
+        log.info(MODULE, `Direct API returned ${allSets.length} sets`)
+      } catch (apiError) {
+        log.error(MODULE, 'Direct API also failed:', apiError.message)
+        return res.status(500).json({
+          success: false,
+          message: `Failed to fetch Pokemon sets: ${apiError.message}. Check POKEMON_TCG_API_KEY.`
+        })
+      }
+    }
+
+    if (!Array.isArray(allSets) || allSets.length === 0) {
+      return res.status(500).json({
+        success: false,
+        message: 'No Pokemon sets returned from API. Check API connectivity and POKEMON_TCG_API_KEY.'
       })
-      const setsData = await setsResponse.json()
-      allSets = setsData.data || []
     }
 
     log.info(MODULE, `Found ${allSets.length} total Pokemon sets`)
