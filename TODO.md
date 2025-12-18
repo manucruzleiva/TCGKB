@@ -15,11 +15,23 @@
   - Verificar respuesta de Pokemon TCG API
   - Agregar validación de datos antes de acceder a `.length`
   - Mejorar manejo de errores con mensaje descriptivo
+- [ ] **Cachear TODAS las cartas Pokemon (no solo Standard):** `~25K tokens | ~2h`
+  - Remover filtro de regulation marks (G, H, I, J, K)
+  - Cachear todas las cartas disponibles en Pokemon TCG API
+  - Paginación para manejar ~15,000+ cartas
+  - Sync incremental (solo cartas nuevas/actualizadas)
+  - Mostrar progreso en Dev Dashboard durante sync masivo
+  - Considerar límites de rate de la API
 - [ ] **Fix User Activity no se muestra:** `~15K tokens | ~1h`
   - La página de usuario `/user/:username` no muestra actividad
   - Revisar endpoint GET `/api/users/:username/activity`
   - Verificar que UserActivity.jsx esté consumiendo datos correctamente
   - Revisar si hay error en el fetch o en el rendering
+- [ ] **Fix Bug Reports - Tabla no muestra todos los tickets:** `~10K tokens | ~0.5h`
+  - El contador muestra 2 tickets pero la tabla solo muestra 1
+  - Revisar endpoint que trae los bug reports
+  - Verificar paginación o filtrado incorrecto
+  - Revisar rendering de la tabla en DevDashboard
 
 ### Navegación / Menú
 - [x] **Hamburger Menu Refresh:**
@@ -236,10 +248,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~570K tokens | ~40.5h |
+| P1: UX/UI | ~605K tokens | ~43h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~545K tokens | ~38h |
-| **TOTAL** | **~1,280K tokens** | **~90.5h** |
+| **TOTAL** | **~1,315K tokens** | **~93h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
