@@ -17,7 +17,7 @@
 
 ### Funcionalidad
 - [ ] Extreme caching with sync routines
-- [ ] Add PokeAPI sprites
+- [x] Add PokeAPI sprites (chips de mención @ muestran sprite del Pokémon)
 - [ ] Add a reliable Riftbound API source of data
 
 ### UI/UX
@@ -27,6 +27,11 @@
   - Si un comentario tiene @ referenciando carta/habilidad/ataque, mostrar flecha de conexión
 
 ## Completado Esta Sesión
+- Integración de dominio tcgkb.app con Namecheap + Vercel
+- PokeAPI sprites en chips de mención @ (servicio + componente PokemonSprite)
+- Fix endpoint /api/bugs en api/index.js (era /api/bug-reports)
+
+## Completado Sesiones Anteriores
 - Fix API URL para producción (runtime detection en lugar de build-time)
 - Fix rate limiter blocking login en serverless
 - Configuración completa de Vercel con variables de entorno
