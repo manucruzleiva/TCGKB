@@ -112,11 +112,13 @@
   - Mostrar progreso de análisis (X de Y cartas procesadas)
   - Reporte de reprints encontrados con estadísticas
   - Opción de revisar/aprobar matches parciales
-- [ ] **UI en página de carta:** `~30K tokens | ~2h`
-  - Sección "Otras versiones de esta carta"
-  - Mostrar thumbnail de cada reprint con set y rareza
+- [ ] **UI en página de carta - Carrusel de reprints:** `~45K tokens | ~3h`
+  - Remover contador x/2 de esquina superior izquierda de imagen
+  - Swipe o click para ciclar entre imágenes de reprints
+  - Mobile: interacción 50/50 - click izquierdo = atrás, derecho = adelante
+  - Mostrar thumbnails de opciones debajo de imagen principal
+  - Actualizar atributo "number" al cambiar de reprint
   - Indicador de tipo (exact/alt art/promo)
-  - Click para navegar al reprint
   - Badge "X versiones disponibles" en card header
 - [ ] **Filtros y búsqueda por reprints:** `~25K tokens | ~2h`
   - En catálogo: toggle "Mostrar solo una versión por carta"
@@ -130,6 +132,11 @@
   - Reemplazar por sprites correspondientes de runas
   - Usar assets de Drive/librería de recursos existente
   - Aplicar en descripción de carta, efectos, habilidades
+- [ ] **Sprites para atributos Domain y Might (Riftbound):** `~15K tokens | ~1h`
+  - Atributo Domain: mostrar sprite de la runa correspondiente
+  - Atributo Might: mostrar sprite de might
+  - Usar assets de Drive para obtener sprites
+  - Consistente con el sistema de sprites en card text
 - [ ] **Fix line breaks en card text:** `~10K tokens | ~0.5h`
   - Detectar punto seguido sin espacio (`.X` donde X es mayúscula)
   - Insertar salto de línea automático
@@ -178,11 +185,12 @@
   - Nombre del artista
   - Contador de fans
   - Lista de usuarios fans
-- [ ] **UI en página de carta:** `~30K tokens | ~2h`
-  - Nombre del artista clickeable
+- [ ] **UI en página de carta - Toggle de fan en nombre:** `~30K tokens | ~2h`
+  - Nombre del artista ES el botón de toggle (no emoji separado)
+  - Click en nombre = toggle fan on/off
+  - Cuando es fan: mostrar ❤️ al inicio y final del nombre (ej: "❤️ Artist Name ❤️")
+  - Cuando no es fan: solo nombre normal
   - Mostrar cantidad de fans del artista
-  - Click para hacerse fan (toggle)
-  - Cambio visual cuando eres fan (highlight, icono, etc.)
 - [ ] **Página de artista (opcional):** `~35K tokens | ~2.5h`
   - Ver todas las cartas de un artista
   - Ranking de artistas más populares
@@ -320,10 +328,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~770K tokens | ~54h |
+| P1: UX/UI | ~800K tokens | ~56h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~625K tokens | ~44h |
-| **TOTAL** | **~1,560K tokens** | **~110h** |
+| **TOTAL** | **~1,590K tokens** | **~112h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
