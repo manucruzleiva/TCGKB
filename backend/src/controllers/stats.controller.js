@@ -4,6 +4,10 @@ import Reaction from '../models/Reaction.js'
 import User from '../models/User.js'
 import log from '../utils/logger.js'
 
+// Cache for relationship map (30 min TTL)
+let relationshipCache = { data: null, timestamp: 0 }
+const RELATIONSHIP_CACHE_TTL = 30 * 60 * 1000
+
 const MODULE = 'StatsController'
 
 // GitHub repo info
@@ -16,6 +20,9 @@ const commitsCache = {
   stage: { data: null, timestamp: 0 }
 }
 const CACHE_TTL = 60 * 60 * 1000 // 1 hour
+
+// Cache for roadmap (1 hour TTL)
+let roadmapCache = { data: null, timestamp: 0 }
 
 /**
  * Get platform statistics
@@ -273,6 +280,360 @@ export const getGitHubCommits = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get GitHub commits'
+    })
+  }
+}
+
+/**
+ * Parse TODO.md and return roadmap items
+ */
+const parseTodoMarkdown = (content) => {
+  const lines = content.split('\n')
+  const priorities = []
+  let currentPriority = null
+  let currentSection = null
+  let currentSubItems = []
+
+  for (const line of lines) {
+    // Match priority headers: ## Prioridad 1: UX/UI
+    const priorityMatch = line.match(/^##\s+Prioridad\s+(\d+):\s*(.+)$/i)
+    if (priorityMatch) {
+      // Save previous priority if exists
+      if (currentPriority) {
+        if (currentSection && currentSubItems.length > 0) {
+          currentPriority.sections.push({
+            name: currentSection,
+            items: currentSubItems
+          })
+        }
+        priorities.push(currentPriority)
+      }
+      currentPriority = {
+        level: parseInt(priorityMatch[1]),
+        name: priorityMatch[2].trim(),
+        sections: []
+      }
+      currentSection = null
+      currentSubItems = []
+      continue
+    }
+
+    // Skip completado section
+    if (line.match(/^##\s+Completado/i) || line.match(/^##\s+Notas/i)) {
+      // Save current priority before breaking
+      if (currentPriority) {
+        if (currentSection && currentSubItems.length > 0) {
+          currentPriority.sections.push({
+            name: currentSection,
+            items: currentSubItems
+          })
+        }
+        priorities.push(currentPriority)
+        currentPriority = null
+      }
+      break
+    }
+
+    // Match section headers: ### Sistema de Avatares
+    const sectionMatch = line.match(/^###\s+(.+)$/)
+    if (sectionMatch && currentPriority) {
+      // Save previous section
+      if (currentSection && currentSubItems.length > 0) {
+        currentPriority.sections.push({
+          name: currentSection,
+          items: currentSubItems
+        })
+      }
+      currentSection = sectionMatch[1].trim()
+      currentSubItems = []
+      continue
+    }
+
+    // Match todo items: - [ ] or - [x]
+    const itemMatch = line.match(/^-\s+\[([ xX])\]\s+(.+)$/)
+    if (itemMatch && currentPriority) {
+      const completed = itemMatch[1].toLowerCase() === 'x'
+      let text = itemMatch[2].trim()
+      // Remove bold markers
+      text = text.replace(/\*\*(.+?)\*\*/g, '$1')
+      // Remove trailing colons
+      text = text.replace(/:$/, '')
+
+      currentSubItems.push({
+        text,
+        completed
+      })
+    }
+  }
+
+  // Save last priority if exists
+  if (currentPriority) {
+    if (currentSection && currentSubItems.length > 0) {
+      currentPriority.sections.push({
+        name: currentSection,
+        items: currentSubItems
+      })
+    }
+    priorities.push(currentPriority)
+  }
+
+  // Calculate stats
+  let totalItems = 0
+  let completedItems = 0
+
+  priorities.forEach(p => {
+    p.sections.forEach(s => {
+      s.items.forEach(item => {
+        totalItems++
+        if (item.completed) completedItems++
+      })
+      // Calculate section completion
+      const sectionTotal = s.items.length
+      const sectionCompleted = s.items.filter(i => i.completed).length
+      s.progress = sectionTotal > 0 ? Math.round((sectionCompleted / sectionTotal) * 100) : 0
+      s.completedCount = sectionCompleted
+      s.totalCount = sectionTotal
+    })
+    // Calculate priority completion
+    const priorityTotal = p.sections.reduce((acc, s) => acc + s.totalCount, 0)
+    const priorityCompleted = p.sections.reduce((acc, s) => acc + s.completedCount, 0)
+    p.progress = priorityTotal > 0 ? Math.round((priorityCompleted / priorityTotal) * 100) : 0
+    p.completedCount = priorityCompleted
+    p.totalCount = priorityTotal
+  })
+
+  return {
+    priorities,
+    stats: {
+      total: totalItems,
+      completed: completedItems,
+      pending: totalItems - completedItems,
+      progress: totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
+    }
+  }
+}
+
+/**
+ * Get roadmap from TODO.md
+ */
+export const getRoadmap = async (req, res) => {
+  try {
+    const now = Date.now()
+
+    // Return cached data if still valid
+    if (roadmapCache.data && (now - roadmapCache.timestamp) < CACHE_TTL) {
+      log.info(MODULE, 'Roadmap returned from cache')
+      return res.status(200).json({
+        success: true,
+        data: roadmapCache.data,
+        cached: true
+      })
+    }
+
+    // Fetch TODO.md from GitHub
+    const response = await fetch(
+      `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/TODO.md`,
+      {
+        headers: {
+          'User-Agent': 'TCGKB-App'
+        }
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(`GitHub raw returned ${response.status}`)
+    }
+
+    const content = await response.text()
+    const roadmap = parseTodoMarkdown(content)
+
+    // Cache the result
+    roadmapCache = {
+      data: roadmap,
+      timestamp: now
+    }
+
+    log.info(MODULE, `Roadmap parsed: ${roadmap.stats.total} items, ${roadmap.stats.completed} completed`)
+
+    res.status(200).json({
+      success: true,
+      data: roadmap,
+      cached: false
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get roadmap failed', error)
+
+    // Return cached data even if expired, as fallback
+    if (roadmapCache.data) {
+      return res.status(200).json({
+        success: true,
+        data: roadmapCache.data,
+        cached: true,
+        stale: true
+      })
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get roadmap'
+    })
+  }
+}
+
+/**
+ * Get relationship map data - cards with comments and their connections
+ */
+export const getRelationshipMap = async (req, res) => {
+  try {
+    const now = Date.now()
+
+    // Return cached data if still valid
+    if (relationshipCache.data && (now - relationshipCache.timestamp) < RELATIONSHIP_CACHE_TTL) {
+      log.info(MODULE, 'Relationship map returned from cache')
+      return res.status(200).json({
+        success: true,
+        data: relationshipCache.data,
+        cached: true
+      })
+    }
+
+    // Get all cards that have comments (not moderated)
+    const cardsWithComments = await Comment.aggregate([
+      { $match: { isModerated: false, targetType: 'card', cardId: { $exists: true, $ne: null } } },
+      {
+        $group: {
+          _id: '$cardId',
+          commentCount: { $sum: 1 },
+          mentions: { $push: '$cardMentions' }
+        }
+      }
+    ])
+
+    // Get unique card IDs
+    const cardIds = cardsWithComments.map(c => c._id)
+
+    // Fetch card details from cache
+    const cards = await CardCache.find({ id: { $in: cardIds } })
+      .select('id name images tcgSystem set')
+      .lean()
+
+    // Create card lookup map
+    const cardMap = {}
+    cards.forEach(card => {
+      cardMap[card.id] = {
+        id: card.id,
+        name: card.name,
+        image: card.images?.small || card.images?.large,
+        tcgSystem: card.tcgSystem,
+        set: card.set?.name
+      }
+    })
+
+    // Build nodes (cards with comments)
+    const nodes = []
+    const edges = []
+    const edgeSet = new Set() // To avoid duplicate edges
+
+    cardsWithComments.forEach(cardData => {
+      const card = cardMap[cardData._id]
+      if (!card) return
+
+      nodes.push({
+        id: card.id,
+        name: card.name,
+        image: card.image,
+        tcgSystem: card.tcgSystem,
+        set: card.set,
+        commentCount: cardData.commentCount
+      })
+
+      // Process mentions to create edges
+      cardData.mentions.forEach(mentionArray => {
+        if (!mentionArray) return
+        mentionArray.forEach(mention => {
+          if (!mention || !mention.cardId) return
+
+          // Create edge from this card to mentioned card
+          const edgeKey = `${cardData._id}->${mention.cardId}`
+          const reverseEdgeKey = `${mention.cardId}->${cardData._id}`
+
+          // Skip self-references and duplicates
+          if (cardData._id === mention.cardId) return
+          if (edgeSet.has(edgeKey)) return
+
+          edgeSet.add(edgeKey)
+          edgeSet.add(reverseEdgeKey) // Mark reverse as visited too
+
+          edges.push({
+            source: cardData._id,
+            target: mention.cardId,
+            mentionType: mention.abilityType || 'card',
+            abilityName: mention.abilityName
+          })
+        })
+      })
+    })
+
+    // Add mentioned cards that aren't already in nodes (for complete graph)
+    const mentionedCardIds = [...new Set(edges.flatMap(e => [e.source, e.target]))]
+    const missingCardIds = mentionedCardIds.filter(id => !cardMap[id])
+
+    if (missingCardIds.length > 0) {
+      const missingCards = await CardCache.find({ id: { $in: missingCardIds } })
+        .select('id name images tcgSystem set')
+        .lean()
+
+      missingCards.forEach(card => {
+        nodes.push({
+          id: card.id,
+          name: card.name,
+          image: card.images?.small || card.images?.large,
+          tcgSystem: card.tcgSystem,
+          set: card.set?.name,
+          commentCount: 0
+        })
+      })
+    }
+
+    const result = {
+      nodes,
+      edges,
+      stats: {
+        totalNodes: nodes.length,
+        totalEdges: edges.length,
+        cardsWithComments: cardsWithComments.length
+      }
+    }
+
+    // Cache the result
+    relationshipCache = {
+      data: result,
+      timestamp: now
+    }
+
+    log.info(MODULE, `Relationship map: ${nodes.length} nodes, ${edges.length} edges`)
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      cached: false
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get relationship map failed', error)
+
+    // Return cached data even if expired, as fallback
+    if (relationshipCache.data) {
+      return res.status(200).json({
+        success: true,
+        data: relationshipCache.data,
+        cached: true,
+        stale: true
+      })
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get relationship map'
     })
   }
 }

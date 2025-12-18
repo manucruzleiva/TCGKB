@@ -326,18 +326,23 @@ export const updatePreferences = async (req, res) => {
 
 export const updateAvatar = async (req, res) => {
   try {
-    const { avatar } = req.body
+    const { avatar, avatarBackground } = req.body
 
-    if (!avatar) {
+    // At least one field is required
+    if (!avatar && !avatarBackground) {
       return res.status(400).json({
         success: false,
-        message: 'Avatar URL is required'
+        message: 'Avatar URL or background is required'
       })
     }
 
+    const updateData = {}
+    if (avatar !== undefined) updateData.avatar = avatar
+    if (avatarBackground !== undefined) updateData.avatarBackground = avatarBackground
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { avatar },
+      updateData,
       { new: true, runValidators: true }
     )
 
@@ -351,7 +356,8 @@ export const updateAvatar = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        avatar: user.avatar
+        avatar: user.avatar,
+        avatarBackground: user.avatarBackground
       }
     })
   } catch (error) {

@@ -6,7 +6,9 @@ import {
   getCardAlternateArts,
   searchCardsAutocomplete,
   getNewestCards,
-  getMostCommentedCards
+  getMostCommentedCards,
+  getCatalog,
+  getCatalogFilters
 } from '../controllers/cards.controller.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
 
@@ -26,6 +28,10 @@ router.get('/most-commented', getMostCommentedCards)
 
 // Search cards for autocomplete
 router.get('/search', searchCardsAutocomplete)
+
+// Catalog endpoints
+router.get('/catalog', getCatalog)
+router.get('/catalog/filters', getCatalogFilters)
 
 // Batch get cards by IDs (for deck import)
 router.post('/batch', getCardsByIds)
