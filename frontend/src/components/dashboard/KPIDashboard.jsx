@@ -80,17 +80,11 @@ const KPIDashboard = () => {
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <svg viewBox="0 0 100 100" className="w-5 h-5">
-                  <defs>
-                    <linearGradient id="riftGradSmall" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#8b5cf6"/>
-                      <stop offset="100%" stopColor="#3b82f6"/>
-                    </linearGradient>
-                  </defs>
-                  <rect x="10" y="5" width="80" height="90" rx="8" fill="url(#riftGradSmall)" stroke="#1e293b" strokeWidth="3"/>
-                  <path d="M30 25 L50 45 L70 25 M30 45 L50 65 L70 45 M30 65 L50 85 L70 65"
-                        fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <img
+                  src="/riftbound-icon.png"
+                  alt="Riftbound"
+                  className="w-5 h-5 object-contain"
+                />
                 <span className="text-blue-800 dark:text-blue-200">Riftbound</span>
               </div>
               <span className="font-semibold text-blue-900 dark:text-blue-100">
@@ -265,18 +259,11 @@ const KPIDashboard = () => {
 
   // Riftbound logo icon component
   const RiftboundIcon = () => (
-    <svg viewBox="0 0 100 100" className="w-8 h-8">
-      <defs>
-        <linearGradient id="riftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#8b5cf6"/>
-          <stop offset="100%" stopColor="#3b82f6"/>
-        </linearGradient>
-      </defs>
-      <rect x="10" y="5" width="80" height="90" rx="8" fill="url(#riftGrad)" stroke="#1e293b" strokeWidth="3"/>
-      <path d="M30 25 L50 45 L70 25 M30 45 L50 65 L70 45 M30 65 L50 85 L70 65"
-            fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx="50" cy="55" r="6" fill="#fff"/>
-    </svg>
+    <img
+      src="/riftbound-icon.png"
+      alt="Riftbound"
+      className="w-8 h-8 object-contain"
+    />
   )
 
   const tcgSystems = [
