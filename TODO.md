@@ -130,11 +130,32 @@
 - [x] Filtros por set, tipo, rareza, etc.
 - [x] Vista grid/list toggle
 - [x] Infinite scroll
+- [ ] **Filtros TCG con iconos visuales (no dropdown):** `~25K tokens | ~2h`
+  - Reemplazar dropdown de TCG por íconos clickeables
+  - Pokebola para Pokemon, logo Riftbound para Riftbound
+  - Full color = mostrando cartas de ese TCG
+  - Grayscale = filtrando/ocultando cartas de ese TCG
+  - Toggle al hacer click en el ícono
+- [ ] **Filtros por subtipo con sprites:** `~35K tokens | ~2.5h`
+  - Pokemon: filtros por tipo de carta (Grass, Fire, Water, etc.)
+  - Usar sprites oficiales de tipos Pokemon (NO emojis)
+  - Riftbound: filtros por runas usando sprites existentes
+  - Full color = mostrando, Grayscale = filtrando
+  - Comportamiento toggle al hacer click en sprite
 
 ### Binder / Colección Personal
 - [x] **Modelo de datos** (playset tracking)
 - [x] **UI en página de carta** (contador, barra de progreso)
 - [x] **Página /collection** (filtros, stats, grid/list)
+- [ ] **Fix playset Riftbound - debe ser x/3 no x/4:** `~10K tokens | ~0.5h`
+  - Riftbound usa playset de 3 cartas, no 4 como Pokemon
+  - Detectar TCG de la carta y ajustar máximo de playset
+  - Actualizar UI de barra de progreso y contador
+- [ ] **Contador de colección más discreto en carta:** `~15K tokens | ~1h`
+  - Actualmente ocupa demasiado espacio visual
+  - Diseño más compacto/minimalista
+  - Mantener funcionalidad de incrementar/decrementar
+  - Considerar badge pequeño o mini contador inline
 - [ ] **Decks sugeridos:** `~60K tokens | ~4h`
   - Basado en cartas que el usuario posee
   - Mostrar % de completitud de decks populares
@@ -287,10 +308,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~655K tokens | ~46h |
+| P1: UX/UI | ~740K tokens | ~52h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~625K tokens | ~44h |
-| **TOTAL** | **~1,445K tokens** | **~102h** |
+| **TOTAL** | **~1,530K tokens** | **~108h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
