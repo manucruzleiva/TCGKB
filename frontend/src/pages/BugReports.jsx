@@ -50,6 +50,8 @@ const DevDashboard = () => {
   })
   const [endpointsHealth, setEndpointsHealth] = useState(null)
   const [checkingEndpoints, setCheckingEndpoints] = useState(false)
+  const [sourcesHealth, setSourcesHealth] = useState(null)
+  const [checkingSources, setCheckingSources] = useState(false)
 
   // Cache management state
   const [cacheStats, setCacheStats] = useState(null)
@@ -145,6 +147,19 @@ const DevDashboard = () => {
     }
   }
 
+  const checkSourcesHealth = async () => {
+    setCheckingSources(true)
+    try {
+      const response = await api.get('/health/sources')
+      setSourcesHealth(response.data)
+    } catch (error) {
+      console.error('Error checking sources health:', error)
+      setSourcesHealth({ status: 'error', message: error.message })
+    } finally {
+      setCheckingSources(false)
+    }
+  }
+
   const fetchCacheStats = async () => {
     try {
       const response = await api.get('/mod/cache/stats')
@@ -186,7 +201,8 @@ const DevDashboard = () => {
     try {
       setSyncingPokemon(true)
       setSyncResult(null)
-      const response = await api.post('/mod/cache/sync/pokemon')
+      // Pokemon sync can take a long time (many sets) - use 10 minute timeout
+      const response = await api.post('/mod/cache/sync/pokemon', {}, { timeout: 600000 })
       if (response.data.success) {
         setSyncResult({
           success: true,
@@ -393,11 +409,93 @@ const DevDashboard = () => {
           </div>
         </div>
 
-        {/* Endpoints Health Check */}
-        <div className="mt-4">
+        {/* Data Sources Health Check */}
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {language === 'es' ? 'Estado de Endpoints' : 'Endpoints Status'}
+              {language === 'es' ? 'Fuentes de Datos' : 'Data Sources'}
+            </h3>
+            <button
+              onClick={checkSourcesHealth}
+              disabled={checkingSources}
+              className="text-xs text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1 disabled:opacity-50"
+            >
+              {checkingSources ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  {language === 'es' ? 'Verificando...' : 'Checking...'}
+                </>
+              ) : (
+                <>
+                  🔍 {language === 'es' ? 'Verificar Fuentes' : 'Check Sources'}
+                </>
+              )}
+            </button>
+          </div>
+
+          {sourcesHealth ? (
+            <div className="space-y-2">
+              {/* Overall Status */}
+              <div className={`p-3 rounded-lg text-sm ${
+                sourcesHealth.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+                sourcesHealth.status === 'degraded' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
+                'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+              }`}>
+                {sourcesHealth.healthy}/{sourcesHealth.total} {language === 'es' ? 'fuentes saludables' : 'sources healthy'}
+              </div>
+
+              {/* Individual Sources */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {sourcesHealth.sources?.map((source, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg ${
+                      source.status === 'healthy'
+                        ? 'bg-green-50 dark:bg-green-900/20'
+                        : 'bg-red-50 dark:bg-red-900/20'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${
+                          source.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
+                        }`}></span>
+                        <span className={`font-medium text-sm ${
+                          source.status === 'healthy' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
+                        }`}>{source.name}</span>
+                      </div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {source.latency}ms
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {source.type === 'database' ? '🗄️' : '🌐'} {source.type}
+                      </span>
+                      <span className={`text-xs ${
+                        source.status === 'healthy' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {source.message}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+              {language === 'es'
+                ? 'Haz clic en "Verificar Fuentes" para comprobar conectividad'
+                : 'Click "Check Sources" to verify connectivity'}
+            </p>
+          )}
+        </div>
+
+        {/* Endpoints Health Check */}
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {language === 'es' ? 'Estado de Endpoints API' : 'API Endpoints Status'}
             </h3>
             <button
               onClick={checkEndpointsHealth}
@@ -428,25 +526,40 @@ const DevDashboard = () => {
                 {endpointsHealth.healthy}/{endpointsHealth.total} endpoints {language === 'es' ? 'saludables' : 'healthy'}
               </div>
 
-              {/* Individual Endpoints */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {endpointsHealth.endpoints?.map((endpoint, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-2 rounded text-xs flex items-center justify-between ${
-                      endpoint.status === 'healthy'
-                        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
-                        : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
-                    }`}
-                  >
-                    <span className="font-medium truncate">{endpoint.name}</span>
-                    <span className="flex items-center gap-1">
-                      {endpoint.status === 'healthy' ? '✓' : '✗'}
-                      <span className="text-gray-500 dark:text-gray-400">{endpoint.latency}ms</span>
-                    </span>
+              {/* Group endpoints by category */}
+              {(() => {
+                const categories = {}
+                endpointsHealth.endpoints?.forEach(endpoint => {
+                  const cat = endpoint.category || 'other'
+                  if (!categories[cat]) categories[cat] = []
+                  categories[cat].push(endpoint)
+                })
+                return Object.entries(categories).map(([category, endpoints]) => (
+                  <div key={category} className="mt-2">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">
+                      {category}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
+                      {endpoints.map((endpoint, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-2 rounded text-xs flex items-center justify-between ${
+                            endpoint.status === 'healthy'
+                              ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                              : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                          }`}
+                        >
+                          <span className="font-medium truncate">{endpoint.name}</span>
+                          <span className="flex items-center gap-1">
+                            {endpoint.status === 'healthy' ? '✓' : '✗'}
+                            <span className="text-gray-500 dark:text-gray-400">{endpoint.latency}ms</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                ))
+              })()}
             </div>
           ) : (
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">

@@ -684,13 +684,33 @@ export const syncPokemonCards = async (req, res) => {
     // Valid regulation marks for Standard format
     const VALID_REGULATION_MARKS = ['G', 'H', 'I', 'J', 'K']
 
-    // Fetch all sets
-    const allSets = await pokemon.set.all()
+    // Fetch all sets using the SDK
+    let allSets
+    try {
+      allSets = await pokemon.set.all()
+    } catch (setsError) {
+      log.error(MODULE, 'Failed to fetch Pokemon sets:', setsError.message)
+      // Fallback: try direct API call
+      const setsResponse = await fetch('https://api.pokemontcg.io/v2/sets', {
+        headers: { 'X-Api-Key': process.env.POKEMON_TCG_API_KEY || '' }
+      })
+      const setsData = await setsResponse.json()
+      allSets = setsData.data || []
+    }
+
     log.info(MODULE, `Found ${allSets.length} total Pokemon sets`)
 
     // Filter for Scarlet & Violet series (Standard legal)
     const svSets = allSets.filter(set => set.series === 'Scarlet & Violet')
     log.info(MODULE, `Found ${svSets.length} Scarlet & Violet sets to sync`)
+
+    if (svSets.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: { synced: 0, errors: 0, setsProcessed: 0, totalPokemon: 0, totalCache: 0 },
+        message: 'No Scarlet & Violet sets found to sync'
+      })
+    }
 
     let totalCardsCached = 0
     let totalErrors = 0
@@ -701,29 +721,33 @@ export const syncPokemonCards = async (req, res) => {
       try {
         log.info(MODULE, `Processing set: ${set.name} (${set.id})`)
 
-        // Fetch all cards from this set
+        // Fetch all cards from this set using direct API
         let allCardsFromSet = []
         let page = 1
         let hasMore = true
 
         while (hasMore) {
-          const result = await pokemon.card.where({
-            q: `set.id:${set.id}`,
-            page,
-            pageSize: 250
-          })
+          try {
+            const cardsResponse = await fetch(
+              `https://api.pokemontcg.io/v2/cards?q=set.id:${set.id}&page=${page}&pageSize=250`,
+              { headers: { 'X-Api-Key': process.env.POKEMON_TCG_API_KEY || '' } }
+            )
+            const cardsData = await cardsResponse.json()
+            const cards = cardsData.data || []
+            allCardsFromSet = allCardsFromSet.concat(cards)
 
-          const cards = result.data || []
-          allCardsFromSet = allCardsFromSet.concat(cards)
+            if (cards.length < 250) {
+              hasMore = false
+            } else {
+              page++
+            }
 
-          if (cards.length < 250) {
+            // Rate limit - Pokemon API has 1000 requests/day for free tier
+            await new Promise(resolve => setTimeout(resolve, 200))
+          } catch (fetchError) {
+            log.error(MODULE, `Error fetching page ${page} for ${set.id}:`, fetchError.message)
             hasMore = false
-          } else {
-            page++
           }
-
-          // Rate limit
-          await new Promise(resolve => setTimeout(resolve, 100))
         }
 
         // Filter for valid regulation marks and cache
