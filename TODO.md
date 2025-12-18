@@ -316,6 +316,24 @@
   - Máximo 4 copias por carta (excepto energías básicas)
   - Validar tipos de carta (Pokemon, Trainer, Energy)
   - UI similar a Riftbound pero adaptada
+- [ ] **Página Decks - Filtros por juego:** `~30K tokens | ~2h`
+  - Toggle por TCG con sprites (Pokeball / Riftbound logo)
+  - Full color = mostrando, Grayscale = filtrando
+  - Filtrar decks por Pokemon o Riftbound
+  - Persistir preferencia de filtro
+- [ ] **Sistema de Tags para Decks:** `~45K tokens | ~3h`
+  - Tag de Juego: Pokemon / Riftbound (sprite)
+  - Tags de Energía (Pokemon): sprites de tipos (Grass, Fire, Water, etc.)
+  - Tags de Runas (Riftbound): sprites de domains (Fury, Calm, Mind, etc.)
+  - Tag de Arquetipo: compartido entre ambos juegos (Aggro, Control, Combo, Midrange)
+  - Tags de Formato Pokemon: Standard, Expanded, Unlimited, GLC
+  - Tags de Formato Riftbound: Standard, Limited, 2v2, FFA
+  - UI de tags clickeables para filtrar
+  - Multi-select de tags
+- [ ] **Auto-tagging de Decks:** `~25K tokens | ~2h`
+  - Detectar tipos de energía/runas predominantes
+  - Sugerir arquetipo basado en composición
+  - Auto-completar tags de formato según legalidad
 
 ### Autenticación / Usuario
 - [x] User data chips - reemplazar chip 'admin' por tags actuales
@@ -478,9 +496,9 @@
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
 | P1: UX/UI | ~1,055K tokens | ~75h |
-| P2: Funcionalidad | ~350K tokens | ~25h |
+| P2: Funcionalidad | ~450K tokens | ~32h |
 | P3: Backend/Infra | ~805K tokens | ~57h |
-| **TOTAL** | **~2,210K tokens** | **~157h** |
+| **TOTAL** | **~2,310K tokens** | **~164h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
