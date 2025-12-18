@@ -83,6 +83,12 @@
   - Investigar fuente de sprites
 - [ ] Sprites de backgrounds como opción `~15K tokens | ~1h`
   - Investigar disponibilidad
+- [ ] **Shiny Pokemon para Devs/Mods:** `~20K tokens | ~1.5h`
+  - Opción de usar sprites shiny solo para roles dev/mod/admin
+  - Toggle "Usar versión shiny" en selector de avatar
+  - Indicador visual sutil (sparkle, borde dorado, etc.)
+  - Verificar rol en backend antes de guardar avatar shiny
+  - Fallback a versión normal si usuario pierde el rol
 
 ### Relationship Map
 - [ ] **RELATIONSHIP MAP en hamburger menu:** `~80K tokens | ~6h`
@@ -383,10 +389,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~1,030K tokens | ~73h |
+| P1: UX/UI | ~1,050K tokens | ~74.5h |
 | P2: Funcionalidad | ~180K tokens | ~13.5h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,705K tokens** | **~121h** |
+| **TOTAL** | **~1,725K tokens** | **~122.5h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
