@@ -321,12 +321,13 @@ const ModDashboard = () => {
             return dates.length > 0 ? new Date(Math.max(...dates)) : null
           }
 
-          const inactiveUsers = regularUsers.filter(u => {
+          // Check if user is active (had activity in last 2 months)
+          const isUserActive = (u) => {
             const lastAction = getLastActionDate(u)
-            return lastAction && lastAction < TWO_MONTHS_AGO
-          })
+            return lastAction && lastAction >= TWO_MONTHS_AGO
+          }
 
-          const UserTable = ({ userList, emptyMessage }) => (
+          const UserTable = ({ userList, emptyMessage, showActivityTag = false }) => (
             userList.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400 text-sm italic py-4">
                 {emptyMessage}
@@ -354,98 +355,112 @@ const ModDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {userList.map((u) => (
-                      <tr
-                        key={u._id}
-                        className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                      >
-                        <td className="py-3 px-4 text-gray-900 dark:text-gray-100">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-primary-400 to-primary-600 flex-shrink-0 flex items-center justify-center">
-                              {u.avatar ? (
-                                <img src={u.avatar} alt={u.username} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-xs font-bold text-white">
-                                  {u.username?.charAt(0).toUpperCase()}
+                    {userList.map((u) => {
+                      const active = isUserActive(u)
+                      return (
+                        <tr
+                          key={u._id}
+                          className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                          <td className="py-3 px-4 text-gray-900 dark:text-gray-100">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-primary-400 to-primary-600 flex-shrink-0 flex items-center justify-center">
+                                {u.avatar ? (
+                                  <img src={u.avatar} alt={u.username} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-xs font-bold text-white">
+                                    {u.username?.charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <span>{u.username}</span>
+                              {u.email === 'shieromanu@gmail.com' && (
+                                <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">
+                                  {language === 'es' ? 'DUEÑO' : 'OWNER'}
+                                </span>
+                              )}
+                              {showActivityTag && (
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  active
+                                    ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                                }`}>
+                                  {active
+                                    ? (language === 'es' ? 'Activo' : 'Active')
+                                    : (language === 'es' ? 'Inactivo' : 'Inactive')}
                                 </span>
                               )}
                             </div>
-                            <span>{u.username}</span>
-                            {u.email === 'shieromanu@gmail.com' && (
-                              <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">
-                                {language === 'es' ? 'DUEÑO' : 'OWNER'}
+                          </td>
+                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-sm">
+                            {u.email}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex flex-wrap gap-1">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                u.role === 'admin'
+                                  ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                              }`}>
+                                {u.role === 'admin' ? 'Admin' : 'User'}
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-sm">
-                          {u.email}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex flex-wrap gap-1">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              u.role === 'admin'
-                                ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                            }`}>
-                              {u.role === 'admin' ? 'Admin' : 'User'}
-                            </span>
-                            {(u.isDev || DEV_EMAILS.includes(u.email)) && (
-                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
-                                Dev
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm">
-                          <button
-                            onClick={() => navigate(`/user/${u.username}`)}
-                            className="text-primary-600 dark:text-primary-400 hover:underline"
-                          >
-                            💬 {u.stats.comments} | 😀 {u.stats.reactions}
-                          </button>
-                        </td>
-                        <td className="py-3 px-4">
-                          {u._id !== user._id && u.email !== 'shieromanu@gmail.com' && (
-                            <div className="flex gap-2">
-                              {u.role === 'user' ? (
-                                <Button
-                                  onClick={() => handleRoleChange(u._id, 'admin')}
-                                  disabled={updatingUser === u._id}
-                                  variant="primary"
-                                  className="text-xs py-1 px-3"
-                                >
-                                  {updatingUser === u._id
-                                    ? '...'
-                                    : (language === 'es' ? 'Promover' : 'Promote')}
-                                </Button>
-                              ) : (
-                                <Button
-                                  onClick={() => handleRoleChange(u._id, 'user')}
-                                  disabled={updatingUser === u._id}
-                                  variant="secondary"
-                                  className="text-xs py-1 px-3"
-                                >
-                                  {updatingUser === u._id
-                                    ? '...'
-                                    : (language === 'es' ? 'Degradar' : 'Demote')}
-                                </Button>
+                              {(u.isDev || DEV_EMAILS.includes(u.email)) && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                                  Dev
+                                </span>
                               )}
                             </div>
-                          )}
-                          {u._id === user._id && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {language === 'es' ? '(Tú)' : '(You)'}
-                            </span>
-                          )}
-                          {u.email === 'shieromanu@gmail.com' && u._id !== user._id && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {language === 'es' ? 'Protegido' : 'Protected'}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            <button
+                              onClick={() => navigate(`/user/${u.username}`)}
+                              className="text-primary-600 dark:text-primary-400 hover:underline"
+                            >
+                              💬 {u.stats.comments} | 😀 {u.stats.reactions}
+                            </button>
+                          </td>
+                          <td className="py-3 px-4">
+                            {u._id !== user._id && u.email !== 'shieromanu@gmail.com' && (
+                              <div className="flex gap-2">
+                                {u.role === 'user' ? (
+                                  <Button
+                                    onClick={() => handleRoleChange(u._id, 'admin')}
+                                    disabled={updatingUser === u._id}
+                                    variant="primary"
+                                    className="text-xs py-1 px-3"
+                                  >
+                                    {updatingUser === u._id
+                                      ? '...'
+                                      : (language === 'es' ? 'Promover' : 'Promote')}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    onClick={() => handleRoleChange(u._id, 'user')}
+                                    disabled={updatingUser === u._id}
+                                    variant="secondary"
+                                    className="text-xs py-1 px-3"
+                                  >
+                                    {updatingUser === u._id
+                                      ? '...'
+                                      : (language === 'es' ? 'Degradar' : 'Demote')}
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                            {u._id === user._id && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {language === 'es' ? '(Tú)' : '(You)'}
+                              </span>
+                            )}
+                            {u.email === 'shieromanu@gmail.com' && u._id !== user._id && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {language === 'es' ? 'Protegido' : 'Protected'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -486,21 +501,19 @@ const ModDashboard = () => {
                 </div>
               </div>
 
-              {/* Inactive Users Section */}
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 flex items-center gap-2">
-                  <span className="text-xl">💤</span>
-                  <h3 className="font-semibold text-gray-600 dark:text-gray-300">
-                    {language === 'es' ? 'Usuarios Inactivos' : 'Inactive Users'} ({inactiveUsers.length})
+              {/* Users Section */}
+              <div className="border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
+                <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-3 flex items-center gap-2">
+                  <span className="text-xl">👤</span>
+                  <h3 className="font-semibold text-blue-800 dark:text-blue-200">
+                    {language === 'es' ? 'Usuarios' : 'Users'} ({regularUsers.length})
                   </h3>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    ({language === 'es' ? 'última acción hace +2 meses' : 'last action 2+ months ago'})
-                  </span>
                 </div>
                 <div className="bg-white dark:bg-gray-800">
                   <UserTable
-                    userList={inactiveUsers}
-                    emptyMessage={language === 'es' ? 'No hay usuarios inactivos' : 'No inactive users'}
+                    userList={regularUsers}
+                    emptyMessage={language === 'es' ? 'No hay usuarios' : 'No users'}
+                    showActivityTag={true}
                   />
                 </div>
               </div>

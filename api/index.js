@@ -363,6 +363,9 @@ app.get('/api/health/endpoints', async (req, res) => {
     { name: 'Sync Pokemon', method: 'POST', path: '/api/mod/cache/sync/pokemon', category: 'mod', protected: true },
     { name: 'Verify Cache', method: 'GET', path: '/api/mod/cache/verify', category: 'mod', protected: true },
 
+    // Users
+    { name: 'User Activity', method: 'GET', path: '/api/users/:username/activity', category: 'users', protected: false },
+
     // Health
     { name: 'Health Check', method: 'GET', path: '/api/health', category: 'health', protected: false },
     { name: 'Sources Health', method: 'GET', path: '/api/health/sources', category: 'health', protected: false },
@@ -452,6 +455,7 @@ app.use('/api', async (req, res, next) => {
       const deckRoutes = (await import('../backend/src/routes/deck.routes.js')).default
       const bugReportRoutes = (await import('../backend/src/routes/bugReport.routes.js')).default
       const githubRoutes = (await import('../backend/src/routes/github.routes.js')).default
+      const usersRoutes = (await import('../backend/src/routes/users.routes.js')).default
 
       app.use('/api/auth', ensureDbConnection, authRoutes)
       app.use('/api/cards', ensureDbConnection, cardsRoutes)
@@ -462,6 +466,7 @@ app.use('/api', async (req, res, next) => {
       app.use('/api/decks', ensureDbConnection, deckRoutes)
       app.use('/api/bugs', ensureDbConnection, bugReportRoutes)
       app.use('/api/github', ensureDbConnection, githubRoutes)
+      app.use('/api/users', ensureDbConnection, usersRoutes)
 
       routesLoaded = true
     } catch (error) {
