@@ -75,6 +75,30 @@
   - Mostrar cartas que tengan comentarios
   - Si un comentario tiene @ referenciando carta/habilidad/ataque, mostrar flecha de conexión
 
+### Sistema de Reprints
+- [ ] **Modelo de datos para Reprints:** `~35K tokens | ~2.5h`
+  - Campo `reprintGroup` o `canonicalId` que agrupa cartas equivalentes
+  - Identificar reprints por: mismo nombre + mismo texto de ataque/habilidad
+  - Diferenciar: reprint exacto vs alternate art vs promo version
+  - Tipos de reprint: `exact`, `alternate_art`, `promo`, `special_art`
+- [ ] **Algoritmo de detección automática:** `~45K tokens | ~3h`
+  - Comparar nombre de carta (normalizado, sin sufijos de set)
+  - Comparar texto de ataques/habilidades (fuzzy match para variaciones menores)
+  - Comparar stats (HP, daño, costo de energía)
+  - Script de análisis masivo para cartas existentes en cache
+  - Marcar como "pendiente de revisión" si match es parcial
+- [ ] **UI en página de carta:** `~30K tokens | ~2h`
+  - Sección "Otras versiones de esta carta"
+  - Mostrar thumbnail de cada reprint con set y rareza
+  - Indicador de tipo (exact/alt art/promo)
+  - Click para navegar al reprint
+  - Badge "X versiones disponibles" en card header
+- [ ] **Filtros y búsqueda por reprints:** `~25K tokens | ~2h`
+  - En catálogo: toggle "Mostrar solo una versión por carta"
+  - Filtro "Solo alternate arts"
+  - Búsqueda que agrupa reprints en resultados
+  - Contador de versiones en resultados de búsqueda
+
 ### Catálogo (/catalog)
 - [ ] Página de catálogo completo de cartas `~50K tokens | ~4h`
   - Filtros por TCG (Pokemon / Riftbound)
@@ -292,10 +316,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~710K tokens | ~50h |
+| P1: UX/UI | ~845K tokens | ~59.5h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,370K tokens** | **~96.5h** |
+| **TOTAL** | **~1,505K tokens** | **~106h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
