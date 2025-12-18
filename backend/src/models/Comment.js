@@ -55,6 +55,15 @@ const commentSchema = new mongoose.Schema({
     position: {
       type: Number,
       required: true
+    },
+    abilityName: {
+      type: String,
+      default: null
+    },
+    abilityType: {
+      type: String,
+      enum: ['attack', 'ability', null],
+      default: null
     }
   }],
   deckMentions: [{

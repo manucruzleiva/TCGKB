@@ -16,11 +16,12 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
   const handleMouseEnter = () => {
     timeoutRef.current = setTimeout(() => {
       // Calculate position based on the link element
+      // Using fixed positioning, so use viewport coordinates directly (no scroll offsets)
       if (linkRef.current) {
         const rect = linkRef.current.getBoundingClientRect()
         setTooltipPosition({
-          top: rect.top + window.scrollY - 10, // Above the element
-          left: rect.left + rect.width / 2 + window.scrollX // Centered
+          top: rect.top - 10, // Above the element (viewport coordinates)
+          left: rect.left + rect.width / 2 // Centered (viewport coordinates)
         })
       }
       setShowTooltip(true)
