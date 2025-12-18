@@ -270,6 +270,11 @@ const DeckBuilder = () => {
         }
       })
 
+      // Debug: log card data and supertypes
+      console.log('Import debug - cardDataMap:', cardDataMap)
+      console.log('Import debug - enrichedCards:', enrichedCards)
+      console.log('Import debug - supertypes:', enrichedCards.map(c => ({ name: c.name, supertype: c.supertype })))
+
       // Warn about not found cards
       if (notFound.length > 0) {
         console.warn('Cards not found:', notFound)
