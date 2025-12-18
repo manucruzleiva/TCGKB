@@ -270,6 +270,26 @@
 ### Decks
 - [ ] **Import Deck:** `~35K tokens | ~2.5h`
   - Botón directo en Decks para importar decks de Riftbound o Pokemon
+- [ ] **Deck Builder para Riftbound:** `~80K tokens | ~6h`
+  - Estructura del deck:
+    - Legend: 1 carta (define los 2 domains permitidos)
+    - Main Deck: 40 cartas (incluye Chosen Champion)
+    - Runes: 12 runas (solo de los domains del Legend)
+    - Battlefields: 3 cartas (nombres únicos)
+    - Sideboard: 0 u 8 cartas exactas
+  - Validaciones:
+    - Máximo 3 copias por carta única
+    - Máximo 3 Signature cards total
+    - Solo cartas de los 2 domains del Legend
+  - 6 Domains: Fury, Calm, Mind, Body, Chaos, Order
+  - UI: secciones visuales para cada parte del deck
+  - Contador de cartas por sección
+  - Filtros por domain automáticos según Legend elegido
+- [ ] **Deck Builder para Pokemon:** `~60K tokens | ~4h`
+  - Main Deck: 60 cartas
+  - Máximo 4 copias por carta (excepto energías básicas)
+  - Validar tipos de carta (Pokemon, Trainer, Energy)
+  - UI similar a Riftbound pero adaptada
 
 ### Autenticación / Usuario
 - [x] User data chips - reemplazar chip 'admin' por tags actuales
@@ -404,9 +424,9 @@
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
 | P1: UX/UI | ~1,055K tokens | ~75h |
-| P2: Funcionalidad | ~165K tokens | ~12h |
+| P2: Funcionalidad | ~305K tokens | ~22h |
 | P3: Backend/Infra | ~695K tokens | ~49h |
-| **TOTAL** | **~1,915K tokens** | **~136h** |
+| **TOTAL** | **~2,055K tokens** | **~146h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
