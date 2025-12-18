@@ -96,7 +96,8 @@ const BugReportButton = () => {
       }, response.data?.data?.url ? 5000 : 2000)
     } catch (error) {
       console.error('Failed to submit bug report:', error)
-      alert(language === 'es' ? 'Error al enviar el reporte' : 'Failed to submit report')
+      const errorMsg = error.response?.data?.message || error.message || 'Unknown error'
+      alert(`${language === 'es' ? 'Error al enviar el reporte' : 'Failed to submit report'}: ${errorMsg}`)
     } finally {
       setSubmitting(false)
     }
