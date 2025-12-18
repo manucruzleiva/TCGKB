@@ -195,6 +195,13 @@
   - Ver todas las cartas de un artista
   - Ranking de artistas más populares
 
+### Mejoras Visuales Urgentes
+- [ ] **Sprites en chips más grandes:** `~8K tokens | ~0.5h`
+  - Aumentar tamaño de sprites en chips de mención (mínimo 2.5x actual)
+  - Ajustar padding del chip para acomodar sprite más grande
+  - Mantener proporciones y nitidez del sprite
+  - Verificar en móvil y desktop
+
 ### Overhaul de Diseño Gráfico
 - [ ] **Rediseño de identidad visual:** `~30K tokens | ~2h`
   - Definir paleta de colores consistente (light/dark mode)
@@ -403,10 +410,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~1,055K tokens | ~75h |
+| P1: UX/UI | ~1,063K tokens | ~75.5h |
 | P2: Funcionalidad | ~210K tokens | ~15.5h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,760K tokens** | **~125h** |
+| **TOTAL** | **~1,768K tokens** | **~125.5h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
