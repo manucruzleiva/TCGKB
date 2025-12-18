@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { cardService } from '../../services/cardService'
 import PokemonSprite from '../common/PokemonSprite'
+import GameLogo from '../common/GameLogo'
 
 const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = null }) => {
   const [showTooltip, setShowTooltip] = useState(false)
@@ -100,29 +101,47 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
 
   const abilityDetails = cardData ? getAbilityDetails() : null
 
+  // Determine TCG system from card data
+  const tcgSystem = cardData?.tcgSystem || 'pokemon'
+  const isPokemon = tcgSystem === 'pokemon' || !tcgSystem
+
+  // Style classes based on mention type (Phase 3: Visual Disambiguation)
+  const getChipStyles = () => {
+    if (abilityName) {
+      // Attack: Red/orange gradient
+      if (detectedAbilityType === 'attack') {
+        return 'bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/50 dark:to-orange-900/50 text-red-700 dark:text-red-300 hover:from-red-200 hover:to-orange-200 dark:hover:from-red-800/50 dark:hover:to-orange-800/50 border border-red-300 dark:border-red-700'
+      }
+      // Ability: Purple gradient
+      return 'bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/50 dark:to-indigo-900/50 text-purple-700 dark:text-purple-300 hover:from-purple-200 hover:to-indigo-200 dark:hover:from-purple-800/50 dark:hover:to-indigo-800/50 border border-purple-300 dark:border-purple-700'
+    }
+    // Card: Blue with solid border
+    return 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50 border border-blue-300 dark:border-blue-700'
+  }
+
   return (
     <span className="relative inline-block align-middle">
       <Link
         ref={linkRef}
         to={`/card/${cardId}`}
-        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-sm font-medium transition-all ${
-          abilityName
-            ? 'bg-gradient-to-r from-primary-100 to-purple-100 dark:from-primary-900/50 dark:to-purple-900/50 text-primary-700 dark:text-primary-300 hover:from-primary-200 hover:to-purple-200 dark:hover:from-primary-800/50 dark:hover:to-purple-800/50'
-            : 'bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-800/50'
-        }`}
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-medium transition-all ${getChipStyles()}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
+        {/* Game Logo (Pokeball or Riftbound) */}
+        <GameLogo tcgSystem={tcgSystem} size="xs" />
+
         {abilityName ? (
           <>
-            <PokemonSprite cardName={cardName} size="md" fallbackEmoji="🃏" />
-            <span className="text-base">{detectedAbilityType === 'attack' ? '⚔️' : '✨'}</span>
-            <span className="italic">{abilityName}</span>
+            {/* Category icon for ability/attack */}
+            <span className="text-xs">{detectedAbilityType === 'attack' ? '⚔️' : '✨'}</span>
+            <span className="italic text-xs">{abilityName}</span>
           </>
         ) : (
           <>
-            <PokemonSprite cardName={cardName} size="md" fallbackEmoji="🃏" />
-            <span>{cardName}</span>
+            {/* Pokemon sprite for Pokemon cards, or just the name for Riftbound */}
+            {isPokemon && <PokemonSprite cardName={cardName} size="sm" fallbackEmoji="" showFallback={false} />}
+            <span className="text-xs">{cardName}</span>
           </>
         )}
       </Link>
@@ -138,43 +157,76 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
             transform: 'translate(-50%, -100%)'
           }}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-2 min-w-[120px]">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-2">
             {loading ? (
-              <div className="w-[140px] h-[140px] flex items-center justify-center">
+              <div className="w-[120px] h-[120px] flex items-center justify-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary-500 border-t-transparent"></div>
               </div>
             ) : cardData ? (
-              <div className={`text-center ${abilityDetails ? 'max-w-[280px]' : 'max-w-[140px]'}`}>
-                <img
-                  src={cardData.images?.small || cardData.images?.large}
-                  alt={cardName}
-                  className="w-[100px] h-auto rounded mx-auto"
-                />
-                <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 truncate">
-                  {cardData.set?.name}
-                </p>
-                {/* Show ability details if mentioned */}
-                {abilityDetails && (
-                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 text-left">
-                    <div className="flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-gray-300">
-                      <span>{abilityDetails.type === 'attack' ? '⚔️' : '✨'}</span>
-                      <span>{abilityDetails.name}</span>
+              abilityDetails ? (
+                /* Horizontal layout for ability mentions */
+                <div className="flex gap-3 max-w-[340px]">
+                  {/* Card image on the left */}
+                  <div className="flex-shrink-0">
+                    <img
+                      src={cardData.images?.small || cardData.images?.large}
+                      alt={cardName}
+                      className="w-[80px] h-auto rounded"
+                    />
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 text-center truncate w-[80px]">
+                      {cardData.set?.name}
+                    </p>
+                  </div>
+                  {/* Ability details on the right */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        abilityDetails.type === 'attack'
+                          ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'
+                          : 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
+                      }`}>
+                        {abilityDetails.type === 'attack' ? '⚔️ Attack' : '✨ Ability'}
+                      </span>
                     </div>
+                    <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                      {abilityDetails.name}
+                    </h4>
                     {abilityDetails.damage && (
-                      <div className="text-xs text-red-600 dark:text-red-400 font-semibold mt-0.5">
+                      <div className="text-sm text-red-600 dark:text-red-400 font-bold mt-0.5">
                         💥 {abilityDetails.damage}
                       </div>
                     )}
+                    {abilityDetails.cost && abilityDetails.cost.length > 0 && (
+                      <div className="flex gap-0.5 mt-1 flex-wrap">
+                        {abilityDetails.cost.map((cost, idx) => (
+                          <span key={idx} className="text-[10px] px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">
+                            {cost}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {abilityDetails.text && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed line-clamp-4">
                         {abilityDetails.text}
                       </p>
                     )}
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                /* Vertical layout for card-only mentions */
+                <div className="text-center max-w-[120px]">
+                  <img
+                    src={cardData.images?.small || cardData.images?.large}
+                    alt={cardName}
+                    className="w-[100px] h-auto rounded mx-auto"
+                  />
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 truncate">
+                    {cardData.set?.name}
+                  </p>
+                </div>
+              )
             ) : (
-              <div className="w-[140px] h-[140px] flex items-center justify-center text-gray-500 dark:text-gray-400 text-xs">
+              <div className="w-[120px] h-[120px] flex items-center justify-center text-gray-500 dark:text-gray-400 text-xs">
                 No disponible
               </div>
             )}

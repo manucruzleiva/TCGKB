@@ -15,30 +15,35 @@
   - Actualización automática al hacer deploy
 
 ### Homepage Refresh
-- [ ] Cambiar emoji de rayo ⚡ por Pokebola para Pokemon
-- [ ] Cambiar hanafuda 🎴 por logo de Riftbound
-- [ ] Separar cantidad de cartas en stats MVP (Pokemon vs Riftbound)
-- [ ] Refinar diseño general del homepage
-- [ ] Destacar que Riftbound está 100% soportado
+- [x] Cambiar emoji de rayo ⚡ por Pokebola para Pokemon
+- [x] Cambiar hanafuda 🎴 por logo de Riftbound
+- [x] Separar cantidad de cartas en stats MVP (Pokemon vs Riftbound)
+- [x] Refinar diseño general del homepage
+- [x] Destacar que Riftbound está 100% soportado
 
 ### Smart Mentions System
-- [ ] **Fase 1: Asistencia Contextual**
+- [x] **Fase 1: Asistencia Contextual**
   - Al escribir @ en página de carta, mostrar primero atributos de ESA carta
   - Pokemon: mostrar ataques y habilidades
   - Riftbound: mostrar card text
   - Luego mostrar búsqueda global
   - Pasar `contextCard` desde CardDetail → CommentList → CommentComposer
-- [ ] **Fase 2: Doble Iconografía en Chips**
+- [x] **Fase 2: Doble Iconografía en Chips**
   - Logo de origen (Pokebola o Logo Riftbound)
   - Icono de categoría (sprite Pokemon, runa Riftbound, ⚔️ ataques, ✨ habilidades)
   - Crear componente GameLogo.jsx
   - Modificar CardMentionLink.jsx
-- [ ] **Fase 3: Desambiguación Visual**
+- [x] **Fase 3: Desambiguación Visual**
   - Carta: Chip azul con borde sólido
   - Ataque: Chip rojo/naranja con gradiente
   - Habilidad: Chip púrpura con gradiente
   - Tag/Dominio: Chip con borde punteado
   - Encabezados en dropdown agrupando por tipo
+- [x] **Tooltip Horizontal para Atributos:**
+  - Cuando mención incluye atributo (ataque/habilidad)
+  - Layout horizontal: carta a la izquierda, atributo a la derecha
+  - En vez del layout vertical actual
+  - Más compacto y legible
 
 ### Sistema de Avatares
 - [ ] Búsqueda de Pokémon para avatar - permitir buscar todos los Pokémon en todas sus formas
@@ -98,16 +103,17 @@
 - [ ] Import Deck - botón directo en Decks para importar decks de Riftbound o Pokemon
 
 ### Autenticación / Usuario
-- [ ] User data chips - reemplazar chip 'admin' por tags actuales (mod/dev/ambos)
+- [x] User data chips - reemplazar chip 'admin' por tags actuales (mod/dev/ambos)
 - [ ] Change email - requiere input del email actual para mayor seguridad
-- [ ] Login con username - permitir login con username además de correo
-- [ ] Username único - validar que no existan duplicados al registrar o cambiar username
+- [x] Login con username - permitir login con username además de correo
+- [x] Username único - validar que no existan duplicados al registrar o cambiar username (case-insensitive)
 
 ### Ranking Híbrido de Popularidad
 - [ ] Endpoint `GET /api/cards/popular` - Top cartas por reacciones/comentarios
 - [ ] Cachear resultado (actualizar cada hora)
 - [ ] Si query vacío: Top 1 más popular + mix aleatorio del pool top 50
-- [ ] Fórmula: `thumbsUp - thumbsDown + comments.count`
+- [ ] Fórmula: `thumbsUp - thumbsDown + comments.count + mentions.count`
+- [ ] Agregar menciones (@) como factor de popularidad
 - [ ] Agregación que suma reacciones por carta (incluyendo atributos)
 - [ ] Endpoint `GET /api/stats/popularity`
 
@@ -139,6 +145,16 @@
   - Comentario moderado = penalización fuerte de puntos
   - Sistema de rollback si comentario es restaurado
   - Registro en ledger de la penalización y posible reversión
+- [ ] **Configuración de Pesos (Mod Dashboard):**
+  - UI en dashboard para configurar puntos por cada acción
+  - Tabla de acciones con peso editable (ej: comentario=5pts, mención=2pts)
+  - Decay configurable por tipo de acción (ej: comentario=60días, reacción=30días)
+  - Preview de impacto antes de aplicar cambios
+- [ ] **Aplicación Reactiva de Pesos:**
+  - Al cambiar pesos, recalcular puntos de todos los usuarios
+  - Job en background para recálculo masivo
+  - Notificación a usuarios si su reputación cambia significativamente
+  - Historial de cambios de configuración (quién, cuándo, qué cambió)
 - [ ] **Deck Hash System:**
   - Generar hash único por composición de deck
   - Verificar unicidad al crear/modificar deck
