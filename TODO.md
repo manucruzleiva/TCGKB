@@ -156,6 +156,23 @@
 ## Prioridad 3: Backend / Infraestructura
 
 ### Dev Dashboard
+- [ ] **API Endpoints - Vista compacta:** `~15K tokens | ~1h`
+  - Visualización más compacta de métodos (GET/POST/PUT/DELETE en badges pequeños)
+  - Agrupar endpoints por recurso (/cards, /users, /comments, etc.)
+  - Tooltip en icono de candado explicando: "Requiere autenticación" / "Solo admin"
+  - Expandir/colapsar grupos de endpoints
+- [ ] **External Data Resources - Pre-cargados:** `~20K tokens | ~1.5h`
+  - Mostrar sources pre-cargados (Pokemon TCG API, Riftbound API, PokeAPI)
+  - URLs y descripción de cada source visibles sin fetch
+  - Botón "Check" que verifica disponibilidad de cada repo/API
+  - Indicador de estado: ✅ Online / ❌ Offline / ⏳ Checking
+  - Último check timestamp
+- [ ] **System Health - Commit ID por ambiente:** `~15K tokens | ~1h`
+  - Mostrar commit ID actual en Production (main)
+  - Mostrar commit ID actual en Staging (stage)
+  - Endpoint que consulta GitHub API o variable de entorno VERCEL_GIT_COMMIT_SHA
+  - Link al commit en GitHub
+  - Comparar si staging está adelante de production
 - [ ] Health check de todos los endpoints API `~25K tokens | ~2h`
 - [ ] Lista de reportes - filtrar por asignatario `~15K tokens | ~1h`
 - [ ] Lista de reportes - filtrar por estado `~15K tokens | ~1h`
@@ -221,8 +238,8 @@
 |-----------|------------------|-----------------|
 | P1: UX/UI | ~570K tokens | ~40.5h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
-| P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,230K tokens** | **~87h** |
+| P3: Backend/Infra | ~545K tokens | ~38h |
+| **TOTAL** | **~1,280K tokens** | **~90.5h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
