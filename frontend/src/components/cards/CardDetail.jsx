@@ -8,6 +8,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { useDateFormat } from '../../contexts/DateFormatContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { collectionService } from '../../services/collectionService'
+import { artistsService } from '../../services/artistsService'
 
 // Type emoji mapping for Pokemon
 const TYPE_EMOJIS = {
@@ -55,6 +56,8 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
   const [currentArtIndex, setCurrentArtIndex] = useState(0)
   const [collectionData, setCollectionData] = useState({ quantity: 0, playsetMax: 4, hasPlayset: false })
   const [loadingCollection, setLoadingCollection] = useState(false)
+  const [artistData, setArtistData] = useState({ fanCount: 0, isFan: false })
+  const [loadingArtist, setLoadingArtist] = useState(false)
 
   // Fetch collection status when card changes
   useEffect(() => {
@@ -76,6 +79,50 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
 
     fetchCollectionStatus()
   }, [card?.id, isAuthenticated])
+
+  // Fetch artist info when card changes
+  useEffect(() => {
+    const fetchArtistInfo = async () => {
+      if (!card?.artist) return
+
+      try {
+        setLoadingArtist(true)
+        const response = await artistsService.getArtistInfo(card.artist)
+        if (response.success) {
+          setArtistData({
+            fanCount: response.data.fanCount,
+            isFan: response.data.isFan
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching artist info:', error)
+      } finally {
+        setLoadingArtist(false)
+      }
+    }
+
+    fetchArtistInfo()
+  }, [card?.artist])
+
+  // Handle toggling fan status
+  const handleToggleFan = async () => {
+    if (!isAuthenticated || !card?.artist) return
+
+    try {
+      setLoadingArtist(true)
+      const response = await artistsService.toggleFan(card.artist)
+      if (response.success) {
+        setArtistData({
+          fanCount: response.data.fanCount,
+          isFan: response.data.isFan
+        })
+      }
+    } catch (error) {
+      console.error('Error toggling fan status:', error)
+    } finally {
+      setLoadingArtist(false)
+    }
+  }
 
   // Handle adding/removing from collection
   const handleCollectionChange = async (delta) => {
@@ -501,11 +548,50 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
               </div>
             )}
 
-            {/* Artist */}
+            {/* Artist with Fan System */}
             {card.artist && (
-              <div>
-                <span className="font-semibold text-gray-700 dark:text-gray-300">Artist:</span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">{card.artist}</span>
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    {language === 'es' ? 'Artista' : 'Artist'}:
+                  </span>
+                  <span className="ml-2 text-gray-600 dark:text-gray-400">{card.artist}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Fan count */}
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {artistData.fanCount} {artistData.fanCount === 1 ? 'fan' : 'fans'}
+                  </span>
+                  {/* Fan toggle button */}
+                  {isAuthenticated && (
+                    <button
+                      onClick={handleToggleFan}
+                      disabled={loadingArtist}
+                      className={`p-1.5 rounded-full transition-all duration-200 ${
+                        artistData.isFan
+                          ? 'bg-pink-100 dark:bg-pink-900/50 text-pink-500 hover:bg-pink-200 dark:hover:bg-pink-800'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-pink-400'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      title={artistData.isFan
+                        ? (language === 'es' ? 'Dejar de ser fan' : 'Unfollow artist')
+                        : (language === 'es' ? 'Hacerme fan' : 'Become a fan')}
+                    >
+                      <svg
+                        className={`w-5 h-5 ${artistData.isFan ? 'fill-current' : ''}`}
+                        fill={artistData.isFan ? 'currentColor' : 'none'}
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

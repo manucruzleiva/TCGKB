@@ -36,6 +36,8 @@ const DevDashboard = () => {
   const [bugCounts, setBugCounts] = useState({})
   const [timeSeries, setTimeSeries] = useState([])
   const [statusFilter, setStatusFilter] = useState('all')
+  const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [sortOrder, setSortOrder] = useState('newest')
   const [selectedBug, setSelectedBug] = useState(null)
   const [updating, setUpdating] = useState(null)
   const [assignees, setAssignees] = useState([])
@@ -46,6 +48,8 @@ const DevDashboard = () => {
     api: { status: 'checking', message: '' },
     database: { status: 'checking', message: '' }
   })
+  const [endpointsHealth, setEndpointsHealth] = useState(null)
+  const [checkingEndpoints, setCheckingEndpoints] = useState(false)
 
   // Cache management state
   const [cacheStats, setCacheStats] = useState(null)
@@ -71,7 +75,7 @@ const DevDashboard = () => {
     if (isAuthenticated && canAccessBugDashboard) {
       fetchBugReports()
     }
-  }, [statusFilter, isAuthenticated, canAccessBugDashboard])
+  }, [statusFilter, assigneeFilter, sortOrder, isAuthenticated, canAccessBugDashboard])
 
   // Real-time polling - refresh every 30 seconds
   useEffect(() => {
@@ -111,12 +115,12 @@ const DevDashboard = () => {
       setHealthStatus(prev => ({
         ...prev,
         api: {
-          status: 'healthy',
+          status: response.data.status === 'ok' ? 'healthy' : 'degraded',
           message: response.data.status === 'ok' ? 'API operational' : 'API issues detected'
         },
         database: {
-          status: response.data.hasMongoUri ? 'healthy' : 'error',
-          message: response.data.hasMongoUri ? 'Database connected' : 'Database not configured'
+          status: response.data.database?.connected ? 'healthy' : 'error',
+          message: response.data.database?.connected ? 'Database connected' : 'Database not connected'
         }
       }))
     } catch (error) {
@@ -125,6 +129,19 @@ const DevDashboard = () => {
         api: { status: 'error', message: error.message || 'API unreachable' },
         database: { status: 'unknown', message: 'Could not verify' }
       }))
+    }
+  }
+
+  const checkEndpointsHealth = async () => {
+    setCheckingEndpoints(true)
+    try {
+      const response = await api.get('/health/endpoints')
+      setEndpointsHealth(response.data)
+    } catch (error) {
+      console.error('Error checking endpoints health:', error)
+      setEndpointsHealth({ status: 'error', message: error.message })
+    } finally {
+      setCheckingEndpoints(false)
     }
   }
 
@@ -230,7 +247,9 @@ const DevDashboard = () => {
   const fetchBugReports = async () => {
     try {
       setLoading(true)
-      const response = await api.get(`/bugs?status=${statusFilter}`)
+      const params = new URLSearchParams({ status: statusFilter, sort: sortOrder })
+      if (assigneeFilter) params.append('assignedTo', assigneeFilter)
+      const response = await api.get(`/bugs?${params.toString()}`)
       if (response.data.success) {
         setBugReports(response.data.data.bugReports)
         setBugCounts(response.data.data.counts || {})
@@ -372,6 +391,70 @@ const DevDashboard = () => {
               {healthStatus.database.message || (language === 'es' ? 'Verificando...' : 'Checking...')}
             </p>
           </div>
+        </div>
+
+        {/* Endpoints Health Check */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {language === 'es' ? 'Estado de Endpoints' : 'Endpoints Status'}
+            </h3>
+            <button
+              onClick={checkEndpointsHealth}
+              disabled={checkingEndpoints}
+              className="text-xs text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1 disabled:opacity-50"
+            >
+              {checkingEndpoints ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  {language === 'es' ? 'Verificando...' : 'Checking...'}
+                </>
+              ) : (
+                <>
+                  🔍 {language === 'es' ? 'Verificar Endpoints' : 'Check Endpoints'}
+                </>
+              )}
+            </button>
+          </div>
+
+          {endpointsHealth ? (
+            <div className="space-y-2">
+              {/* Overall Status */}
+              <div className={`p-3 rounded-lg text-sm ${
+                endpointsHealth.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+                endpointsHealth.status === 'degraded' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
+                'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+              }`}>
+                {endpointsHealth.healthy}/{endpointsHealth.total} endpoints {language === 'es' ? 'saludables' : 'healthy'}
+              </div>
+
+              {/* Individual Endpoints */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {endpointsHealth.endpoints?.map((endpoint, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-2 rounded text-xs flex items-center justify-between ${
+                      endpoint.status === 'healthy'
+                        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                        : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                    }`}
+                  >
+                    <span className="font-medium truncate">{endpoint.name}</span>
+                    <span className="flex items-center gap-1">
+                      {endpoint.status === 'healthy' ? '✓' : '✗'}
+                      <span className="text-gray-500 dark:text-gray-400">{endpoint.latency}ms</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+              {language === 'es'
+                ? 'Haz clic en "Verificar Endpoints" para comprobar el estado'
+                : 'Click "Check Endpoints" to verify status'}
+            </p>
+          )}
         </div>
       </div>
 
@@ -780,6 +863,46 @@ const DevDashboard = () => {
                 {labels[language]} ({bugCounts[status] || 0})
               </button>
             ))}
+          </div>
+
+          {/* Additional Filters Row */}
+          <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            {/* Assignee Filter */}
+            {isAdmin && assignees.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-600 dark:text-gray-400">
+                  {language === 'es' ? 'Asignado a:' : 'Assigned to:'}
+                </label>
+                <select
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">{language === 'es' ? 'Todos' : 'All'}</option>
+                  <option value="unassigned">{language === 'es' ? 'Sin asignar' : 'Unassigned'}</option>
+                  {assignees.map((assignee) => (
+                    <option key={assignee._id} value={assignee._id}>
+                      {assignee.username}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Sort Order */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-gray-400">
+                {language === 'es' ? 'Ordenar:' : 'Sort:'}
+              </label>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="newest">{language === 'es' ? 'Más recientes' : 'Newest'}</option>
+                <option value="oldest">{language === 'es' ? 'Más antiguos' : 'Oldest'}</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
