@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -20,6 +20,7 @@ const Catalog = () => {
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 })
   const [viewMode, setViewMode] = useState('grid')
   const [collection, setCollection] = useState({}) // { cardId: quantity }
+  const collectionRef = useRef({}) // Ref to track current collection state for rapid clicks
 
   // Filter states from URL
   const tcgSystem = searchParams.get('tcgSystem') || ''
@@ -98,6 +99,7 @@ const Catalog = () => {
         Object.entries(response.data).forEach(([cardId, data]) => {
           collectionMap[cardId] = data.quantity
         })
+        collectionRef.current = collectionMap
         setCollection(collectionMap)
       }
     } catch (err) {
@@ -135,11 +137,14 @@ const Catalog = () => {
 
     if (!isAuthenticated) return
 
-    const currentQty = collection[card.id] || 0
-    const newQty = Math.max(0, currentQty + delta)
     const tcg = card.tcgSystem || 'pokemon'
 
-    // Optimistic update
+    // Use ref to get current value (handles rapid clicks correctly)
+    const currentQty = collectionRef.current[card.id] || 0
+    const newQty = Math.max(0, currentQty + delta)
+
+    // Update both ref and state
+    collectionRef.current = { ...collectionRef.current, [card.id]: newQty }
     setCollection(prev => ({ ...prev, [card.id]: newQty }))
 
     try {
@@ -153,9 +158,9 @@ const Catalog = () => {
         cardRarity: card.rarity
       })
     } catch (err) {
-      // Revert on error
-      setCollection(prev => ({ ...prev, [card.id]: currentQty }))
+      // Revert on error - refetch to get actual server state
       console.error('Error updating collection:', err)
+      fetchCollectionData()
     }
   }
 

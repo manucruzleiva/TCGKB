@@ -1,0 +1,47 @@
+name: Auto-merge Claude branches to Stage
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+
+jobs:
+  merge-to-stage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge to stage
+        run: |
+          # Get the branch name that triggered this workflow
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          echo "Merging branch: $BRANCH_NAME to stage"
+
+          # Fetch all branches
+          git fetch origin stage
+
+          # Checkout stage branch
+          git checkout stage
+
+          # Merge the claude branch into stage
+          git merge origin/$BRANCH_NAME --no-ff -m "Auto-merge $BRANCH_NAME into stage"
+
+          # Push the changes to stage
+          git push origin stage
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Failed to auto-merge ${{ github.ref_name }} to stage. Manual intervention may be required."
