@@ -227,6 +227,13 @@
 - [ ] **Decks sugeridos:** `~60K tokens | ~4h`
   - Basado en cartas que el usuario posee
   - Mostrar % de completitud de decks populares
+- [ ] **Import colección desde TCGCollector:** `~45K tokens | ~3h`
+  - Parsear exports CSV/JSON de TCGCollector
+  - Mapear card IDs de TCGCollector a nuestro sistema
+  - UI de importación con preview de cartas a agregar
+  - Manejo de duplicados (merge vs replace)
+  - Reporte de cartas no encontradas/no mapeadas
+  - Soporte para otros formatos de export populares
   - Sugerir cartas faltantes para completar decks
 
 ### Sistema de Fans de Artistas
@@ -300,6 +307,20 @@
     - Mods
   - Leyenda con colores distintivos
   - Hover muestra breakdown por categoría
+- [ ] **Sistema de cierre de cuenta (CLOSED tag):** `~40K tokens | ~3h`
+  - Nuevo tag de usuario: CLOSED
+  - Usuario con tag CLOSED no puede hacer login
+  - UI en Settings para "Cerrar mi cuenta" (aplica tag CLOSED)
+  - Gestión de cuentas CLOSED en Mod Dashboard
+  - Lista de usuarios con tag CLOSED
+  - Fecha de cierre visible
+- [ ] **Reactivación de cuenta cerrada:** `~30K tokens | ~2h`
+  - Usuario solicita reactivación desde login
+  - Sistema genera nueva contraseña temporal
+  - Enviar contraseña por email al usuario
+  - Al usar contraseña temporal, remueve tag CLOSED
+  - Forzar cambio de contraseña en primer login
+  - Log de reactivaciones en Mod Dashboard
 
 ### Dev Dashboard
 - [ ] **API Endpoints - Vista compacta:** `~15K tokens | ~1h`
@@ -382,10 +403,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~1,010K tokens | ~72h |
+| P1: UX/UI | ~1,055K tokens | ~75h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
-| P3: Backend/Infra | ~625K tokens | ~44h |
-| **TOTAL** | **~1,800K tokens** | **~128h** |
+| P3: Backend/Infra | ~695K tokens | ~49h |
+| **TOTAL** | **~1,915K tokens** | **~136h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
