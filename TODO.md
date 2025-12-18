@@ -268,8 +268,25 @@
 ## Prioridad 2: Funcionalidad
 
 ### Decks
-- [ ] **Import Deck:** `~35K tokens | ~2.5h`
-  - Botón directo en Decks para importar decks de Riftbound o Pokemon
+- [ ] **Import Deck Riftbound (TCG Arena format):** `~45K tokens | ~3h`
+  - Parsear formato texto de TCG Arena export
+  - Orden de secciones en export:
+    1. Champion Unit (primera carta, mismo champion que Legend)
+    2. Legend (segunda carta)
+    3. Units (resto de unidades)
+    4. Runes (ej: "6 Order Rune")
+    5. Battlefields (3 cartas)
+    6. Spells
+    7. Gears
+    8. Side Deck (al final si existe)
+  - Formato: `{cantidad} {nombre de carta}`
+  - Ejemplo: "3 Stalwart Poro", "6 Calm Rune"
+  - Mapear nombres a card IDs en nuestra DB
+  - Preview antes de confirmar import
+  - Detectar cartas no encontradas
+- [ ] **Import Deck Pokemon:** `~35K tokens | ~2.5h`
+  - Soportar formatos populares (PTCGO, PTCGL)
+  - Parsear Pokemon, Trainers, Energy por secciones
 - [ ] **Deck Builder para Riftbound:** `~80K tokens | ~6h`
   - Estructura del deck:
     - Legend: 1 carta (define los 2 domains permitidos)
@@ -424,9 +441,9 @@
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
 | P1: UX/UI | ~1,055K tokens | ~75h |
-| P2: Funcionalidad | ~305K tokens | ~22h |
+| P2: Funcionalidad | ~350K tokens | ~25h |
 | P3: Backend/Infra | ~695K tokens | ~49h |
-| **TOTAL** | **~2,055K tokens** | **~146h** |
+| **TOTAL** | **~2,100K tokens** | **~149h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
