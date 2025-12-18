@@ -397,6 +397,34 @@
 - [ ] **Integración con TODO.md:** `~35K tokens | ~2.5h`
 - [ ] **Auto-clasificación de bugs:** `~30K tokens | ~2h`
 
+### Card Legality Tracking (Riftbound)
+- [ ] **Modelo de datos para Sets y Legalidad:** `~35K tokens | ~2.5h`
+  - Tabla de sets con fechas de release (EN/CN)
+  - Fecha de rotación calculada (release + 2 años)
+  - Estado: Standard Legal, Rotated, Upcoming
+  - Sets iniciales:
+    - Origins (Oct 31, 2025)
+    - Spiritforged (Feb 13, 2026)
+    - Unleashed (May 2026)
+    - Vendetta (Q3 2026)
+    - Radiance (Q4 2026)
+- [ ] **Card-level legality:** `~25K tokens | ~2h`
+  - Campo `legality` en cada carta
+  - Estados: Legal, Banned, Restricted
+  - Historial de cambios de legalidad
+  - Razón del ban/restricción (opcional)
+- [ ] **Auto-update de legalidad:** `~20K tokens | ~1.5h`
+  - Cron job que verifica fechas de rotación
+  - Marcar sets como "Rotated" automáticamente
+  - Notificar cambios de legalidad en changelog
+- [ ] **UI de legalidad en página de carta:** `~15K tokens | ~1h`
+  - Badge de legalidad (Standard Legal ✅, Banned ❌, Rotated 📤)
+  - Fecha de rotación si aplica
+  - Link a sets donde la carta es legal
+- [ ] **Filtro de legalidad en catálogo:** `~15K tokens | ~1h`
+  - Filtrar por "Standard Legal only"
+  - Mostrar cartas rotadas en grayscale (opcional)
+
 ### Sistema de Reputación
 - [ ] **Obtención de puntos:** `~50K tokens | ~4h`
 - [ ] **Penalización por moderación:** `~30K tokens | ~2h`
@@ -451,8 +479,8 @@
 |-----------|------------------|-----------------|
 | P1: UX/UI | ~1,055K tokens | ~75h |
 | P2: Funcionalidad | ~350K tokens | ~25h |
-| P3: Backend/Infra | ~695K tokens | ~49h |
-| **TOTAL** | **~2,100K tokens** | **~149h** |
+| P3: Backend/Infra | ~805K tokens | ~57h |
+| **TOTAL** | **~2,210K tokens** | **~157h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
