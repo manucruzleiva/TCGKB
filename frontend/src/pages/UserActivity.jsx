@@ -104,12 +104,16 @@ const UserActivity = () => {
   const [userData, setUserData] = useState(null)
   const [comments, setComments] = useState([])
   const [reactions, setReactions] = useState([])
-  const [activeTab, setActiveTab] = useState('comments')
+  const [collection, setCollection] = useState({ stats: null, items: [], pagination: null })
+  const [collectionLoading, setCollectionLoading] = useState(false)
+  const [collectionPage, setCollectionPage] = useState(1)
+  const [activeTab, setActiveTab] = useState('collection')
   const [updating, setUpdating] = useState(null)
 
   // Allow anyone to view user activity, but mod actions require admin
   useEffect(() => {
     fetchUserActivity()
+    fetchUserCollection()
   }, [username])
 
   const fetchUserActivity = async () => {
@@ -128,6 +132,34 @@ const UserActivity = () => {
       setLoading(false)
     }
   }
+
+  const fetchUserCollection = async (page = 1) => {
+    try {
+      setCollectionLoading(true)
+      const response = await api.get(`/users/${username}/collection`, {
+        params: { page, limit: 20 }
+      })
+
+      if (response.data.success) {
+        setCollection({
+          stats: response.data.data.stats,
+          items: response.data.data.items,
+          pagination: response.data.data.pagination
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching user collection:', error)
+    } finally {
+      setCollectionLoading(false)
+    }
+  }
+
+  // Fetch collection when page changes
+  useEffect(() => {
+    if (collectionPage > 1) {
+      fetchUserCollection(collectionPage)
+    }
+  }, [collectionPage])
 
   const handleRoleChange = async (newRole) => {
     try {
@@ -326,10 +358,20 @@ const UserActivity = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('collection')}
+          className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap ${
+            activeTab === 'collection'
+              ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          🃏 {language === 'es' ? 'Colección' : 'Collection'} ({collection.stats?.total?.uniqueCards || 0})
+        </button>
         <button
           onClick={() => setActiveTab('comments')}
-          className={`px-4 py-2 font-medium text-sm transition-colors ${
+          className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'comments'
               ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -339,7 +381,7 @@ const UserActivity = () => {
         </button>
         <button
           onClick={() => setActiveTab('reactions')}
-          className={`px-4 py-2 font-medium text-sm transition-colors ${
+          className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap ${
             activeTab === 'reactions'
               ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -350,6 +392,162 @@ const UserActivity = () => {
       </div>
 
       {/* Content */}
+      {activeTab === 'collection' && (
+        <div className="space-y-6">
+          {collectionLoading && !collection.stats ? (
+            <div className="flex justify-center py-8">
+              <Spinner size="lg" />
+            </div>
+          ) : collection.stats?.total?.uniqueCards === 0 ? (
+            <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+              {language === 'es' ? 'No hay cartas en la colección' : 'No cards in collection'}
+            </p>
+          ) : (
+            <>
+              {/* Collection Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">⚡</span>
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Pokemon</span>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-800 dark:text-amber-200">
+                    {collection.stats?.bySystem?.pokemon?.uniqueCards || 0}
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    {language === 'es' ? 'cartas únicas' : 'unique cards'}
+                  </p>
+                </div>
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">🌀</span>
+                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Riftbound</span>
+                  </div>
+                  <p className="text-2xl font-bold text-purple-800 dark:text-purple-200">
+                    {collection.stats?.bySystem?.riftbound?.uniqueCards || 0}
+                  </p>
+                  <p className="text-xs text-purple-600 dark:text-purple-400">
+                    {language === 'es' ? 'cartas únicas' : 'unique cards'}
+                  </p>
+                </div>
+                <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">📦</span>
+                    <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                      {language === 'es' ? 'Total Copias' : 'Total Copies'}
+                    </span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-800 dark:text-green-200">
+                    {collection.stats?.total?.totalCopies || 0}
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400">
+                    {language === 'es' ? 'cartas totales' : 'total cards'}
+                  </p>
+                </div>
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">✅</span>
+                    <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Playsets</span>
+                  </div>
+                  <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">
+                    {collection.stats?.total?.completePlaysets || 0}
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    {language === 'es' ? 'completos' : 'complete'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Collection Cards Grid */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  {language === 'es' ? 'Cartas Recientes' : 'Recent Cards'}
+                </h3>
+                {collection.items.length > 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                    {collection.items.map((item) => (
+                      <Link
+                        key={item._id || item.cardId}
+                        to={`/card/${item.cardId}`}
+                        className="group bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden relative"
+                      >
+                        <div className="aspect-[2.5/3.5] bg-gray-100 dark:bg-gray-700">
+                          {item.cardImage ? (
+                            <img
+                              src={item.cardImage}
+                              alt={item.cardName || item.cardId}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              <span className="text-2xl">🃏</span>
+                            </div>
+                          )}
+                        </div>
+                        {/* Quantity Badge */}
+                        <div className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold ${
+                          item.hasPlayset
+                            ? 'bg-green-500 text-white'
+                            : 'bg-black/70 text-white'
+                        }`}>
+                          ×{item.quantity}
+                        </div>
+                        {/* TCG System Badge */}
+                        <div className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-xs ${
+                          item.tcgSystem === 'pokemon'
+                            ? 'bg-amber-500/90 text-white'
+                            : 'bg-purple-500/90 text-white'
+                        }`}>
+                          {item.tcgSystem === 'pokemon' ? '⚡' : '🌀'}
+                        </div>
+                        <div className="p-2">
+                          <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {item.cardName || item.cardId}
+                          </p>
+                          {item.cardSet && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {item.cardSet}
+                            </p>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 dark:text-gray-400 py-4">
+                    {language === 'es' ? 'No hay cartas para mostrar' : 'No cards to show'}
+                  </p>
+                )}
+
+                {/* Pagination */}
+                {collection.pagination && collection.pagination.pages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <button
+                      onClick={() => setCollectionPage(p => Math.max(1, p - 1))}
+                      disabled={collectionPage === 1 || collectionLoading}
+                      className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    >
+                      {language === 'es' ? 'Anterior' : 'Previous'}
+                    </button>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {collectionPage} / {collection.pagination.pages}
+                    </span>
+                    <button
+                      onClick={() => setCollectionPage(p => Math.min(collection.pagination.pages, p + 1))}
+                      disabled={collectionPage === collection.pagination.pages || collectionLoading}
+                      className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    >
+                      {language === 'es' ? 'Siguiente' : 'Next'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {activeTab === 'comments' && (
         <div className="space-y-4">
           {comments.length === 0 ? (
