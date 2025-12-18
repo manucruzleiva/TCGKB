@@ -13,11 +13,12 @@
   - Eliminar ícono hamburguesa, usar logo de la app como invocador
   - Agregar sección Changelog
   - Agregar sección Roadmap
-- [ ] **Roadmap Automático desde TODO.md:** `~40K tokens | ~3h`
+- [ ] **Roadmap Automático desde TODO.md:** `~35K tokens | ~2.5h`
   - Script/endpoint que parsea TODO.md
   - Extrae secciones de Prioridad 1, 2, 3
   - Genera JSON con items pendientes/completados
-  - Página /roadmap que muestra el progreso público
+  - Página /roadmap que muestra lista de features por prioridad
+  - Sin barra de progreso general (solo lista de items)
   - Actualización automática al hacer deploy
 - [ ] **Changelog con commits de Staging:** `~50K tokens | ~3.5h`
   - Endpoint que consulta GitHub API para commits de `stage` branch
@@ -124,10 +125,17 @@
 
 ### Catálogo (/catalog)
 - [ ] Página de catálogo completo de cartas `~50K tokens | ~4h`
-  - Filtros por TCG (Pokemon / Riftbound)
+  - **Filtros por TCG con logos como botones:**
+    - Botón con logo Pokebola para Pokemon
+    - Botón con logo Riftbound para Riftbound
+    - Toggle visual (activo/inactivo) con highlight
   - Filtros por set, tipo, rareza, etc.
   - Vista grid/list toggle
-  - Paginación o infinite scroll
+  - **Infinite scroll** (no paginación tradicional)
+    - Cargar 20-30 cartas iniciales
+    - Detectar scroll near-bottom → cargar más
+    - Skeleton loaders mientras carga
+    - "No hay más cartas" al final
 
 ### Binder / Colección Personal
 - [ ] **Modelo de datos:** `~30K tokens | ~2h`
@@ -181,6 +189,15 @@
   - Set de íconos unificado (mismo estilo)
   - Tamaños consistentes
   - Colores que respeten el tema activo
+
+### Staging Environment
+- [ ] **Watermark "STAGING" visual:** `~15K tokens | ~1h`
+  - Texto "STAGING" como máscara diagonal sobre toda la página
+  - CSS `pointer-events: none` (no interactivo)
+  - Opacidad baja (~10-15%) para no obstruir UI
+  - Posición fija, no se mueve con scroll
+  - Solo renderiza si `VITE_ENV === 'staging'` o URL es staging.tcgkb.app
+  - Color rojo/naranja sutil para diferenciarlo de producción
 
 ---
 
@@ -339,10 +356,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~935K tokens | ~66.5h |
+| P1: UX/UI | ~945K tokens | ~67h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,595K tokens** | **~113h** |
+| **TOTAL** | **~1,605K tokens** | **~113.5h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
