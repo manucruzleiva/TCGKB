@@ -171,13 +171,6 @@ const Header = () => {
                 >
                   🃏 {language === 'es' ? 'Mazos' : 'Decks'}
                 </Link>
-                <Link
-                  to="/type-chart"
-                  onClick={() => setShowMainMenu(false)}
-                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  🔄 {language === 'es' ? 'Tabla de Tipos' : 'Type Chart'}
-                </Link>
                 <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                 <Link
                   to="/changelog"
@@ -314,11 +307,11 @@ const Header = () => {
                       )}
                       {canAccessBugDashboard && (
                         <Link
-                          to="/mod/bugs"
+                          to="/mod/dev"
                           onClick={() => setShowUserMenu(false)}
                           className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
-                          🐛 {language === 'es' ? 'Bug Reports' : 'Bug Reports'}
+                          🛠️ {language === 'es' ? 'Dev Dashboard' : 'Dev Dashboard'}
                           {isDev && !isAdmin && (
                             <span className="ml-1 text-xs text-primary-500">(Dev)</span>
                           )}

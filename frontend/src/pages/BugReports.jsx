@@ -25,7 +25,7 @@ const STATUS_LABELS = {
   not_enough_data: { es: 'Faltan datos', en: 'Not Enough Data' }
 }
 
-const BugReports = () => {
+const DevDashboard = () => {
   const { user, isAuthenticated, canAccessBugDashboard, isAdmin } = useAuth()
   const { language } = useLanguage()
   const { timeAgo } = useDateFormat()
@@ -40,6 +40,12 @@ const BugReports = () => {
   const [updating, setUpdating] = useState(null)
   const [assignees, setAssignees] = useState([])
   const [assigningBug, setAssigningBug] = useState(null)
+
+  // Health check state
+  const [healthStatus, setHealthStatus] = useState({
+    api: { status: 'checking', message: '' },
+    database: { status: 'checking', message: '' }
+  })
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -82,6 +88,36 @@ const BugReports = () => {
 
     return () => clearInterval(pollInterval)
   }, [statusFilter, isAuthenticated, canAccessBugDashboard])
+
+  // Health check on mount
+  useEffect(() => {
+    if (isAuthenticated && canAccessBugDashboard) {
+      checkHealth()
+    }
+  }, [isAuthenticated, canAccessBugDashboard])
+
+  const checkHealth = async () => {
+    try {
+      const response = await api.get('/health')
+      setHealthStatus(prev => ({
+        ...prev,
+        api: {
+          status: 'healthy',
+          message: response.data.status === 'ok' ? 'API operational' : 'API issues detected'
+        },
+        database: {
+          status: response.data.hasMongoUri ? 'healthy' : 'error',
+          message: response.data.hasMongoUri ? 'Database connected' : 'Database not configured'
+        }
+      }))
+    } catch (error) {
+      setHealthStatus(prev => ({
+        ...prev,
+        api: { status: 'error', message: error.message || 'API unreachable' },
+        database: { status: 'unknown', message: 'Could not verify' }
+      }))
+    }
+  }
 
   // Fetch assignees for admin users
   useEffect(() => {
@@ -191,10 +227,68 @@ const BugReports = () => {
             {language === 'es' ? 'Volver al Dashboard' : 'Back to Dashboard'}
           </Link>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-            🐛 {language === 'es' ? 'Bug Reports' : 'Bug Reports'}
+            🛠️ {language === 'es' ? 'Dev Dashboard' : 'Dev Dashboard'}
           </h1>
         </div>
       </div>
+
+      {/* System Health Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {language === 'es' ? 'Estado del Sistema' : 'System Health'}
+          </h2>
+          <button
+            onClick={checkHealth}
+            className="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
+          >
+            🔄 {language === 'es' ? 'Actualizar' : 'Refresh'}
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* API Status */}
+          <div className={`p-4 rounded-lg ${
+            healthStatus.api.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30' :
+            healthStatus.api.status === 'error' ? 'bg-red-100 dark:bg-red-900/30' :
+            'bg-yellow-100 dark:bg-yellow-900/30'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className={`w-3 h-3 rounded-full ${
+                healthStatus.api.status === 'healthy' ? 'bg-green-500' :
+                healthStatus.api.status === 'error' ? 'bg-red-500' :
+                'bg-yellow-500 animate-pulse'
+              }`}></span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">API</span>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {healthStatus.api.message || (language === 'es' ? 'Verificando...' : 'Checking...')}
+            </p>
+          </div>
+          {/* Database Status */}
+          <div className={`p-4 rounded-lg ${
+            healthStatus.database.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30' :
+            healthStatus.database.status === 'error' ? 'bg-red-100 dark:bg-red-900/30' :
+            'bg-yellow-100 dark:bg-yellow-900/30'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className={`w-3 h-3 rounded-full ${
+                healthStatus.database.status === 'healthy' ? 'bg-green-500' :
+                healthStatus.database.status === 'error' ? 'bg-red-500' :
+                'bg-yellow-500 animate-pulse'
+              }`}></span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">Database</span>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {healthStatus.database.message || (language === 'es' ? 'Verificando...' : 'Checking...')}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Bug Reports Section */}
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+        🐛 {language === 'es' ? 'Bug Reports' : 'Bug Reports'}
+      </h2>
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -563,4 +657,4 @@ const BugReports = () => {
   )
 }
 
-export default BugReports
+export default DevDashboard

@@ -12,6 +12,7 @@ const TAG_COLORS = {
   standard: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200',
   expanded: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200',
   unlimited: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200',
+  glc: 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200',
   // Archetype
   aggro: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200',
   control: 'bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200',
@@ -34,6 +35,7 @@ const TAG_LABELS = {
   standard: { es: 'Estándar', en: 'Standard' },
   expanded: { es: 'Expandido', en: 'Expanded' },
   unlimited: { es: 'Sin límite', en: 'Unlimited' },
+  glc: { es: 'GLC', en: 'GLC' },
   // Archetype
   aggro: { es: 'Aggro', en: 'Aggro' },
   control: { es: 'Control', en: 'Control' },
@@ -58,7 +60,7 @@ const CATEGORY_LABELS = {
 }
 
 const TAG_CATEGORIES = {
-  format: ['standard', 'expanded', 'unlimited'],
+  format: ['standard', 'expanded', 'unlimited', 'glc'],
   archetype: ['aggro', 'control', 'combo', 'midrange', 'stall', 'mill', 'turbo'],
   strategy: ['meta', 'budget', 'fun', 'competitive', 'casual', 'beginner-friendly']
 }
@@ -348,10 +350,10 @@ const DeckList = () => {
                     )}
                   </div>
                   {/* Format Badge (first format tag) */}
-                  {deck.tags?.find(t => ['standard', 'expanded', 'unlimited'].includes(t)) && (
+                  {deck.tags?.find(t => ['standard', 'expanded', 'unlimited', 'glc'].includes(t)) && (
                     <div className="absolute top-2 left-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${TAG_COLORS[deck.tags.find(t => ['standard', 'expanded', 'unlimited'].includes(t))]}`}>
-                        {TAG_LABELS[deck.tags.find(t => ['standard', 'expanded', 'unlimited'].includes(t))][language]}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${TAG_COLORS[deck.tags.find(t => ['standard', 'expanded', 'unlimited', 'glc'].includes(t))]}`}>
+                        {TAG_LABELS[deck.tags.find(t => ['standard', 'expanded', 'unlimited', 'glc'].includes(t))][language]}
                       </span>
                     </div>
                   )}
@@ -370,7 +372,7 @@ const DeckList = () => {
                   {/* Tags */}
                   {deck.tags?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-3">
-                      {deck.tags.filter(t => !['standard', 'expanded', 'unlimited'].includes(t)).slice(0, 3).map(tag => (
+                      {deck.tags.filter(t => !['standard', 'expanded', 'unlimited', 'glc'].includes(t)).slice(0, 3).map(tag => (
                         <span
                           key={tag}
                           className={`px-1.5 py-0.5 rounded text-xs ${TAG_COLORS[tag] || 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}

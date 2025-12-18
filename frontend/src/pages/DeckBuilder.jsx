@@ -12,6 +12,7 @@ const TAG_LABELS = {
   standard: { es: 'Estándar', en: 'Standard' },
   expanded: { es: 'Expandido', en: 'Expanded' },
   unlimited: { es: 'Sin límite', en: 'Unlimited' },
+  glc: { es: 'GLC', en: 'GLC' },
   // Archetype
   aggro: { es: 'Aggro', en: 'Aggro' },
   control: { es: 'Control', en: 'Control' },

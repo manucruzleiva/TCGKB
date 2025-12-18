@@ -57,7 +57,7 @@ const deckSchema = new mongoose.Schema({
     trim: true,
     enum: [
       // Format tags
-      'standard', 'expanded', 'unlimited',
+      'standard', 'expanded', 'unlimited', 'glc',
       // Archetype tags
       'aggro', 'control', 'combo', 'midrange', 'stall', 'mill', 'turbo',
       // Strategy tags
@@ -115,7 +115,7 @@ deckSchema.index({ tags: 1 })
 // Static method to get available tags categorized
 deckSchema.statics.getAvailableTags = function() {
   return {
-    format: ['standard', 'expanded', 'unlimited'],
+    format: ['standard', 'expanded', 'unlimited', 'glc'],
     archetype: ['aggro', 'control', 'combo', 'midrange', 'stall', 'mill', 'turbo'],
     strategy: ['meta', 'budget', 'fun', 'competitive', 'casual', 'beginner-friendly'],
     type: ['fire', 'water', 'grass', 'electric', 'psychic', 'fighting', 'dark', 'steel', 'dragon', 'colorless', 'fairy'],

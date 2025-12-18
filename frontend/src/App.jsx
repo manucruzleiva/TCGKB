@@ -13,11 +13,10 @@ import ModDashboard from './pages/ModDashboard'
 import Settings from './pages/Settings'
 import Changelog from './pages/Changelog'
 import UserActivity from './pages/UserActivity'
-import BugReports from './pages/BugReports'
+import DevDashboard from './pages/BugReports'
 import DeckList from './pages/DeckList'
 import DeckBuilder from './pages/DeckBuilder'
 import DeckDetail from './pages/DeckDetail'
-import TypeChart from './pages/TypeChart'
 import BugReportButton from './components/common/BugReportButton'
 
 function App() {
@@ -40,13 +39,12 @@ function App() {
                       <Route path="/admin" element={<ModDashboard />} />
                       <Route path="/mod" element={<ModDashboard />} />
                       <Route path="/mod/user/:userId" element={<UserActivity />} />
-                      <Route path="/mod/bugs" element={<BugReports />} />
+                      <Route path="/mod/dev" element={<DevDashboard />} />
                       <Route path="/changelog" element={<Changelog />} />
                       <Route path="/decks" element={<DeckList />} />
                       <Route path="/decks/new" element={<DeckBuilder />} />
                       <Route path="/decks/:deckId" element={<DeckDetail />} />
                       <Route path="/decks/:deckId/edit" element={<DeckBuilder />} />
-                      <Route path="/type-chart" element={<TypeChart />} />
                     </Routes>
                   </main>
                   <BugReportButton />

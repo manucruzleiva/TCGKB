@@ -149,7 +149,8 @@ export const login = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'No account found with this email',
+        errorCode: 'EMAIL_NOT_FOUND'
       })
     }
 
@@ -159,7 +160,8 @@ export const login = async (req, res) => {
     if (!isPasswordMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Incorrect password',
+        errorCode: 'WRONG_PASSWORD'
       })
     }
 
@@ -167,7 +169,8 @@ export const login = async (req, res) => {
     if (!user.isActive) {
       return res.status(401).json({
         success: false,
-        message: 'Account is inactive'
+        message: 'Account is inactive. Contact support.',
+        errorCode: 'ACCOUNT_INACTIVE'
       })
     }
 
@@ -193,9 +196,12 @@ export const login = async (req, res) => {
       }
     })
   } catch (error) {
+    console.error('Login error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Internal server error during login. Please try again.',
+      errorCode: 'INTERNAL_ERROR',
+      error: process.env.NODE_ENV !== 'production' ? error.message : undefined
     })
   }
 }
