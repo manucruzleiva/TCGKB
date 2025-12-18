@@ -81,14 +81,13 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
       >
         {abilityName ? (
           <>
+            <PokemonSprite cardName={cardName} size="md" fallbackEmoji="🃏" />
             <span className="text-base">{abilityType === 'attack' ? '⚔️' : '✨'}</span>
-            <span className="font-semibold">{cardName}</span>
-            <span className="text-primary-500 dark:text-primary-400 font-normal">•</span>
             <span className="italic">{abilityName}</span>
           </>
         ) : (
           <>
-            <PokemonSprite cardName={cardName} size="sm" fallbackEmoji="🃏" />
+            <PokemonSprite cardName={cardName} size="md" fallbackEmoji="🃏" />
             <span>{cardName}</span>
           </>
         )}
