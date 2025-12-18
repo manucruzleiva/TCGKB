@@ -299,6 +299,15 @@
     - Máximo 3 Signature cards total
     - Solo cartas de los 2 domains del Legend
   - 6 Domains: Fury, Calm, Mind, Body, Chaos, Order
+  - Tags de formato:
+    - Standard (constructed con sets recientes)
+    - Limited (sealed/draft)
+    - 2v2 / Two Headed Giant (equipos)
+    - Free For All / FFA (3-4 jugadores)
+  - Tags de domains (autocompletado):
+    - Detectar domains del Legend seleccionado
+    - Auto-tag con los 2 domains (ej: "Fury-Chaos", "Order-Calm")
+    - Mostrar iconos de domains en el deck
   - UI: secciones visuales para cada parte del deck
   - Contador de cartas por sección
   - Filtros por domain automáticos según Legend elegido
