@@ -38,5 +38,11 @@ export const cardService = {
   getCardAlternateArts: async (cardId) => {
     const response = await api.get(`/cards/${cardId}/alternate-arts`)
     return response.data
+  },
+
+  // Batch get cards by IDs (for deck import - much faster than individual calls)
+  getCardsByIds: async (ids) => {
+    const response = await api.post('/cards/batch', { ids })
+    return response.data
   }
 }

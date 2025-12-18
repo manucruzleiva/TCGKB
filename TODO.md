@@ -20,6 +20,9 @@
 - [x] Add PokeAPI sprites (chips de mención @ muestran sprite del Pokémon)
 - [ ] Add a reliable Riftbound API source of data
 
+### Dev Dashboard
+- [ ] Agregar health check de todos los endpoints API (verificar cada endpoint está saludable)
+
 ### UI/UX
 - [ ] RELATIONSHIP MAP en hamburger menu:
   - Canvas con zoom in/out
@@ -30,6 +33,12 @@
 - Integración de dominio tcgkb.app con Namecheap + Vercel
 - PokeAPI sprites en chips de mención @ (servicio + componente PokemonSprite)
 - Fix endpoint /api/bugs en api/index.js (era /api/bug-reports)
+- **Deck Builder - Import optimizado:**
+  - Nuevo endpoint batch `/api/cards/batch` para obtener múltiples cartas en una llamada
+  - Import ahora usa batch en lugar de llamadas secuenciales (mucho más rápido)
+  - Estado de carga durante import con spinner
+  - Categorización por tipo (Pokémon/Trainer/Energy) ya funcionaba
+  - Miniaturas de cartas ya funcionaban (el fix del batch asegura que se obtengan)
 
 ## Completado Sesiones Anteriores
 - Fix API URL para producción (runtime detection en lugar de build-time)
@@ -50,3 +59,4 @@
 - Para producción seria considerar Redis store
 - La URL de API se detecta en runtime: localhost -> localhost:3001, producción -> /api
 - Dev Dashboard ahora incluye monitoreo de salud de API y Database
+- El endpoint `/api/cards/batch` permite obtener hasta 60 cartas en paralelo (una llamada vs N secuenciales)

@@ -92,6 +92,7 @@ const DeckBuilder = () => {
   const [showImportModal, setShowImportModal] = useState(false)
   const [importText, setImportText] = useState('')
   const [importError, setImportError] = useState(null)
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -224,47 +225,54 @@ const DeckBuilder = () => {
   const handleImport = async () => {
     try {
       setImportError(null)
+      setImporting(true)
       const parsedCards = deckService.parseTCGLiveFormat(importText)
 
       if (parsedCards.length === 0) {
         setImportError(language === 'es' ? 'No se encontraron cartas válidas' : 'No valid cards found')
+        setImporting(false)
         return
       }
 
-      // Fetch card details for each parsed card
-      const enrichedCards = []
-      for (const card of parsedCards) {
-        try {
-          const response = await cardService.getCardById(card.cardId)
-          if (response.success && response.data.card) {
-            const cardData = response.data.card
-            enrichedCards.push({
-              cardId: card.cardId,
-              name: cardData.name,
-              quantity: card.quantity,
-              supertype: cardData.supertype,
-              imageSmall: cardData.images?.small
-            })
-          } else {
-            // Card not found, add with minimal info
-            enrichedCards.push({
-              cardId: card.cardId,
-              name: card.name || card.cardId,
-              quantity: card.quantity,
-              supertype: 'Unknown',
-              imageSmall: null
-            })
-          }
-        } catch (err) {
-          // Card not found, add with minimal info
-          enrichedCards.push({
+      // Get unique card IDs
+      const uniqueIds = [...new Set(parsedCards.map(c => c.cardId))]
+
+      // Fetch all cards in one batch request (much faster than sequential)
+      const response = await cardService.getCardsByIds(uniqueIds)
+
+      if (!response.success) {
+        setImportError(language === 'es' ? 'Error al obtener cartas' : 'Error fetching cards')
+        setImporting(false)
+        return
+      }
+
+      const { cards: cardDataMap, notFound } = response.data
+
+      // Enrich parsed cards with fetched data
+      const enrichedCards = parsedCards.map(card => {
+        const cardData = cardDataMap[card.cardId]
+        if (cardData) {
+          return {
             cardId: card.cardId,
-            name: card.name || card.cardId,
+            name: cardData.name,
             quantity: card.quantity,
-            supertype: 'Unknown',
-            imageSmall: null
-          })
+            supertype: cardData.supertype || 'Unknown',
+            imageSmall: cardData.images?.small || null
+          }
         }
+        // Card not found, use minimal info
+        return {
+          cardId: card.cardId,
+          name: card.name || card.cardId,
+          quantity: card.quantity,
+          supertype: 'Unknown',
+          imageSmall: null
+        }
+      })
+
+      // Warn about not found cards
+      if (notFound.length > 0) {
+        console.warn('Cards not found:', notFound)
       }
 
       setCards(enrichedCards)
@@ -273,6 +281,8 @@ const DeckBuilder = () => {
     } catch (error) {
       console.error('Import error:', error)
       setImportError(language === 'es' ? 'Error al importar' : 'Import error')
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -728,16 +738,20 @@ const DeckBuilder = () => {
             <div className="flex justify-end gap-3 mt-4">
               <button
                 onClick={() => { setShowImportModal(false); setImportText(''); setImportError(null) }}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+                disabled={importing}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
               >
                 {language === 'es' ? 'Cancelar' : 'Cancel'}
               </button>
               <button
                 onClick={handleImport}
-                disabled={!importText.trim()}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50"
+                disabled={!importText.trim() || importing}
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
               >
-                {language === 'es' ? 'Importar' : 'Import'}
+                {importing && <Spinner size="sm" />}
+                {importing
+                  ? (language === 'es' ? 'Importando...' : 'Importing...')
+                  : (language === 'es' ? 'Importar' : 'Import')}
               </button>
             </div>
           </div>

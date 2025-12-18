@@ -237,6 +237,68 @@ export const getCardAlternateArts = async (req, res) => {
 }
 
 /**
+ * Get multiple cards by IDs (batch endpoint for deck import)
+ */
+export const getCardsByIds = async (req, res) => {
+  const startTime = Date.now()
+  try {
+    const { ids } = req.body
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'ids array is required'
+      })
+    }
+
+    // Limit to 60 cards max (one deck)
+    const cardIds = ids.slice(0, 60)
+
+    log.info(MODULE, `POST /cards/batch - fetching ${cardIds.length} cards`)
+
+    // Fetch all cards in parallel with concurrency limit
+    const results = await Promise.allSettled(
+      cardIds.map(cardId => unifiedTCGService.getCardById(cardId))
+    )
+
+    const cards = {}
+    const notFound = []
+
+    results.forEach((result, index) => {
+      const cardId = cardIds[index]
+      if (result.status === 'fulfilled' && result.value) {
+        cards[cardId] = {
+          id: result.value.id,
+          name: result.value.name,
+          supertype: result.value.supertype,
+          images: result.value.images,
+          set: result.value.set,
+          tcgSystem: result.value.tcgSystem
+        }
+      } else {
+        notFound.push(cardId)
+      }
+    })
+
+    log.perf(MODULE, `POST /cards/batch completed (${Object.keys(cards).length} found, ${notFound.length} not found)`, Date.now() - startTime)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        cards,
+        notFound
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'POST /cards/batch failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+/**
  * Get most commented cards
  */
 export const getMostCommentedCards = async (req, res) => {
