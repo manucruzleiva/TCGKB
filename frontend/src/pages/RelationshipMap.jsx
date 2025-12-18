@@ -25,10 +25,38 @@ const RelationshipMap = () => {
   const [hoveredNode, setHoveredNode] = useState(null)
   const [selectedEdge, setSelectedEdge] = useState(null)
   const [tcgFilter, setTcgFilter] = useState('all') // 'all' | 'pokemon' | 'riftbound'
+  const [connectionComments, setConnectionComments] = useState([])
+  const [loadingComments, setLoadingComments] = useState(false)
 
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Fetch comments when edge is selected
+  useEffect(() => {
+    if (selectedEdge) {
+      fetchConnectionComments(selectedEdge.source, selectedEdge.target)
+    } else {
+      setConnectionComments([])
+    }
+  }, [selectedEdge])
+
+  const fetchConnectionComments = async (sourceCardId, targetCardId) => {
+    try {
+      setLoadingComments(true)
+      const response = await api.get('/comments/connection', {
+        params: { sourceCardId, targetCardId, limit: 5 }
+      })
+      if (response.data.success) {
+        setConnectionComments(response.data.data.comments || [])
+      }
+    } catch (err) {
+      console.error('Error fetching connection comments:', err)
+      setConnectionComments([])
+    } finally {
+      setLoadingComments(false)
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -480,7 +508,7 @@ const RelationshipMap = () => {
 
           {/* Selected Edge Panel - Right Side */}
           {selectedEdge && (
-            <div className="absolute top-1/2 right-4 -translate-y-1/2 bg-gray-800/95 backdrop-blur rounded-lg p-4 shadow-xl border border-gray-700 w-72">
+            <div className="absolute top-1/2 right-4 -translate-y-1/2 bg-gray-800/95 backdrop-blur rounded-lg p-4 shadow-xl border border-gray-700 w-80 max-h-[80vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-white">
                   {language === 'es' ? 'Conexión' : 'Connection'}
@@ -551,6 +579,62 @@ const RelationshipMap = () => {
                         <p className="text-sm font-medium text-white truncate">{targetNode?.name}</p>
                         <p className="text-xs text-gray-400">{language === 'es' ? 'Destino' : 'To'}</p>
                       </div>
+                    </div>
+
+                    {/* Popular Comments Section */}
+                    <div className="border-t border-gray-600 pt-3 mt-3">
+                      <h4 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                        </svg>
+                        {language === 'es' ? 'Comentarios populares' : 'Popular comments'}
+                      </h4>
+
+                      {loadingComments ? (
+                        <div className="flex justify-center py-4">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-500" />
+                        </div>
+                      ) : connectionComments.length > 0 ? (
+                        <div className="space-y-2">
+                          {connectionComments.map((comment) => (
+                            <div
+                              key={comment._id}
+                              className="bg-gray-700/50 rounded-lg p-2 text-sm"
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                {comment.userId?.avatar ? (
+                                  <img
+                                    src={comment.userId.avatar}
+                                    alt=""
+                                    className="w-5 h-5 rounded-full"
+                                  />
+                                ) : (
+                                  <div className="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center text-xs text-gray-300">
+                                    {comment.userId?.username?.[0]?.toUpperCase() || '?'}
+                                  </div>
+                                )}
+                                <span className="text-xs text-gray-400 font-medium">
+                                  {comment.userId?.username || 'Usuario'}
+                                </span>
+                                {comment.popularityScore > 0 && (
+                                  <span className="text-xs text-green-400 ml-auto">
+                                    +{comment.popularityScore}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-gray-200 text-xs line-clamp-3">
+                                {comment.content}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-500 text-center py-2">
+                          {language === 'es'
+                            ? 'Sin comentarios sobre esta conexión'
+                            : 'No comments about this connection'}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )

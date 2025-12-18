@@ -516,3 +516,104 @@ export const deleteComment = async (req, res) => {
     })
   }
 }
+
+/**
+ * Get popular comments for a connection between two cards
+ * Finds comments on sourceCard that mention targetCard (or vice versa)
+ */
+export const getConnectionComments = async (req, res) => {
+  try {
+    const { sourceCardId, targetCardId } = req.query
+    const limit = parseInt(req.query.limit) || 5
+
+    if (!sourceCardId || !targetCardId) {
+      return res.status(400).json({
+        success: false,
+        message: 'sourceCardId and targetCardId are required'
+      })
+    }
+
+    // Find comments that establish a connection between the two cards
+    // Either: comments on sourceCard mentioning targetCard, or comments on targetCard mentioning sourceCard
+    const commentsWithReactions = await Comment.aggregate([
+      {
+        $match: {
+          $or: [
+            { cardId: sourceCardId, cardMentions: targetCardId },
+            { cardId: targetCardId, cardMentions: sourceCardId }
+          ],
+          isHiddenByUser: { $ne: true },
+          isModerated: { $ne: true }
+        }
+      },
+      {
+        $lookup: {
+          from: 'reactions',
+          let: { commentId: { $toString: '$_id' } },
+          pipeline: [
+            { $match: { $expr: { $and: [
+              { $eq: ['$targetType', 'comment'] },
+              { $eq: ['$targetId', '$$commentId'] }
+            ]}}},
+            { $group: {
+              _id: '$emoji',
+              count: { $sum: 1 }
+            }}
+          ],
+          as: 'reactionCounts'
+        }
+      },
+      {
+        $addFields: {
+          thumbsUp: {
+            $ifNull: [
+              { $arrayElemAt: [
+                { $filter: { input: '$reactionCounts', cond: { $eq: ['$$this._id', '👍'] } } },
+                0
+              ] },
+              { count: 0 }
+            ]
+          },
+          thumbsDown: {
+            $ifNull: [
+              { $arrayElemAt: [
+                { $filter: { input: '$reactionCounts', cond: { $eq: ['$$this._id', '👎'] } } },
+                0
+              ] },
+              { count: 0 }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          popularityScore: { $subtract: [{ $ifNull: ['$thumbsUp.count', 0] }, { $ifNull: ['$thumbsDown.count', 0] }] }
+        }
+      },
+      { $sort: { popularityScore: -1, createdAt: -1 } },
+      { $limit: limit },
+      { $project: { reactionCounts: 0, thumbsUp: 0, thumbsDown: 0 } }
+    ])
+
+    // Populate userId
+    const comments = await Comment.populate(commentsWithReactions, {
+      path: 'userId',
+      select: 'username role avatar isDev'
+    })
+
+    res.status(200).json({
+      success: true,
+      data: {
+        comments,
+        sourceCardId,
+        targetCardId
+      }
+    })
+  } catch (error) {
+    console.error('Get connection comments error:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}

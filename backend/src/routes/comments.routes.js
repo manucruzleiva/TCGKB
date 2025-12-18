@@ -6,12 +6,16 @@ import {
   getCommentReplies,
   hideComment,
   moderateComment,
-  deleteComment
+  deleteComment,
+  getConnectionComments
 } from '../controllers/comments.controller.js'
 import { protect } from '../middleware/auth.middleware.js'
 import { commentLimiter } from '../middleware/rateLimiter.middleware.js'
 
 const router = express.Router()
+
+// Get comments for a connection between two cards (public) - must be before :cardId
+router.get('/connection', getConnectionComments)
 
 // Get comments for a deck (public) - must be before :cardId to avoid conflicts
 router.get('/deck/:deckId', getCommentsByDeck)
