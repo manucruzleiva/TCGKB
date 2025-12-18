@@ -322,18 +322,19 @@
   - Filtrar decks por Pokemon o Riftbound
   - Persistir preferencia de filtro
 - [ ] **Sistema de Tags para Decks:** `~45K tokens | ~3h`
-  - Tag de Juego: Pokemon / Riftbound (sprite)
-  - Tags de Energía (Pokemon): sprites de tipos (Grass, Fire, Water, etc.)
-  - Tags de Runas (Riftbound): sprites de domains (Fury, Calm, Mind, etc.)
-  - Tag de Arquetipo: compartido entre ambos juegos (Aggro, Control, Combo, Midrange)
-  - Tags de Formato Pokemon: Standard, Expanded, Unlimited, GLC
-  - Tags de Formato Riftbound: Standard, Limited, 2v2, FFA
+  - Tag de Juego: Pokemon / Riftbound (sprite) - auto desde TCG
+  - Tag de Arquetipo: selección manual (Aggro, Control, Combo, Midrange)
+  - Tags de Formato Pokemon: selección manual (Standard, Expanded, Unlimited, GLC)
+  - Tags de Formato Riftbound: selección manual (Standard, Limited, 2v2, FFA)
+  - **NO selección manual de TYPE (energía/runas)** - será auto-tag
   - UI de tags clickeables para filtrar
   - Multi-select de tags
-- [ ] **Auto-tagging de Decks:** `~25K tokens | ~2h`
-  - Detectar tipos de energía/runas predominantes
-  - Sugerir arquetipo basado en composición
-  - Auto-completar tags de formato según legalidad
+- [ ] **Auto-tagging de Decks (TYPE):** `~25K tokens | ~2h`
+  - Tags de Energía (Pokemon): auto-detectar tipos predominantes (Grass, Fire, etc.)
+  - Tags de Runas (Riftbound): auto-detectar domains (Fury, Calm, Mind, etc.)
+  - Ejecutar al guardar/actualizar deck
+  - Re-calcular si composición del deck cambia
+  - Mostrar como sprites en vista del deck
 - [ ] **Vista de Deck - Info del creador:** `~20K tokens | ~1.5h`
   - Mostrar avatar del usuario creador
   - Link al perfil del usuario (`/user/:username`)
