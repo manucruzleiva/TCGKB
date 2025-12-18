@@ -306,8 +306,25 @@ const ModDashboard = () => {
           const admins = users.filter(u => u.role === 'admin')
           const devs = users.filter(u => u.isDev || DEV_EMAILS.includes(u.email))
           const regularUsers = users.filter(u => u.role !== 'admin' && !u.isDev && !DEV_EMAILS.includes(u.email))
-          const inactiveUsers = regularUsers.filter(u => u.stats.comments === 0 && u.stats.reactions === 0)
-          const activeRegularUsers = regularUsers.filter(u => u.stats.comments > 0 || u.stats.reactions > 0)
+
+          // User is inactive if last action was more than 2 months ago
+          // Last action = most recent of: lastCommentDate, lastReactionDate, or createdAt
+          const TWO_MONTHS_AGO = new Date()
+          TWO_MONTHS_AGO.setMonth(TWO_MONTHS_AGO.getMonth() - 2)
+
+          const getLastActionDate = (user) => {
+            const dates = [
+              user.stats?.lastCommentDate ? new Date(user.stats.lastCommentDate) : null,
+              user.stats?.lastReactionDate ? new Date(user.stats.lastReactionDate) : null,
+              user.createdAt ? new Date(user.createdAt) : null
+            ].filter(Boolean)
+            return dates.length > 0 ? new Date(Math.max(...dates)) : null
+          }
+
+          const inactiveUsers = regularUsers.filter(u => {
+            const lastAction = getLastActionDate(u)
+            return lastAction && lastAction < TWO_MONTHS_AGO
+          })
 
           const UserTable = ({ userList, emptyMessage }) => (
             userList.length === 0 ? (
@@ -469,22 +486,6 @@ const ModDashboard = () => {
                 </div>
               </div>
 
-              {/* Active Regular Users Section */}
-              <div className="border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
-                <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-3 flex items-center gap-2">
-                  <span className="text-xl">👥</span>
-                  <h3 className="font-semibold text-blue-800 dark:text-blue-200">
-                    {language === 'es' ? 'Usuarios Activos' : 'Active Users'} ({activeRegularUsers.length})
-                  </h3>
-                </div>
-                <div className="bg-white dark:bg-gray-800">
-                  <UserTable
-                    userList={activeRegularUsers}
-                    emptyMessage={language === 'es' ? 'No hay usuarios activos' : 'No active users'}
-                  />
-                </div>
-              </div>
-
               {/* Inactive Users Section */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 flex items-center gap-2">
@@ -493,7 +494,7 @@ const ModDashboard = () => {
                     {language === 'es' ? 'Usuarios Inactivos' : 'Inactive Users'} ({inactiveUsers.length})
                   </h3>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    ({language === 'es' ? '0 comentarios, 0 reacciones' : '0 comments, 0 reactions'})
+                    ({language === 'es' ? 'última acción hace +2 meses' : 'last action 2+ months ago'})
                   </span>
                 </div>
                 <div className="bg-white dark:bg-gray-800">
