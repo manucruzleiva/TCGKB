@@ -15,6 +15,11 @@
   - Verificar respuesta de Pokemon TCG API
   - Agregar validación de datos antes de acceder a `.length`
   - Mejorar manejo de errores con mensaje descriptivo
+- [ ] **Fix User Activity no se muestra:** `~15K tokens | ~1h`
+  - La página de usuario `/user/:username` no muestra actividad
+  - Revisar endpoint GET `/api/users/:username/activity`
+  - Verificar que UserActivity.jsx esté consumiendo datos correctamente
+  - Revisar si hay error en el fetch o en el rendering
 
 ### Navegación / Menú
 - [x] **Hamburger Menu Refresh:**
@@ -208,10 +213,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~535K tokens | ~38h |
+| P1: UX/UI | ~550K tokens | ~39h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,195K tokens** | **~84.5h** |
+| **TOTAL** | **~1,210K tokens** | **~85.5h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
