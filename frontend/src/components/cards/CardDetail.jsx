@@ -244,37 +244,60 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
 
           </div>
 
-          {/* Alternate Arts Thumbnails */}
+          {/* Alternate Arts / Reprints Thumbnails */}
           {hasMultipleArts && (
             <div className="mt-4">
               <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t('card.alternateArts')} ({alternateArts.length})
+                {language === 'es' ? 'Otras Versiones' : 'Other Versions'} ({alternateArts.length})
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {alternateArts.map((art, idx) => (
-                  <button
-                    key={art.id}
-                    onClick={() => setCurrentArtIndex(idx)}
-                    className={`flex-shrink-0 w-16 h-22 rounded-md overflow-hidden border-2 transition-all ${
-                      idx === currentArtIndex
-                        ? 'border-primary-500 shadow-lg scale-105'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-primary-300'
-                    }`}
-                  >
-                    <img
-                      src={art.images?.small || art.images?.large}
-                      alt={`${art.name} - ${art.set?.name || ''}`}
-                      className="w-full h-full object-contain"
-                    />
-                  </button>
-                ))}
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {alternateArts.map((art, idx) => {
+                  // Determine version type based on rarity/set
+                  const isPromo = art.set?.id?.toLowerCase().includes('promo') || art.rarity?.toLowerCase().includes('promo')
+                  const isSpecialArt = art.rarity?.toLowerCase().includes('illustration') ||
+                                       art.rarity?.toLowerCase().includes('special') ||
+                                       art.rarity?.toLowerCase().includes('secret')
+                  const versionType = isPromo ? 'promo' : isSpecialArt ? 'special' : 'reprint'
+                  const versionColors = {
+                    promo: 'bg-yellow-500',
+                    special: 'bg-gradient-to-r from-pink-500 to-purple-500',
+                    reprint: 'bg-blue-500'
+                  }
+
+                  return (
+                    <button
+                      key={art.id}
+                      onClick={() => setCurrentArtIndex(idx)}
+                      className={`flex-shrink-0 relative rounded-md overflow-hidden border-2 transition-all ${
+                        idx === currentArtIndex
+                          ? 'border-primary-500 shadow-lg scale-105'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-primary-300'
+                      }`}
+                      title={`${art.set?.name || ''} ${art.rarity ? `(${art.rarity})` : ''}`}
+                    >
+                      <img
+                        src={art.images?.small || art.images?.large}
+                        alt={`${art.name} - ${art.set?.name || ''}`}
+                        className="w-16 h-22 object-contain"
+                      />
+                      {/* Version type indicator */}
+                      <div className={`absolute bottom-0 left-0 right-0 ${versionColors[versionType]} text-white text-[8px] font-bold text-center py-0.5 uppercase`}>
+                        {art.set?.ptcgoCode || art.set?.id?.substring(0, 4) || '???'}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
-              {/* Current art set info */}
-              {displayedCard && displayedCard.id !== card.id && (
-                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="font-medium">{displayedCard.set?.name}</span>
-                  {displayedCard.number && <span> • #{displayedCard.number}</span>}
-                  {displayedCard.rarity && <span> • {displayedCard.rarity}</span>}
+              {/* Current art set info with type indicator */}
+              {displayedCard && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{displayedCard.set?.name}</span>
+                  {displayedCard.number && <span className="text-gray-500 dark:text-gray-400">#{displayedCard.number}</span>}
+                  {displayedCard.rarity && (
+                    <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-[10px]">
+                      {displayedCard.rarity}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -285,9 +308,17 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
       {/* Card Info - Main Container */}
       <div>
         <div className="card mb-6">
-          {/* Card Header with Name and Card Reactions */}
+          {/* Card Header with Name, Versions Badge, and Card Reactions */}
           <div className="flex items-start justify-between gap-4 mb-4">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{card.name}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{card.name}</h1>
+              {/* Versions Badge */}
+              {hasMultipleArts && (
+                <span className="px-2 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold rounded-full whitespace-nowrap">
+                  {alternateArts.length} {language === 'es' ? 'versiones' : 'versions'}
+                </span>
+              )}
+            </div>
             <div className="flex-shrink-0">
               <CardReactions cardId={card.id} />
             </div>
