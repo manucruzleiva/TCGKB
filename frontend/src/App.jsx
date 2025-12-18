@@ -38,8 +38,8 @@ function App() {
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/admin" element={<ModDashboard />} />
                       <Route path="/mod" element={<ModDashboard />} />
-                      <Route path="/mod/user/:userId" element={<UserActivity />} />
-                      <Route path="/mod/dev" element={<DevDashboard />} />
+                      <Route path="/user/:username" element={<UserActivity />} />
+                      <Route path="/dev" element={<DevDashboard />} />
                       <Route path="/changelog" element={<Changelog />} />
                       <Route path="/decks" element={<DeckList />} />
                       <Route path="/decks/new" element={<DeckBuilder />} />

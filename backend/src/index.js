@@ -14,6 +14,7 @@ import statsRoutes from './routes/stats.routes.js'
 import modRoutes from './routes/mod.routes.js'
 import bugReportRoutes from './routes/bugReport.routes.js'
 import deckRoutes from './routes/deck.routes.js'
+import usersRoutes from './routes/users.routes.js'
 
 // Load environment variables
 dotenv.config()
@@ -52,6 +53,7 @@ app.use('/api/stats', statsRoutes)
 app.use('/api/mod', modRoutes)
 app.use('/api/bugs', bugReportRoutes)
 app.use('/api/decks', deckRoutes)
+app.use('/api/users', usersRoutes)
 
 // Error handler (must be last)
 app.use(errorHandler)

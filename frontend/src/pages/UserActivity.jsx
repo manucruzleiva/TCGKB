@@ -94,8 +94,8 @@ const CardLink = ({ cardId }) => {
 }
 
 const UserActivity = () => {
-  const { userId } = useParams()
-  const { user, isAuthenticated } = useAuth()
+  const { username } = useParams()
+  const { user, isAuthenticated, isAdmin } = useAuth()
   const { language } = useLanguage()
   const { formatDate, timeAgo } = useDateFormat()
   const navigate = useNavigate()
@@ -107,19 +107,15 @@ const UserActivity = () => {
   const [activeTab, setActiveTab] = useState('comments')
   const [updating, setUpdating] = useState(null)
 
+  // Allow anyone to view user activity, but mod actions require admin
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'admin') {
-      navigate('/')
-      return
-    }
-
     fetchUserActivity()
-  }, [userId, isAuthenticated, user])
+  }, [username])
 
   const fetchUserActivity = async () => {
     try {
       setLoading(true)
-      const response = await api.get(`/mod/users/${userId}/activity`)
+      const response = await api.get(`/users/${username}/activity`)
 
       if (response.data.success) {
         setUserData(response.data.data.user)
@@ -136,7 +132,7 @@ const UserActivity = () => {
   const handleRoleChange = async (newRole) => {
     try {
       setUpdating('role')
-      const response = await api.put(`/mod/users/${userId}/role`, { role: newRole })
+      const response = await api.put(`/mod/users/${userData._id}/role`, { role: newRole })
       if (response.data.success) {
         setUserData(prev => ({ ...prev, role: newRole }))
       }
@@ -151,7 +147,7 @@ const UserActivity = () => {
   const handleRestrictionChange = async (field, value) => {
     try {
       setUpdating(field)
-      const response = await api.put(`/mod/users/${userId}/restrictions`, { [field]: value })
+      const response = await api.put(`/mod/users/${userData._id}/restrictions`, { [field]: value })
       if (response.data.success) {
         setUserData(prev => ({ ...prev, [field]: value }))
       }
@@ -203,19 +199,19 @@ const UserActivity = () => {
   }
 
   const isSystemAdmin = userData.email === 'shieromanu@gmail.com'
-  const isSelf = user?.id === userId
+  const isSelf = user?.username === username
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Back Button */}
       <button
-        onClick={() => navigate('/mod')}
+        onClick={() => navigate(-1)}
         className="mb-6 text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-2"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        {language === 'es' ? 'Volver al Dashboard' : 'Back to Dashboard'}
+        {language === 'es' ? 'Volver' : 'Go Back'}
       </button>
 
       {/* User Info */}
@@ -252,8 +248,8 @@ const UserActivity = () => {
               </span>
             </div>
 
-            {/* User Management Buttons */}
-            {!isSystemAdmin && !isSelf && (
+            {/* User Management Buttons - Only for admins */}
+            {isAdmin && !isSystemAdmin && !isSelf && (
               <div className="mt-4 flex flex-wrap gap-2">
                 {/* Role Toggle */}
                 <button
@@ -308,13 +304,13 @@ const UserActivity = () => {
               </div>
             )}
 
-            {isSystemAdmin && (
+            {isAdmin && isSystemAdmin && (
               <p className="mt-4 text-xs text-gray-500 dark:text-gray-400 italic">
                 {language === 'es' ? 'Este es el administrador del sistema y no puede ser modificado.' : 'This is the system administrator and cannot be modified.'}
               </p>
             )}
 
-            {isSelf && (
+            {isAdmin && isSelf && (
               <p className="mt-4 text-xs text-gray-500 dark:text-gray-400 italic">
                 {language === 'es' ? 'No puedes modificar tu propio perfil desde aquí.' : 'You cannot modify your own profile from here.'}
               </p>
@@ -382,23 +378,26 @@ const UserActivity = () => {
                       )}
                     </div>
                   </div>
-                  <div className="flex-shrink-0">
-                    <button
-                      onClick={() => handleModerateComment(comment._id, !comment.isModerated)}
-                      disabled={updating === comment._id}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                        comment.isModerated
-                          ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900'
-                          : 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900'
-                      }`}
-                    >
-                      {updating === comment._id ? '...' : (
-                        comment.isModerated
-                          ? (language === 'es' ? '✅ Restaurar' : '✅ Restore')
-                          : (language === 'es' ? '🚫 Moderar' : '🚫 Moderate')
-                      )}
-                    </button>
-                  </div>
+                  {/* Moderate button - Only for admins */}
+                  {isAdmin && (
+                    <div className="flex-shrink-0">
+                      <button
+                        onClick={() => handleModerateComment(comment._id, !comment.isModerated)}
+                        disabled={updating === comment._id}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                          comment.isModerated
+                            ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900'
+                            : 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900'
+                        }`}
+                      >
+                        {updating === comment._id ? '...' : (
+                          comment.isModerated
+                            ? (language === 'es' ? '✅ Restaurar' : '✅ Restore')
+                            : (language === 'es' ? '🚫 Moderar' : '🚫 Moderate')
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))

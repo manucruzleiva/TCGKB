@@ -371,7 +371,7 @@ const ModDashboard = () => {
                         </td>
                         <td className="py-3 px-4 text-sm">
                           <button
-                            onClick={() => navigate(`/mod/user/${u._id}`)}
+                            onClick={() => navigate(`/user/${u.username}`)}
                             className="text-primary-600 dark:text-primary-400 hover:underline"
                           >
                             💬 {u.stats.comments} | 😀 {u.stats.reactions}
