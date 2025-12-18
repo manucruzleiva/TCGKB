@@ -11,6 +11,12 @@ const cardCacheSchema = new mongoose.Schema({
     type: Object,
     required: [true, 'Card data is required']
   },
+  tcgSystem: {
+    type: String,
+    enum: ['pokemon', 'riftbound'],
+    default: 'pokemon',
+    index: true
+  },
   viewCount: {
     type: Number,
     default: 0
@@ -25,8 +31,7 @@ const cardCacheSchema = new mongoose.Schema({
   },
   expiresAt: {
     type: Date,
-    default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    index: true
+    default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
   }
 }, {
   timestamps: true

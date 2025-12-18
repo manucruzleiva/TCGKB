@@ -92,33 +92,52 @@ class RiftboundTCGService {
    * Transform Riftbound card to our standard format
    */
   transformCard(card) {
+    // Handle domain - can be array or string
+    let domainValue = null
+    if (card.classification?.domain) {
+      if (Array.isArray(card.classification.domain)) {
+        domainValue = card.classification.domain.join(', ')
+      } else {
+        domainValue = card.classification.domain
+      }
+    }
+
+    // Image URL is inside media object
+    const imageUrl = card.media?.image_url || card.image_url || null
+
+    // Text can be in different formats
+    const textContent = card.text?.plain || card.text_plain || (typeof card.text === 'string' ? card.text : '') || ''
+    const textHtmlContent = card.text?.html || card.text_html || ''
+
     return {
       id: card.riftbound_id || card.id,
       name: card.name,
       tcgSystem: 'riftbound',
       images: {
-        small: card.image_url,
-        large: card.image_url
+        small: imageUrl,
+        large: imageUrl
       },
       // Riftbound specific fields
-      artist: card.artist,
+      artist: card.media?.artist || card.artist || null,
       rarity: card.classification?.rarity || 'Common',
       type: card.classification?.type || 'Unknown',
-      domain: card.classification?.domain,
+      supertype: card.classification?.supertype || null,
+      domain: domainValue,
       attributes: {
         energy: card.attributes?.energy,
         might: card.attributes?.might,
         power: card.attributes?.power
       },
-      text: card.text_plain || '',
-      textHtml: card.text_html || '',
+      text: textContent,
+      textHtml: textHtmlContent,
       set: {
-        name: card.set?.name || 'Unknown Set',
-        id: card.set?.id,
+        name: card.set?.label || card.set?.name || 'Unknown Set',
+        id: card.set?.set_id || card.set?.id,
         series: 'Riftbound',
-        releaseDate: card.set?.release_date
+        releaseDate: card.set?.release_date || null
       },
       collector_number: card.collector_number,
+      number: card.collector_number, // Also add as 'number' for consistency with Pokemon
       tags: card.tags || [],
       alternateArt: card.alternate_art || false,
       signature: card.signature || false

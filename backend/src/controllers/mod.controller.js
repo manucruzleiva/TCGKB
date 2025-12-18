@@ -1,7 +1,13 @@
 import Comment from '../models/Comment.js'
 import Reaction from '../models/Reaction.js'
 import User from '../models/User.js'
+import CardCache from '../models/CardCache.js'
+import riftboundService from '../services/riftboundTCG.service.js'
+import pokemon from 'pokemontcgsdk'
 import log from '../utils/logger.js'
+
+// Configure Pokemon TCG SDK
+pokemon.configure({ apiKey: process.env.POKEMON_TCG_API_KEY })
 
 const MODULE = 'ModController'
 
@@ -544,6 +550,323 @@ export const getModerationSummary = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get moderation summary'
+    })
+  }
+}
+
+/**
+ * Sync Riftbound cards from API to cache
+ * Fetches all cards from api.riftcodex.com and stores in MongoDB
+ */
+export const syncRiftboundCards = async (req, res) => {
+  try {
+    log.info(MODULE, `Riftbound sync initiated by admin ${req.user.username}`)
+
+    // Fetch all cards from Riftbound API
+    const cards = await riftboundService.getAllCards()
+
+    if (!cards || cards.length === 0) {
+      return res.status(500).json({
+        success: false,
+        message: 'No cards returned from Riftbound API'
+      })
+    }
+
+    log.info(MODULE, `Fetched ${cards.length} cards from Riftbound API`)
+
+    // Cache all cards
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+    let cachedCount = 0
+    let errors = 0
+
+    for (const card of cards) {
+      try {
+        await CardCache.findOneAndUpdate(
+          { cardId: card.id },
+          {
+            cardId: card.id,
+            data: card,
+            tcgSystem: 'riftbound',
+            cachedAt: new Date(),
+            expiresAt,
+            viewCount: 0,
+            lastViewed: new Date()
+          },
+          { upsert: true, new: true }
+        )
+        cachedCount++
+      } catch (cardError) {
+        log.error(MODULE, `Failed to cache card ${card.id}:`, cardError.message)
+        errors++
+      }
+    }
+
+    // Get updated stats
+    const totalRiftbound = await CardCache.countDocuments({ tcgSystem: 'riftbound' })
+    const totalCache = await CardCache.countDocuments()
+
+    log.info(MODULE, `Riftbound sync completed: ${cachedCount} cards cached, ${errors} errors`)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        synced: cachedCount,
+        errors,
+        totalRiftbound,
+        totalCache
+      },
+      message: `Synced ${cachedCount} Riftbound cards`
+    })
+  } catch (error) {
+    log.error(MODULE, 'Riftbound sync failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to sync Riftbound cards: ' + error.message
+    })
+  }
+}
+
+/**
+ * Get cache statistics for all TCG systems
+ */
+export const getCacheStats = async (req, res) => {
+  try {
+    const [pokemonCount, riftboundCount, totalCount] = await Promise.all([
+      CardCache.countDocuments({ tcgSystem: 'pokemon' }),
+      CardCache.countDocuments({ tcgSystem: 'riftbound' }),
+      CardCache.countDocuments()
+    ])
+
+    // Get recent cache entries
+    const recentPokemon = await CardCache.find({ tcgSystem: 'pokemon' })
+      .sort({ cachedAt: -1 })
+      .limit(1)
+      .select('cachedAt')
+      .lean()
+
+    const recentRiftbound = await CardCache.find({ tcgSystem: 'riftbound' })
+      .sort({ cachedAt: -1 })
+      .limit(1)
+      .select('cachedAt')
+      .lean()
+
+    res.status(200).json({
+      success: true,
+      data: {
+        pokemon: {
+          count: pokemonCount,
+          lastSync: recentPokemon[0]?.cachedAt || null
+        },
+        riftbound: {
+          count: riftboundCount,
+          lastSync: recentRiftbound[0]?.cachedAt || null
+        },
+        total: totalCount
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get cache stats failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get cache stats'
+    })
+  }
+}
+
+/**
+ * Sync Pokemon cards from Standard-legal sets (Regulation Marks G, H, I, J, K)
+ * Fetches from Pokemon TCG API and stores in MongoDB
+ */
+export const syncPokemonCards = async (req, res) => {
+  try {
+    log.info(MODULE, `Pokemon sync initiated by admin ${req.user.username}`)
+
+    // Valid regulation marks for Standard format
+    const VALID_REGULATION_MARKS = ['G', 'H', 'I', 'J', 'K']
+
+    // Fetch all sets
+    const allSets = await pokemon.set.all()
+    log.info(MODULE, `Found ${allSets.length} total Pokemon sets`)
+
+    // Filter for Scarlet & Violet series (Standard legal)
+    const svSets = allSets.filter(set => set.series === 'Scarlet & Violet')
+    log.info(MODULE, `Found ${svSets.length} Scarlet & Violet sets to sync`)
+
+    let totalCardsCached = 0
+    let totalErrors = 0
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+
+    // Process each set
+    for (const set of svSets) {
+      try {
+        log.info(MODULE, `Processing set: ${set.name} (${set.id})`)
+
+        // Fetch all cards from this set
+        let allCardsFromSet = []
+        let page = 1
+        let hasMore = true
+
+        while (hasMore) {
+          const result = await pokemon.card.where({
+            q: `set.id:${set.id}`,
+            page,
+            pageSize: 250
+          })
+
+          const cards = result.data || []
+          allCardsFromSet = allCardsFromSet.concat(cards)
+
+          if (cards.length < 250) {
+            hasMore = false
+          } else {
+            page++
+          }
+
+          // Rate limit
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+
+        // Filter for valid regulation marks and cache
+        for (const card of allCardsFromSet) {
+          if (!VALID_REGULATION_MARKS.includes(card.regulationMark)) continue
+
+          try {
+            const cardData = { ...card, tcgSystem: 'pokemon' }
+            await CardCache.findOneAndUpdate(
+              { cardId: card.id },
+              {
+                cardId: card.id,
+                data: cardData,
+                tcgSystem: 'pokemon',
+                cachedAt: new Date(),
+                expiresAt,
+                viewCount: 0,
+                lastViewed: new Date()
+              },
+              { upsert: true, new: true }
+            )
+            totalCardsCached++
+          } catch (cardError) {
+            totalErrors++
+          }
+        }
+
+        log.info(MODULE, `Cached ${allCardsFromSet.length} cards from ${set.name}`)
+
+      } catch (setError) {
+        log.error(MODULE, `Failed to process set ${set.name}:`, setError.message)
+        totalErrors++
+      }
+    }
+
+    // Get updated stats
+    const totalPokemon = await CardCache.countDocuments({ tcgSystem: 'pokemon' })
+    const totalCache = await CardCache.countDocuments()
+
+    log.info(MODULE, `Pokemon sync completed: ${totalCardsCached} cards cached, ${totalErrors} errors`)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        synced: totalCardsCached,
+        errors: totalErrors,
+        setsProcessed: svSets.length,
+        totalPokemon,
+        totalCache
+      },
+      message: `Synced ${totalCardsCached} Pokemon cards from ${svSets.length} sets`
+    })
+  } catch (error) {
+    log.error(MODULE, 'Pokemon sync failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to sync Pokemon cards: ' + error.message
+    })
+  }
+}
+
+/**
+ * Verify cache integrity - compare cached cards with source APIs
+ * Returns report of missing, outdated, or extra cards
+ */
+export const verifyCacheIntegrity = async (req, res) => {
+  try {
+    log.info(MODULE, `Cache integrity check initiated by admin ${req.user.username}`)
+
+    const report = {
+      pokemon: { cached: 0, source: 0, missing: 0, outdated: 0 },
+      riftbound: { cached: 0, source: 0, missing: 0, outdated: 0 },
+      lastCheck: new Date()
+    }
+
+    // Check Pokemon cache
+    const pokemonCached = await CardCache.countDocuments({ tcgSystem: 'pokemon' })
+    report.pokemon.cached = pokemonCached
+
+    // Sample check - get newest cards from API and check if in cache
+    try {
+      const newestPokemonSets = await pokemon.set.where({
+        q: 'series:"Scarlet & Violet"',
+        orderBy: '-releaseDate',
+        pageSize: 5
+      })
+
+      let sourceCount = 0
+      let missingCount = 0
+
+      for (const set of (newestPokemonSets.data || [])) {
+        const setCards = await pokemon.card.where({
+          q: `set.id:${set.id}`,
+          pageSize: 250
+        })
+        sourceCount += (setCards.data || []).length
+
+        // Check a sample of cards
+        const sampleCards = (setCards.data || []).slice(0, 10)
+        for (const card of sampleCards) {
+          const cached = await CardCache.findOne({ cardId: card.id })
+          if (!cached) missingCount++
+        }
+      }
+
+      report.pokemon.source = sourceCount
+      report.pokemon.missing = missingCount
+    } catch (pokemonError) {
+      log.error(MODULE, 'Pokemon integrity check failed', pokemonError)
+    }
+
+    // Check Riftbound cache
+    const riftboundCached = await CardCache.countDocuments({ tcgSystem: 'riftbound' })
+    report.riftbound.cached = riftboundCached
+
+    try {
+      const riftboundCards = await riftboundService.getAllCards()
+      report.riftbound.source = riftboundCards.length
+
+      // Check for missing cards
+      let riftMissing = 0
+      const sampleRiftbound = riftboundCards.slice(0, 20)
+      for (const card of sampleRiftbound) {
+        const cached = await CardCache.findOne({ cardId: card.id })
+        if (!cached) riftMissing++
+      }
+      report.riftbound.missing = riftMissing
+
+    } catch (riftboundError) {
+      log.error(MODULE, 'Riftbound integrity check failed', riftboundError)
+    }
+
+    log.info(MODULE, 'Cache integrity check completed', report)
+
+    res.status(200).json({
+      success: true,
+      data: report
+    })
+  } catch (error) {
+    log.error(MODULE, 'Cache integrity check failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify cache integrity: ' + error.message
     })
   }
 }

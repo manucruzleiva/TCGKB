@@ -7,7 +7,7 @@ import { getRotationInfo, formatDaysUntilRotation } from '../../config/rotation'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { useDateFormat } from '../../contexts/DateFormatContext'
 
-// Type emoji mapping
+// Type emoji mapping for Pokemon
 const TYPE_EMOJIS = {
   'Fire': '🔥',
   'Water': '💧',
@@ -21,6 +21,29 @@ const TYPE_EMOJIS = {
   'Fairy': '✨',
   'Colorless': '⭐',
   'Lightning': '⚡'
+}
+
+// Domain emoji mapping for Riftbound
+const DOMAIN_EMOJIS = {
+  'fire': '🔥',
+  'water': '💧',
+  'earth': '🌍',
+  'air': '💨',
+  'light': '✨',
+  'dark': '🌙',
+  'nature': '🌿',
+  'chaos': '💀',
+  'order': '⚖️',
+  'neutral': '⭐'
+}
+
+// Rarity colors for Riftbound
+const RARITY_COLORS = {
+  'Common': 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
+  'Uncommon': 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300',
+  'Rare': 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300',
+  'Epic': 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300',
+  'Legendary': 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300'
 }
 
 const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
@@ -64,6 +87,7 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
   // Check if this is a Pokemon card (rotation features only apply to Pokemon)
   // Default to true if tcgSystem is not specified (most cards in the API are Pokemon)
   const isPokemonCard = card.tcgSystem === 'pokemon' || !card.tcgSystem
+  const isRiftboundCard = card.tcgSystem === 'riftbound'
 
   // Pokemon-specific calculations
   const legalFormatDate = isPokemonCard ? calculateLegalDate(releaseDate) : null
@@ -294,13 +318,112 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
             {card.rarity && (
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-300">Rareza:</span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">{card.rarity}</span>
+                <span className={`ml-2 px-2 py-0.5 rounded text-sm ${isRiftboundCard ? (RARITY_COLORS[card.rarity] || 'text-gray-600 dark:text-gray-400') : 'text-gray-600 dark:text-gray-400'}`}>
+                  {card.rarity}
+                </span>
+              </div>
+            )}
+
+            {/* Riftbound-specific: Card Type */}
+            {isRiftboundCard && card.type && (
+              <div>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.type')}:</span>
+                <span className="ml-2 px-2 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-sm rounded">
+                  {card.type}
+                </span>
+              </div>
+            )}
+
+            {/* Riftbound-specific: Domain */}
+            {isRiftboundCard && card.domain && (
+              <div>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">Domain:</span>
+                <span className="ml-2 px-2 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-sm rounded flex items-center gap-1 inline-flex">
+                  {DOMAIN_EMOJIS[card.domain?.toLowerCase()] && <span>{DOMAIN_EMOJIS[card.domain?.toLowerCase()]}</span>}
+                  {card.domain}
+                </span>
+              </div>
+            )}
+
+            {/* Riftbound-specific: Attributes (Energy, Might, Power) */}
+            {isRiftboundCard && card.attributes && (card.attributes.energy || card.attributes.might || card.attributes.power) && (
+              <div>
+                <span className="font-semibold text-gray-700 dark:text-gray-300 block mb-2">Attributes:</span>
+                <div className="flex gap-3">
+                  {card.attributes.energy !== undefined && card.attributes.energy !== null && (
+                    <div className="flex flex-col items-center px-3 py-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                      <span className="text-lg">⚡</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Energy</span>
+                      <span className="font-bold text-yellow-700 dark:text-yellow-300">{card.attributes.energy}</span>
+                    </div>
+                  )}
+                  {card.attributes.might !== undefined && card.attributes.might !== null && (
+                    <div className="flex flex-col items-center px-3 py-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                      <span className="text-lg">💪</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Might</span>
+                      <span className="font-bold text-red-700 dark:text-red-300">{card.attributes.might}</span>
+                    </div>
+                  )}
+                  {card.attributes.power !== undefined && card.attributes.power !== null && (
+                    <div className="flex flex-col items-center px-3 py-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                      <span className="text-lg">🔮</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Power</span>
+                      <span className="font-bold text-blue-700 dark:text-blue-300">{card.attributes.power}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Riftbound-specific: Collector Number */}
+            {isRiftboundCard && card.collector_number && (
+              <div>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">Collector #:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400 font-mono">{card.collector_number}</span>
+              </div>
+            )}
+
+            {/* Artist */}
+            {card.artist && (
+              <div>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">Artist:</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">{card.artist}</span>
+              </div>
+            )}
+
+            {/* Riftbound-specific: Tags */}
+            {isRiftboundCard && card.tags && card.tags.length > 0 && (
+              <div>
+                <span className="font-semibold text-gray-700 dark:text-gray-300 block mb-1">Tags:</span>
+                <div className="flex gap-1 flex-wrap">
+                  {card.tags.map((tag, idx) => (
+                    <span key={idx} className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Riftbound-specific: Special badges */}
+            {isRiftboundCard && (card.alternateArt || card.signature) && (
+              <div className="flex gap-2">
+                {card.alternateArt && (
+                  <span className="px-2 py-1 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs rounded font-medium">
+                    ✨ Alternate Art
+                  </span>
+                )}
+                {card.signature && (
+                  <span className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs rounded font-medium">
+                    ✍️ Signature
+                  </span>
+                )}
               </div>
             )}
           </div>
 
-          {/* Attacks - Nested Inside Card Data Box */}
-          {card.attacks && card.attacks.length > 0 && (
+          {/* Attacks - Nested Inside Card Data Box (Pokemon only) */}
+          {isPokemonCard && card.attacks && card.attacks.length > 0 && (
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
                 <span className="mr-2">⚔️</span>
@@ -354,8 +477,8 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
             </div>
           )}
 
-          {/* Abilities - Nested Inside Card Data Box */}
-          {card.abilities && card.abilities.length > 0 && (
+          {/* Abilities - Nested Inside Card Data Box (Pokemon only) */}
+          {isPokemonCard && card.abilities && card.abilities.length > 0 && (
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
                 <span className="mr-2">✨</span>
@@ -392,8 +515,28 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
             </div>
           )}
 
-          {/* Weakness / Resistance / Retreat */}
-          {(card.weaknesses || card.resistances || card.retreatCost) && (
+          {/* Riftbound Card Text - Main card effect/description */}
+          {isRiftboundCard && card.text && (
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+                <span className="mr-2">📜</span>
+                Card Text
+              </h2>
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4 border-l-4 border-indigo-500">
+                {card.textHtml ? (
+                  <div
+                    className="text-gray-700 dark:text-gray-300 prose dark:prose-invert prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: card.textHtml }}
+                  />
+                ) : (
+                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{card.text}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Weakness / Resistance / Retreat (Pokemon only) */}
+          {isPokemonCard && (card.weaknesses || card.resistances || card.retreatCost) && (
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <div className="grid grid-cols-3 gap-4 text-sm">
                 {/* Weakness */}

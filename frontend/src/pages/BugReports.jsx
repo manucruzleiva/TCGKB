@@ -47,6 +47,14 @@ const DevDashboard = () => {
     database: { status: 'checking', message: '' }
   })
 
+  // Cache management state
+  const [cacheStats, setCacheStats] = useState(null)
+  const [syncingRiftbound, setSyncingRiftbound] = useState(false)
+  const [syncingPokemon, setSyncingPokemon] = useState(false)
+  const [verifyingCache, setVerifyingCache] = useState(false)
+  const [syncResult, setSyncResult] = useState(null)
+  const [verifyResult, setVerifyResult] = useState(null)
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login')
@@ -93,6 +101,7 @@ const DevDashboard = () => {
   useEffect(() => {
     if (isAuthenticated && canAccessBugDashboard) {
       checkHealth()
+      fetchCacheStats()
     }
   }, [isAuthenticated, canAccessBugDashboard])
 
@@ -116,6 +125,87 @@ const DevDashboard = () => {
         api: { status: 'error', message: error.message || 'API unreachable' },
         database: { status: 'unknown', message: 'Could not verify' }
       }))
+    }
+  }
+
+  const fetchCacheStats = async () => {
+    try {
+      const response = await api.get('/mod/cache/stats')
+      if (response.data.success) {
+        setCacheStats(response.data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching cache stats:', error)
+    }
+  }
+
+  const syncRiftboundCards = async () => {
+    try {
+      setSyncingRiftbound(true)
+      setSyncResult(null)
+      const response = await api.post('/mod/cache/sync/riftbound')
+      if (response.data.success) {
+        setSyncResult({
+          success: true,
+          type: 'riftbound',
+          message: response.data.message,
+          data: response.data.data
+        })
+        // Refresh cache stats
+        fetchCacheStats()
+      }
+    } catch (error) {
+      setSyncResult({
+        success: false,
+        type: 'riftbound',
+        message: error.response?.data?.message || error.message
+      })
+    } finally {
+      setSyncingRiftbound(false)
+    }
+  }
+
+  const syncPokemonCards = async () => {
+    try {
+      setSyncingPokemon(true)
+      setSyncResult(null)
+      const response = await api.post('/mod/cache/sync/pokemon')
+      if (response.data.success) {
+        setSyncResult({
+          success: true,
+          type: 'pokemon',
+          message: response.data.message,
+          data: response.data.data
+        })
+        // Refresh cache stats
+        fetchCacheStats()
+      }
+    } catch (error) {
+      setSyncResult({
+        success: false,
+        type: 'pokemon',
+        message: error.response?.data?.message || error.message
+      })
+    } finally {
+      setSyncingPokemon(false)
+    }
+  }
+
+  const verifyCacheIntegrity = async () => {
+    try {
+      setVerifyingCache(true)
+      setVerifyResult(null)
+      const response = await api.get('/mod/cache/verify')
+      if (response.data.success) {
+        setVerifyResult(response.data.data)
+      }
+    } catch (error) {
+      setVerifyResult({
+        error: true,
+        message: error.response?.data?.message || error.message
+      })
+    } finally {
+      setVerifyingCache(false)
     }
   }
 
@@ -284,6 +374,220 @@ const DevDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Cache Management Section - Admin Only */}
+      {isAdmin && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              🗄️ {language === 'es' ? 'Cache de Cartas' : 'Card Cache'}
+            </h2>
+            <button
+              onClick={fetchCacheStats}
+              className="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
+            >
+              🔄 {language === 'es' ? 'Actualizar' : 'Refresh'}
+            </button>
+          </div>
+
+          {/* Cache Stats Grid */}
+          {cacheStats && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              {/* Pokemon Cache */}
+              <div className="p-4 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl">⚡</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Pokémon TCG</span>
+                </div>
+                <p className="text-2xl font-bold text-yellow-800 dark:text-yellow-200">
+                  {cacheStats.pokemon?.count?.toLocaleString() || 0}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  {language === 'es' ? 'cartas en cache' : 'cached cards'}
+                </p>
+                {cacheStats.pokemon?.lastSync && (
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    {language === 'es' ? 'Último sync:' : 'Last sync:'} {new Date(cacheStats.pokemon.lastSync).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+
+              {/* Riftbound Cache */}
+              <div className="p-4 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl">🎮</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Riftbound</span>
+                </div>
+                <p className="text-2xl font-bold text-purple-800 dark:text-purple-200">
+                  {cacheStats.riftbound?.count?.toLocaleString() || 0}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  {language === 'es' ? 'cartas en cache' : 'cached cards'}
+                </p>
+                {cacheStats.riftbound?.lastSync && (
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    {language === 'es' ? 'Último sync:' : 'Last sync:'} {new Date(cacheStats.riftbound.lastSync).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+
+              {/* Total Cache */}
+              <div className="p-4 rounded-lg bg-gray-100 dark:bg-gray-700">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl">📊</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Total</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                  {cacheStats.total?.toLocaleString() || 0}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  {language === 'es' ? 'cartas totales' : 'total cards'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Sync Actions */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              {language === 'es' ? 'Sincronización Manual' : 'Manual Sync'}
+            </h3>
+            <div className="flex flex-wrap gap-3">
+              {/* Pokemon Sync Button */}
+              <button
+                onClick={syncPokemonCards}
+                disabled={syncingPokemon || syncingRiftbound}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                  ${syncingPokemon || syncingRiftbound
+                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                    : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                  }`}
+              >
+                {syncingPokemon ? (
+                  <>
+                    <Spinner size="sm" />
+                    {language === 'es' ? 'Sincronizando...' : 'Syncing...'}
+                  </>
+                ) : (
+                  <>
+                    ⚡ {language === 'es' ? 'Sync Pokémon' : 'Sync Pokémon'}
+                  </>
+                )}
+              </button>
+
+              {/* Riftbound Sync Button */}
+              <button
+                onClick={syncRiftboundCards}
+                disabled={syncingRiftbound || syncingPokemon}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                  ${syncingRiftbound || syncingPokemon
+                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  }`}
+              >
+                {syncingRiftbound ? (
+                  <>
+                    <Spinner size="sm" />
+                    {language === 'es' ? 'Sincronizando...' : 'Syncing...'}
+                  </>
+                ) : (
+                  <>
+                    🎮 {language === 'es' ? 'Sync Riftbound' : 'Sync Riftbound'}
+                  </>
+                )}
+              </button>
+
+              {/* Verify Cache Button */}
+              <button
+                onClick={verifyCacheIntegrity}
+                disabled={verifyingCache || syncingPokemon || syncingRiftbound}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                  ${verifyingCache || syncingPokemon || syncingRiftbound
+                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+              >
+                {verifyingCache ? (
+                  <>
+                    <Spinner size="sm" />
+                    {language === 'es' ? 'Verificando...' : 'Verifying...'}
+                  </>
+                ) : (
+                  <>
+                    🔍 {language === 'es' ? 'Verificar Cache' : 'Verify Cache'}
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Sync Result */}
+            {syncResult && (
+              <div className={`mt-3 p-3 rounded-lg ${
+                syncResult.success
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+              }`}>
+                <p className="text-sm font-medium">
+                  {syncResult.success ? '✅' : '❌'} {syncResult.message}
+                </p>
+                {syncResult.data && syncResult.type === 'riftbound' && (
+                  <p className="text-xs mt-1">
+                    {language === 'es'
+                      ? `Sincronizadas: ${syncResult.data.synced} | Errores: ${syncResult.data.errors} | Total Riftbound: ${syncResult.data.totalRiftbound}`
+                      : `Synced: ${syncResult.data.synced} | Errors: ${syncResult.data.errors} | Total Riftbound: ${syncResult.data.totalRiftbound}`
+                    }
+                  </p>
+                )}
+                {syncResult.data && syncResult.type === 'pokemon' && (
+                  <p className="text-xs mt-1">
+                    {language === 'es'
+                      ? `Sincronizadas: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Errores: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
+                      : `Synced: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Errors: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Verify Result */}
+            {verifyResult && !verifyResult.error && (
+              <div className="mt-3 p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
+                <p className="text-sm font-medium mb-2">
+                  🔍 {language === 'es' ? 'Resultado de Verificación' : 'Verification Result'}
+                </p>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <p className="font-medium">Pokémon TCG</p>
+                    <p>{language === 'es' ? 'En cache' : 'Cached'}: {verifyResult.pokemon?.cached || 0}</p>
+                    <p>{language === 'es' ? 'En fuente' : 'Source'}: {verifyResult.pokemon?.source || 0}</p>
+                    <p className={verifyResult.pokemon?.missing > 0 ? 'text-red-600 dark:text-red-400' : ''}>
+                      {language === 'es' ? 'Faltantes' : 'Missing'}: {verifyResult.pokemon?.missing || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Riftbound</p>
+                    <p>{language === 'es' ? 'En cache' : 'Cached'}: {verifyResult.riftbound?.cached || 0}</p>
+                    <p>{language === 'es' ? 'En fuente' : 'Source'}: {verifyResult.riftbound?.source || 0}</p>
+                    <p className={verifyResult.riftbound?.missing > 0 ? 'text-red-600 dark:text-red-400' : ''}>
+                      {language === 'es' ? 'Faltantes' : 'Missing'}: {verifyResult.riftbound?.missing || 0}
+                    </p>
+                  </div>
+                </div>
+                {verifyResult.lastCheck && (
+                  <p className="text-xs mt-2 opacity-70">
+                    {language === 'es' ? 'Última verificación:' : 'Last check:'} {new Date(verifyResult.lastCheck).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            )}
+            {verifyResult?.error && (
+              <div className="mt-3 p-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">
+                <p className="text-sm font-medium">❌ {verifyResult.message}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Bug Reports Section */}
       <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">

@@ -6,7 +6,11 @@ import {
   updateUserRole,
   updateUserRestrictions,
   moderateCommentById,
-  getModerationSummary
+  getModerationSummary,
+  syncRiftboundCards,
+  syncPokemonCards,
+  getCacheStats,
+  verifyCacheIntegrity
 } from '../controllers/mod.controller.js'
 import { protect, adminOnly } from '../middleware/auth.middleware.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
@@ -36,5 +40,11 @@ router.put('/comments/:commentId/moderate', generalLimiter, moderateCommentById)
 
 // Get moderation summary
 router.get('/summary', generalLimiter, getModerationSummary)
+
+// Cache management routes
+router.get('/cache/stats', generalLimiter, getCacheStats)
+router.post('/cache/sync/riftbound', syncRiftboundCards)
+router.post('/cache/sync/pokemon', syncPokemonCards)
+router.get('/cache/verify', generalLimiter, verifyCacheIntegrity)
 
 export default router
