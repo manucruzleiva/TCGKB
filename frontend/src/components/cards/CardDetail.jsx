@@ -596,7 +596,7 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
         {/* Comments Section */}
         {cardId && (
           <div className="mt-8">
-            <CommentList cardId={cardId} />
+            <CommentList cardId={cardId} contextCard={card} />
           </div>
         )}
       </div>

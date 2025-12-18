@@ -12,7 +12,7 @@ const SORT_OPTIONS = [
   { value: 'popular', label: 'Más populares' }
 ]
 
-const CommentList = ({ cardId, deckId, targetType = 'card' }) => {
+const CommentList = ({ cardId, deckId, targetType = 'card', contextCard = null }) => {
   const { t } = useLanguage()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -162,6 +162,7 @@ const CommentList = ({ cardId, deckId, targetType = 'card' }) => {
           cardId={cardId}
           deckId={deckId}
           targetType={targetType}
+          contextCard={contextCard}
           onCommentAdded={handleCommentAdded}
         />
       </div>

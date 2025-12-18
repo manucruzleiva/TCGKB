@@ -8,7 +8,7 @@ import { COMMENT_MAX_LENGTH } from '../../utils/constants'
 import { useDebounce } from '../../hooks/useDebounce'
 import { mentionCache } from '../../utils/mentionCache'
 
-const CommentComposer = ({ cardId, deckId, targetType = 'card', parentId = null, onCommentAdded, onCancel }) => {
+const CommentComposer = ({ cardId, deckId, targetType = 'card', parentId = null, contextCard = null, onCommentAdded, onCancel }) => {
   const { isAuthenticated } = useAuth()
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
@@ -195,6 +195,67 @@ const CommentComposer = ({ cardId, deckId, targetType = 'card', parentId = null,
 
     return abilities
   }
+
+  // Get contextual suggestions from the current card page
+  const getContextSuggestions = () => {
+    if (!contextCard) return []
+
+    const suggestions = []
+    const isPokemon = contextCard.tcgSystem === 'pokemon' || !contextCard.tcgSystem
+    const isRiftbound = contextCard.tcgSystem === 'riftbound'
+
+    // For Pokemon cards: show attacks and abilities as quick-select options
+    if (isPokemon) {
+      if (contextCard.attacks) {
+        contextCard.attacks.forEach(attack => {
+          suggestions.push({
+            type: 'context_attack',
+            card: contextCard,
+            ability: { ...attack, type: 'attack' },
+            label: attack.name,
+            description: attack.text || (attack.damage ? `Daño: ${attack.damage}` : 'Ataque')
+          })
+        })
+      }
+      if (contextCard.abilities) {
+        contextCard.abilities.forEach(ability => {
+          suggestions.push({
+            type: 'context_ability',
+            card: contextCard,
+            ability: { ...ability, type: 'ability' },
+            label: ability.name,
+            description: ability.text || 'Habilidad'
+          })
+        })
+      }
+    }
+
+    // For Riftbound cards: show card text as a quick reference
+    if (isRiftbound && contextCard.text) {
+      suggestions.push({
+        type: 'context_text',
+        card: contextCard,
+        ability: null,
+        label: 'Card Text',
+        description: contextCard.text.substring(0, 100) + (contextCard.text.length > 100 ? '...' : '')
+      })
+    }
+
+    // Always add option to just mention the card itself
+    if (suggestions.length > 0) {
+      suggestions.unshift({
+        type: 'context_card',
+        card: contextCard,
+        ability: null,
+        label: contextCard.name,
+        description: 'Mencionar esta carta'
+      })
+    }
+
+    return suggestions
+  }
+
+  const contextSuggestions = getContextSuggestions()
 
   const removeChip = (cardId) => {
     // Find and remove the chip from content
@@ -417,55 +478,110 @@ const CommentComposer = ({ cardId, deckId, targetType = 'card', parentId = null,
           )}
 
           {/* Mention dropdown */}
-          {showMentionDropdown && mentionQuery.length >= 2 && (
+          {showMentionDropdown && (mentionQuery.length >= 2 || contextSuggestions.length > 0) && (
             <div
               className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-80 overflow-y-auto"
               onMouseDown={(e) => e.preventDefault()} // Prevent blur on textarea
             >
-              {mentionLoading ? (
-                <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
-                  Buscando...
-                </div>
-              ) : mentionCards.length > 0 ? (
-                <ul>
-                  {mentionCards.map((card) => {
-                    const cardImage = card.images?.small || card.images?.large || card.image
-                    const setName = typeof card.set === 'string' ? card.set : card.set?.name || ''
-                    const hasAbilities = (card.attacks?.length > 0) || (card.abilities?.length > 0)
-                    return (
+              {/* Contextual suggestions - show when query is short */}
+              {contextSuggestions.length > 0 && mentionQuery.length < 2 && (
+                <>
+                  <div className="px-3 py-2 bg-primary-50 dark:bg-primary-900/30 border-b border-primary-200 dark:border-primary-700">
+                    <div className="flex items-center gap-2">
+                      <span className="text-primary-600 dark:text-primary-400 text-sm">✨</span>
+                      <span className="text-xs font-medium text-primary-700 dark:text-primary-300">
+                        Esta carta
+                      </span>
+                    </div>
+                  </div>
+                  <ul>
+                    {contextSuggestions.map((suggestion, idx) => (
                       <li
-                        key={card.id}
+                        key={`ctx-${idx}`}
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          insertMention(card)
+                          if (suggestion.ability) {
+                            insertMention(suggestion.card, suggestion.ability)
+                          } else {
+                            insertMention(suggestion.card)
+                          }
                         }}
-                        className="px-3 py-2 hover:bg-primary-50 dark:hover:bg-primary-900/30 cursor-pointer flex items-center gap-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                        className="px-3 py-2 hover:bg-primary-50 dark:hover:bg-primary-900/30 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                       >
-                        {cardImage && (
-                          <img
-                            src={cardImage}
-                            alt={card.name}
-                            className="w-10 h-14 object-contain rounded"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{card.name}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">{setName}</div>
-                          {hasAbilities && (
-                            <div className="text-xs text-primary-600 dark:text-primary-400 mt-0.5">
-                              Escribe . después para ver habilidades
-                            </div>
-                          )}
+                        <div className="flex items-start gap-2">
+                          <span className="text-sm mt-0.5">
+                            {suggestion.type === 'context_card' ? '🃏' :
+                             suggestion.type === 'context_attack' ? '⚔️' :
+                             suggestion.type === 'context_ability' ? '✨' : '📜'}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{suggestion.label}</div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{suggestion.description}</p>
+                          </div>
                         </div>
                       </li>
-                    )
-                  })}
-                </ul>
-              ) : (
-                <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
-                  No se encontraron cartas
-                </div>
+                    ))}
+                  </ul>
+                  {mentionQuery.length === 0 && (
+                    <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-600">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        💡 Escribe para buscar otras cartas
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Global search results */}
+              {mentionQuery.length >= 2 && (
+                <>
+                  {mentionLoading ? (
+                    <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      Buscando...
+                    </div>
+                  ) : mentionCards.length > 0 ? (
+                    <ul>
+                      {mentionCards.map((card) => {
+                        const cardImage = card.images?.small || card.images?.large || card.image
+                        const setName = typeof card.set === 'string' ? card.set : card.set?.name || ''
+                        const hasAbilities = (card.attacks?.length > 0) || (card.abilities?.length > 0)
+                        return (
+                          <li
+                            key={card.id}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              insertMention(card)
+                            }}
+                            className="px-3 py-2 hover:bg-primary-50 dark:hover:bg-primary-900/30 cursor-pointer flex items-center gap-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                          >
+                            {cardImage && (
+                              <img
+                                src={cardImage}
+                                alt={card.name}
+                                className="w-10 h-14 object-contain rounded"
+                              />
+                            )}
+                            <div className="flex-1">
+                              <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{card.name}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{setName}</div>
+                              {hasAbilities && (
+                                <div className="text-xs text-primary-600 dark:text-primary-400 mt-0.5">
+                                  Escribe . después para ver habilidades
+                                </div>
+                              )}
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : (
+                    <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      No se encontraron cartas
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

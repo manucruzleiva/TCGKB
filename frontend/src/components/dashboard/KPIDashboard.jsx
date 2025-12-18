@@ -6,6 +6,8 @@ const KPIDashboard = () => {
   const { t, language } = useLanguage()
   const [stats, setStats] = useState({
     totalCards: 0,
+    pokemonCards: 0,
+    riftboundCards: 0,
     totalComments: 0,
     totalReactions: 0,
     totalUsers: 0
@@ -34,6 +36,8 @@ const KPIDashboard = () => {
         console.error('Error fetching stats:', error)
         setStats({
           totalCards: 0,
+          pokemonCards: 0,
+          riftboundCards: 0,
           totalComments: 0,
           totalReactions: 0,
           totalUsers: 0
@@ -202,20 +206,49 @@ const KPIDashboard = () => {
     return null
   }
 
+  // Pokeball SVG icon component
+  const PokeballIcon = () => (
+    <svg viewBox="0 0 100 100" className="w-8 h-8">
+      <circle cx="50" cy="50" r="48" fill="#fff" stroke="#333" strokeWidth="4"/>
+      <path d="M2 50 H98" stroke="#333" strokeWidth="4"/>
+      <path d="M2 50 A48 48 0 0 0 98 50" fill="#ff1a1a"/>
+      <circle cx="50" cy="50" r="18" fill="#fff" stroke="#333" strokeWidth="4"/>
+      <circle cx="50" cy="50" r="10" fill="#fff" stroke="#333" strokeWidth="3"/>
+    </svg>
+  )
+
+  // Riftbound logo icon component
+  const RiftboundIcon = () => (
+    <svg viewBox="0 0 100 100" className="w-8 h-8">
+      <defs>
+        <linearGradient id="riftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#8b5cf6"/>
+          <stop offset="100%" stopColor="#3b82f6"/>
+        </linearGradient>
+      </defs>
+      <rect x="10" y="5" width="80" height="90" rx="8" fill="url(#riftGrad)" stroke="#1e293b" strokeWidth="3"/>
+      <path d="M30 25 L50 45 L70 25 M30 45 L50 65 L70 45 M30 65 L50 85 L70 65"
+            fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="50" cy="55" r="6" fill="#fff"/>
+    </svg>
+  )
+
   const tcgSystems = [
     {
       name: 'Pokemon TCG',
       status: 'completed',
-      icon: '⚡',
-      color: 'bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700',
-      textColor: 'text-green-800 dark:text-green-200'
+      icon: <PokeballIcon />,
+      cardCount: stats.pokemonCards,
+      color: 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700',
+      textColor: 'text-red-800 dark:text-red-200'
     },
     {
-      name: 'Rifbound',
-      status: 'in-progress',
-      icon: '🎴',
-      color: 'bg-yellow-100 dark:bg-yellow-900 border-yellow-300 dark:border-yellow-700',
-      textColor: 'text-yellow-800 dark:text-yellow-200'
+      name: 'Riftbound',
+      status: 'completed',
+      icon: <RiftboundIcon />,
+      cardCount: stats.riftboundCards,
+      color: 'bg-purple-50 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700',
+      textColor: 'text-purple-800 dark:text-purple-200'
     }
   ]
 
@@ -285,16 +318,24 @@ const KPIDashboard = () => {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl">{tcg.icon}</span>
+                  <span className="flex-shrink-0">{tcg.icon}</span>
                   <div>
                     <h3 className={`font-semibold ${tcg.textColor}`}>{tcg.name}</h3>
-                    <p className={`text-sm ${tcg.textColor}`}>
+                    <p className={`text-sm ${tcg.textColor} opacity-80`}>
                       {tcg.status === 'completed'
-                        ? (language === 'es' ? '✅ Completado' : '✅ Completed')
+                        ? (language === 'es' ? '✅ 100% Soportado' : '✅ 100% Supported')
                         : (language === 'es' ? '🚧 En progreso' : '🚧 In Progress')
                       }
                     </p>
                   </div>
+                </div>
+                <div className="text-right">
+                  <span className={`text-2xl font-bold ${tcg.textColor}`}>
+                    {tcg.cardCount.toLocaleString()}
+                  </span>
+                  <p className={`text-xs ${tcg.textColor} opacity-70`}>
+                    {language === 'es' ? 'cartas' : 'cards'}
+                  </p>
                 </div>
               </div>
             </div>

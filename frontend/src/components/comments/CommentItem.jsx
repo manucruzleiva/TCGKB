@@ -259,9 +259,15 @@ const CommentItem = ({ comment, cardId, onCommentAdded, level = 0 }) => {
           <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
             {localComment.userId.username}
           </span>
+          {/* Role badges - Mod and/or Dev */}
           {localComment.userId.role === 'admin' && (
-            <span className="px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 text-xs rounded font-medium">
-              Admin
+            <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-xs rounded font-medium">
+              👑 Mod
+            </span>
+          )}
+          {localComment.userId.isDev && (
+            <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs rounded font-medium">
+              💻 Dev
             </span>
           )}
           <span className="text-gray-400 dark:text-gray-500 text-xs">

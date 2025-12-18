@@ -22,8 +22,10 @@ const CACHE_TTL = 60 * 60 * 1000 // 1 hour
  */
 export const getStats = async (req, res) => {
   try {
-    const [totalCards, totalComments, totalReactions, totalUsers] = await Promise.all([
+    const [totalCards, pokemonCards, riftboundCards, totalComments, totalReactions, totalUsers] = await Promise.all([
       CardCache.countDocuments(),
+      CardCache.countDocuments({ tcgSystem: 'pokemon' }),
+      CardCache.countDocuments({ tcgSystem: 'riftbound' }),
       Comment.countDocuments({ isModerated: false }),
       Reaction.countDocuments(),
       User.countDocuments()
@@ -35,6 +37,8 @@ export const getStats = async (req, res) => {
       success: true,
       data: {
         totalCards,
+        pokemonCards,
+        riftboundCards,
         totalComments,
         totalReactions,
         totalUsers

@@ -12,6 +12,10 @@ const ERROR_MESSAGES = {
     es: 'No hay cuenta registrada con este email',
     en: 'No account found with this email'
   },
+  USERNAME_NOT_FOUND: {
+    es: 'No hay cuenta registrada con este usuario',
+    en: 'No account found with this username'
+  },
   WRONG_PASSWORD: {
     es: 'Contraseña incorrecta',
     en: 'Incorrect password'
@@ -65,8 +69,9 @@ const LoginForm = () => {
       return
     }
 
-    if (!formData.email.includes('@')) {
-      setError(language === 'es' ? 'Por favor ingresa un email válido' : 'Please enter a valid email')
+    // Validate minimum length for email or username
+    if (formData.email.length < 3) {
+      setError(language === 'es' ? 'Por favor ingresa un email o usuario válido' : 'Please enter a valid email or username')
       setLoading(false)
       return
     }
@@ -115,12 +120,12 @@ const LoginForm = () => {
 
       <form onSubmit={handleSubmit}>
         <Input
-          label="Email"
-          type="email"
+          label={language === 'es' ? 'Email o Usuario' : 'Email or Username'}
+          type="text"
           name="email"
           value={formData.email}
           onChange={handleChange}
-          placeholder={language === 'es' ? 'tu@email.com' : 'your@email.com'}
+          placeholder={language === 'es' ? 'tu@email.com o usuario' : 'your@email.com or username'}
           required
         />
 

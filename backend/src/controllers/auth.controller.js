@@ -66,8 +66,10 @@ export const register = async (req, res) => {
       })
     }
 
-    // Check if username already exists
-    const usernameExists = await User.findOne({ username })
+    // Check if username already exists (case-insensitive)
+    const usernameExists = await User.findOne({
+      username: { $regex: new RegExp(`^${username}$`, 'i') }
+    })
     if (usernameExists) {
       return res.status(400).json({
         success: false,
@@ -143,18 +145,29 @@ export const login = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email and password'
+        message: 'Please provide email/username and password'
       })
     }
 
-    // Check for user (include password for comparison)
-    const user = await User.findOne({ email }).select('+password')
+    // Determine if input is email or username
+    const isEmail = email.includes('@')
+
+    // Check for user by email or username (include password for comparison)
+    let user
+    if (isEmail) {
+      user = await User.findOne({ email: email.toLowerCase() }).select('+password')
+    } else {
+      // Username search - case-insensitive
+      user = await User.findOne({
+        username: { $regex: new RegExp(`^${email}$`, 'i') }
+      }).select('+password')
+    }
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'No account found with this email',
-        errorCode: 'EMAIL_NOT_FOUND'
+        message: isEmail ? 'No account found with this email' : 'No account found with this username',
+        errorCode: isEmail ? 'EMAIL_NOT_FOUND' : 'USERNAME_NOT_FOUND'
       })
     }
 
@@ -404,8 +417,11 @@ export const updateAccount = async (req, res) => {
         })
       }
 
-      // Check if username is already taken by another user
-      const usernameExists = await User.findOne({ username, _id: { $ne: user._id } })
+      // Check if username is already taken by another user (case-insensitive)
+      const usernameExists = await User.findOne({
+        username: { $regex: new RegExp(`^${username}$`, 'i') },
+        _id: { $ne: user._id }
+      })
       if (usernameExists) {
         return res.status(400).json({
           success: false,
