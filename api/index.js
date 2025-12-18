@@ -75,6 +75,7 @@ app.use('/api', async (req, res, next) => {
       const modRoutes = (await import('../backend/src/routes/mod.routes.js')).default
       const deckRoutes = (await import('../backend/src/routes/deck.routes.js')).default
       const bugReportRoutes = (await import('../backend/src/routes/bugReport.routes.js')).default
+      const githubRoutes = (await import('../backend/src/routes/github.routes.js')).default
 
       app.use('/api/auth', ensureDbConnection, authRoutes)
       app.use('/api/cards', ensureDbConnection, cardsRoutes)
@@ -84,6 +85,7 @@ app.use('/api', async (req, res, next) => {
       app.use('/api/mod', ensureDbConnection, modRoutes)
       app.use('/api/decks', ensureDbConnection, deckRoutes)
       app.use('/api/bugs', ensureDbConnection, bugReportRoutes)
+      app.use('/api/github', ensureDbConnection, githubRoutes)
 
       routesLoaded = true
     } catch (error) {
