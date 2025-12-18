@@ -334,6 +334,21 @@
   - Detectar tipos de energía/runas predominantes
   - Sugerir arquetipo basado en composición
   - Auto-completar tags de formato según legalidad
+- [ ] **Vista de Deck - Info del creador:** `~20K tokens | ~1.5h`
+  - Mostrar avatar del usuario creador
+  - Link al perfil del usuario (`/user/:username`)
+  - Username clickeable
+  - Fecha de creación del deck
+- [ ] **Decks públicos del usuario:** `~25K tokens | ~2h`
+  - En página de usuario mostrar sus decks públicos
+  - Toggle de visibilidad: Público / Privado
+  - Solo el dueño puede ver sus decks privados
+  - Contador de decks públicos en perfil
+- [ ] **Confirmación al eliminar deck:** `~10K tokens | ~0.5h`
+  - Modal de confirmación con doble-check
+  - Mostrar nombre del deck a eliminar
+  - Botón "Cancelar" prominente
+  - Escribir nombre del deck para confirmar (opcional)
 
 ### Autenticación / Usuario
 - [x] User data chips - reemplazar chip 'admin' por tags actuales
@@ -496,9 +511,9 @@
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
 | P1: UX/UI | ~1,055K tokens | ~75h |
-| P2: Funcionalidad | ~450K tokens | ~32h |
+| P2: Funcionalidad | ~505K tokens | ~36h |
 | P3: Backend/Infra | ~805K tokens | ~57h |
-| **TOTAL** | **~2,310K tokens** | **~164h** |
+| **TOTAL** | **~2,365K tokens** | **~168h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
