@@ -9,9 +9,30 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
   const [cardData, setCardData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
+  const [detectedAbilityType, setDetectedAbilityType] = useState(abilityType)
   const timeoutRef = useRef(null)
   const tooltipRef = useRef(null)
   const linkRef = useRef(null)
+
+  // Load card data immediately if we have an abilityName but no abilityType
+  // This ensures we can detect attack vs ability for old comments
+  useEffect(() => {
+    if (abilityName && !abilityType && !cardData && !loading) {
+      loadCardData()
+    }
+  }, [abilityName, abilityType, cardData, loading])
+
+  // Update detected ability type when card data is loaded
+  useEffect(() => {
+    if (cardData && abilityName && !abilityType) {
+      // Check if it's an attack
+      if (cardData.attacks?.some(a => a.name === abilityName)) {
+        setDetectedAbilityType('attack')
+      } else if (cardData.abilities?.some(a => a.name === abilityName)) {
+        setDetectedAbilityType('ability')
+      }
+    }
+  }, [cardData, abilityName, abilityType])
 
   const handleMouseEnter = () => {
     timeoutRef.current = setTimeout(() => {
@@ -95,7 +116,7 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
         {abilityName ? (
           <>
             <PokemonSprite cardName={cardName} size="md" fallbackEmoji="🃏" />
-            <span className="text-base">{abilityType === 'attack' ? '⚔️' : '✨'}</span>
+            <span className="text-base">{detectedAbilityType === 'attack' ? '⚔️' : '✨'}</span>
             <span className="italic">{abilityName}</span>
           </>
         ) : (
