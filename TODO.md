@@ -93,6 +93,27 @@
 
 ### Relationship Map
 - [x] RELATIONSHIP MAP en hamburger menu
+- [ ] **Modal de conexión - Datos completos:** `~25K tokens | ~2h`
+  - Mostrar carta origen con thumbnail y nombre
+  - Flecha con dato de mención (tipo: carta, ataque, habilidad, card text)
+  - Mostrar carta destino con thumbnail y nombre
+  - Indicar contexto de la mención (de qué comentario viene)
+- [ ] **Fix Popular Comments en conexión:** `~20K tokens | ~1.5h`
+  - Actualmente no trae comentarios
+  - Traer top 3 comentarios más populares relacionados a la conexión
+  - Ordenar por reacciones/upvotes
+  - Mostrar autor, snippet del comentario, cantidad de reacciones
+- [ ] **Canvas full screen (sin spacers):** `~15K tokens | ~1h`
+  - Remover padding/margin que limita el canvas
+  - Canvas ocupa todo el viewport disponible
+  - Header de la página siempre visible
+  - Mejor uso del espacio en pantalla
+- [ ] **Layers con sprites TCG (no iconos):** `~20K tokens | ~1.5h`
+  - Reemplazar iconos de layers por sprites
+  - Pokemon: sprite de Pokebola
+  - Riftbound: sprite de logo Riftbound
+  - Activado = full color, Desactivado = grayscale
+  - Consistente con filtros de catálogo
 
 ### Sistema de Reprints
 - [ ] **Modelo de datos para Reprints:** `~35K tokens | ~2.5h`
@@ -346,10 +367,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~875K tokens | ~62h |
+| P1: UX/UI | ~955K tokens | ~68h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~625K tokens | ~44h |
-| **TOTAL** | **~1,665K tokens** | **~118h** |
+| **TOTAL** | **~1,745K tokens** | **~124h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
