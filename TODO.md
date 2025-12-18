@@ -37,8 +37,12 @@
   - Nuevo endpoint batch `/api/cards/batch` para obtener múltiples cartas en una llamada
   - Import ahora usa batch en lugar de llamadas secuenciales (mucho más rápido)
   - Estado de carga durante import con spinner
-  - Categorización por tipo (Pokémon/Trainer/Energy) ya funcionaba
-  - Miniaturas de cartas ya funcionaban (el fix del batch asegura que se obtengan)
+  - Normalización de supertype (Pokemon vs Pokémon) para categorización
+- **PWA - Instalación móvil:**
+  - manifest.json con metadata de la app
+  - Service worker para cache y soporte offline
+  - Iconos de app (192px y 512px)
+  - Meta tags para iOS y Android
 
 ## Completado Sesiones Anteriores
 - Fix API URL para producción (runtime detection en lugar de build-time)
