@@ -65,14 +65,14 @@
 - [x] Paginación o infinite scroll
 
 ### Binder / Colección Personal
-- [ ] **Modelo de datos:**
+- [x] **Modelo de datos:**
   - Usuario puede marcar cantidad de cada carta que posee (0 a N)
   - Concepto PLAYSET: máximo jugable en deck (Pokemon: 4, Riftbound: 3)
   - Indicador visual si tiene playset completo
-- [ ] **UI en página de carta:**
+- [x] **UI en página de carta:**
   - Botón/contador para agregar carta a colección
   - Mostrar "tienes X de Y (playset)"
-- [ ] **Página /binder o /collection:**
+- [x] **Página /binder o /collection:**
   - Ver todas las cartas que el usuario posee
   - Filtrar por TCG, set, completitud de playset
   - Stats: total cartas, valor de colección (si aplica)
@@ -210,6 +210,15 @@
   - Página /catalog con filtros (TCG, set, tipo, rareza)
   - Vistas grid/list toggle
   - Paginación completa
+- **Binder / Colección Personal:**
+  - Modelo Collection con cantidad de cartas, playset tracking
+  - Endpoints: GET/POST/PUT/DELETE /api/collection/*
+  - UI de contador en página de carta con barra de progreso de playset
+  - Página /collection con estadísticas, filtros y vistas grid/list
+  - Playset: Pokemon=4, Riftbound=3
+- **Staging Favicon:**
+  - Script que convierte favicon a grayscale en staging.tcgkb.app
+  - Título cambia a [STAGING] TCG KB
 
 ### Sesiones Anteriores
 - Fix API URL para producción (runtime detection en lugar de build-time)

@@ -15,6 +15,7 @@ import Changelog from './pages/Changelog'
 import Roadmap from './pages/Roadmap'
 import RelationshipMap from './pages/RelationshipMap'
 import Catalog from './pages/Catalog'
+import Collection from './pages/Collection'
 import UserActivity from './pages/UserActivity'
 import DevDashboard from './pages/BugReports'
 import DeckList from './pages/DeckList'
@@ -47,6 +48,7 @@ function App() {
                       <Route path="/roadmap" element={<Roadmap />} />
                       <Route path="/relationship-map" element={<RelationshipMap />} />
                       <Route path="/catalog" element={<Catalog />} />
+                      <Route path="/collection" element={<Collection />} />
                       <Route path="/decks" element={<DeckList />} />
                       <Route path="/decks/new" element={<DeckBuilder />} />
                       <Route path="/decks/:deckId" element={<DeckDetail />} />
