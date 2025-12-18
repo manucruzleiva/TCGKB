@@ -60,7 +60,12 @@ export const createIssue = async (req, res) => {
 
     body += `---\n*Submitted via TCGKB Bug Reporter*`
 
-    // Create the issue via GitHub API
+    // Create the issue via GitHub API (without labels to avoid errors if they don't exist)
+    const issueData = {
+      title: `[Bug] ${title}`,
+      body
+    }
+
     const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues`, {
       method: 'POST',
       headers: {
@@ -69,11 +74,7 @@ export const createIssue = async (req, res) => {
         'X-GitHub-Api-Version': '2022-11-28',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        title: `[Bug] ${title}`,
-        body,
-        labels: ['bug', 'user-reported']
-      })
+      body: JSON.stringify(issueData)
     })
 
     if (!response.ok) {
@@ -121,17 +122,21 @@ export const getIssues = async (req, res) => {
       })
     }
 
-    const { state = 'all', labels = 'bug', page = 1, per_page = 30, sort = 'created', direction = 'desc' } = req.query
+    const { state = 'all', labels, page = 1, per_page = 30, sort = 'created', direction = 'desc' } = req.query
 
     // Fetch issues from GitHub API
     const params = new URLSearchParams({
       state,
-      labels,
       page: String(page),
       per_page: String(per_page),
       sort,
       direction
     })
+
+    // Only add labels filter if provided
+    if (labels) {
+      params.append('labels', labels)
+    }
 
     const response = await fetch(
       `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues?${params}`,
@@ -232,9 +237,9 @@ export const getIssueStats = async (req, res) => {
       })
     }
 
-    // Fetch open issues count
+    // Fetch open issues count (all issues, not filtered by label)
     const openResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues?state=open&labels=bug&per_page=1`,
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues?state=open&per_page=1`,
       {
         headers: {
           'Accept': 'application/vnd.github+json',
@@ -246,7 +251,7 @@ export const getIssueStats = async (req, res) => {
 
     // Fetch closed issues count
     const closedResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues?state=closed&labels=bug&per_page=1`,
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues?state=closed&per_page=1`,
       {
         headers: {
           'Accept': 'application/vnd.github+json',
@@ -288,7 +293,7 @@ export const getIssueStats = async (req, res) => {
     const since = thirtyDaysAgo.toISOString()
 
     const recentResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues?state=all&labels=bug&since=${since}&per_page=100`,
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues?state=all&since=${since}&per_page=100`,
       {
         headers: {
           'Accept': 'application/vnd.github+json',
