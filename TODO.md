@@ -1,18 +1,32 @@
 # TODO - TCG Knowledge Base
 
+> **Leyenda de Estimados:**
+> - 🎯 **Tokens**: Consumo estimado de tokens de Claude para implementar
+> - ⏱️ **Tiempo**: Tiempo estimado de desarrollo
+
+---
+
 ## Prioridad 1: UX/UI
 
 ### Navegación / Menú
-- [ ] **Hamburger Menu Refresh:**
+- [ ] **Hamburger Menu Refresh:** `~15K tokens | ~1h`
   - Eliminar ícono hamburguesa, usar logo de la app como invocador
   - Agregar sección Changelog
   - Agregar sección Roadmap
-- [ ] **Roadmap Automático desde TODO.md:**
+- [ ] **Roadmap Automático desde TODO.md:** `~40K tokens | ~3h`
   - Script/endpoint que parsea TODO.md
   - Extrae secciones de Prioridad 1, 2, 3
   - Genera JSON con items pendientes/completados
   - Página /roadmap que muestra el progreso público
   - Actualización automática al hacer deploy
+- [ ] **Changelog con commits de Staging:** `~50K tokens | ~3.5h`
+  - Endpoint que consulta GitHub API para commits de `stage` branch
+  - Mostrar lista de commits recientes con mensaje, autor, fecha
+  - Filtrar commits por tipo (feat, fix, refactor, etc.)
+  - Indicador visual de "En desarrollo" vs "En producción"
+  - Sección "Próximamente" con commits pendientes de merge a main
+  - Auto-refresh periódico o webhook de GitHub
+  - Agrupación por fecha o por feature
 
 ### Homepage Refresh
 - [x] Cambiar emoji de rayo ⚡ por Pokebola para Pokemon
@@ -46,93 +60,169 @@
   - Más compacto y legible
 
 ### Sistema de Avatares
-- [ ] Búsqueda de Pokémon para avatar - permitir buscar todos los Pokémon en todas sus formas
-- [ ] Elegir background del avatar (colores, patrones, etc.)
-- [ ] Sprites de entrenadores como opción de avatar (investigar fuente de sprites)
-- [ ] Sprites de backgrounds como opción (investigar disponibilidad)
+- [ ] Búsqueda de Pokémon para avatar `~25K tokens | ~2h`
+  - Permitir buscar todos los Pokémon en todas sus formas
+- [ ] Elegir background del avatar `~20K tokens | ~1.5h`
+  - Colores, patrones, etc.
+- [ ] Sprites de entrenadores como opción de avatar `~15K tokens | ~1h`
+  - Investigar fuente de sprites
+- [ ] Sprites de backgrounds como opción `~15K tokens | ~1h`
+  - Investigar disponibilidad
 
 ### Relationship Map
-- [ ] RELATIONSHIP MAP en hamburger menu:
+- [ ] **RELATIONSHIP MAP en hamburger menu:** `~80K tokens | ~6h`
   - Canvas con zoom in/out
   - Mostrar cartas que tengan comentarios
   - Si un comentario tiene @ referenciando carta/habilidad/ataque, mostrar flecha de conexión
 
+### Sistema de Reprints
+- [ ] **Modelo de datos para Reprints:** `~35K tokens | ~2.5h`
+  - Campo `reprintGroup` o `canonicalId` que agrupa cartas equivalentes
+  - Identificar reprints por: mismo nombre + mismo texto de ataque/habilidad
+  - Diferenciar: reprint exacto vs alternate art vs promo version
+  - Tipos de reprint: `exact`, `alternate_art`, `promo`, `special_art`
+- [ ] **Algoritmo de detección automática:** `~45K tokens | ~3h`
+  - Comparar nombre de carta (normalizado, sin sufijos de set)
+  - Comparar texto de ataques/habilidades (fuzzy match para variaciones menores)
+  - Comparar stats (HP, daño, costo de energía)
+  - Script de análisis masivo para cartas existentes en cache
+  - Marcar como "pendiente de revisión" si match es parcial
+- [ ] **UI en página de carta:** `~30K tokens | ~2h`
+  - Sección "Otras versiones de esta carta"
+  - Mostrar thumbnail de cada reprint con set y rareza
+  - Indicador de tipo (exact/alt art/promo)
+  - Click para navegar al reprint
+  - Badge "X versiones disponibles" en card header
+- [ ] **Filtros y búsqueda por reprints:** `~25K tokens | ~2h`
+  - En catálogo: toggle "Mostrar solo una versión por carta"
+  - Filtro "Solo alternate arts"
+  - Búsqueda que agrupa reprints en resultados
+  - Contador de versiones en resultados de búsqueda
+
 ### Catálogo (/catalog)
-- [ ] Página de catálogo completo de cartas
-- [ ] Filtros por TCG (Pokemon / Riftbound)
-- [ ] Filtros por set, tipo, rareza, etc.
-- [ ] Vista grid/list toggle
-- [ ] Paginación o infinite scroll
+- [ ] Página de catálogo completo de cartas `~50K tokens | ~4h`
+  - Filtros por TCG (Pokemon / Riftbound)
+  - Filtros por set, tipo, rareza, etc.
+  - Vista grid/list toggle
+  - Paginación o infinite scroll
 
 ### Binder / Colección Personal
-- [ ] **Modelo de datos:**
+- [ ] **Modelo de datos:** `~30K tokens | ~2h`
   - Usuario puede marcar cantidad de cada carta que posee (0 a N)
   - Concepto PLAYSET: máximo jugable en deck (Pokemon: 4, Riftbound: 3)
   - Indicador visual si tiene playset completo
-- [ ] **UI en página de carta:**
+- [ ] **UI en página de carta:** `~25K tokens | ~2h`
   - Botón/contador para agregar carta a colección
   - Mostrar "tienes X de Y (playset)"
-- [ ] **Página /binder o /collection:**
+- [ ] **Página /binder o /collection:** `~45K tokens | ~3h`
   - Ver todas las cartas que el usuario posee
   - Filtrar por TCG, set, completitud de playset
   - Stats: total cartas, valor de colección (si aplica)
-- [ ] **Decks sugeridos:**
+- [ ] **Decks sugeridos:** `~60K tokens | ~4h`
   - Basado en cartas que el usuario posee
   - Mostrar % de completitud de decks populares
   - Sugerir cartas faltantes para completar decks
 
 ### Sistema de Fans de Artistas
-- [ ] **Modelo Artist:**
+- [ ] **Modelo Artist:** `~25K tokens | ~2h`
   - Nombre del artista
   - Contador de fans
   - Lista de usuarios fans
-- [ ] **UI en página de carta:**
+- [ ] **UI en página de carta:** `~30K tokens | ~2h`
   - Nombre del artista clickeable
   - Mostrar cantidad de fans del artista
   - Click para hacerse fan (toggle)
   - Cambio visual cuando eres fan (highlight, icono, etc.)
-- [ ] **Página de artista (opcional):**
+- [ ] **Página de artista (opcional):** `~35K tokens | ~2.5h`
   - Ver todas las cartas de un artista
   - Ranking de artistas más populares
+
+### Overhaul de Diseño Gráfico
+- [ ] **Rediseño de identidad visual:** `~30K tokens | ~2h`
+  - Definir paleta de colores consistente (light/dark mode)
+  - Tipografía unificada
+  - Espaciado y grid system coherente
+- [ ] **Componentes UI mejorados:** `~40K tokens | ~3h`
+  - Botones con estados hover/active/disabled consistentes
+  - Inputs y forms con mejor feedback visual
+  - Cards y containers con sombras/bordes unificados
+- [ ] **Animaciones y transiciones:** `~25K tokens | ~2h`
+  - Transiciones suaves entre páginas
+  - Micro-interacciones en botones y elementos
+  - Loading states animados
+- [ ] **Responsive design audit:** `~35K tokens | ~2.5h`
+  - Revisar breakpoints móvil/tablet/desktop
+  - Mejorar navegación móvil
+  - Optimizar layouts para pantallas pequeñas
+- [ ] **Iconografía consistente:** `~20K tokens | ~1.5h`
+  - Set de íconos unificado (mismo estilo)
+  - Tamaños consistentes
+  - Colores que respeten el tema activo
 
 ---
 
 ## Prioridad 2: Funcionalidad
 
 ### Decks
-- [ ] Import Deck - botón directo en Decks para importar decks de Riftbound o Pokemon
+- [ ] Import Deck `~35K tokens | ~2.5h`
+  - Botón directo en Decks para importar decks de Riftbound o Pokemon
 
 ### Autenticación / Usuario
 - [x] User data chips - reemplazar chip 'admin' por tags actuales (mod/dev/ambos)
-- [ ] Change email - requiere input del email actual para mayor seguridad
+- [ ] Change email `~20K tokens | ~1.5h`
+  - Requiere input del email actual para mayor seguridad
 - [x] Login con username - permitir login con username además de correo
 - [x] Username único - validar que no existan duplicados al registrar o cambiar username (case-insensitive)
 
 ### Ranking Híbrido de Popularidad
-- [ ] Endpoint `GET /api/cards/popular` - Top cartas por reacciones/comentarios
-- [ ] Cachear resultado (actualizar cada hora)
-- [ ] Si query vacío: Top 1 más popular + mix aleatorio del pool top 50
-- [ ] Fórmula: `thumbsUp - thumbsDown + comments.count + mentions.count`
-- [ ] Agregar menciones (@) como factor de popularidad
-- [ ] Agregación que suma reacciones por carta (incluyendo atributos)
-- [ ] Endpoint `GET /api/stats/popularity`
+- [ ] Endpoint `GET /api/cards/popular` `~30K tokens | ~2h`
+  - Top cartas por reacciones/comentarios
+- [ ] Cachear resultado `~15K tokens | ~1h`
+  - Actualizar cada hora
+- [ ] Lógica de query vacío `~20K tokens | ~1.5h`
+  - Top 1 más popular + mix aleatorio del pool top 50
+- [ ] Fórmula de popularidad `~25K tokens | ~2h`
+  - `thumbsUp - thumbsDown + comments.count + mentions.count`
+  - Agregar menciones (@) como factor de popularidad
+  - Agregación que suma reacciones por carta (incluyendo atributos)
+- [ ] Endpoint `GET /api/stats/popularity` `~20K tokens | ~1.5h`
 
 ---
 
 ## Prioridad 3: Backend / Infraestructura
 
 ### Dev Dashboard
-- [ ] Agregar health check de todos los endpoints API
-- [ ] Lista de reportes - filtrar por asignatario
-- [ ] Lista de reportes - filtrar por estado
-- [ ] Lista de reportes - sort oldest/newest
-- [ ] SLA tracking:
+- [ ] Health check de todos los endpoints API `~25K tokens | ~2h`
+- [ ] Lista de reportes - filtrar por asignatario `~15K tokens | ~1h`
+- [ ] Lista de reportes - filtrar por estado `~15K tokens | ~1h`
+- [ ] Lista de reportes - sort oldest/newest `~10K tokens | ~0.5h`
+- [ ] SLA tracking `~40K tokens | ~3h`
   - Tiempo desde NEW → Processing
   - Tiempo desde Processing → Closed
   - Tracking completo del ciclo de vida del reporte
 
+### Bug Reporter - Integraciones
+- [ ] **Integración con GitHub Issues:** `~45K tokens | ~3h`
+  - Botón "Crear Issue en GitHub" desde Dev Dashboard
+  - Mapear campos del bug report a formato de Issue
+  - Incluir screenshot como imagen en el issue
+  - Labels automáticos (bug, from-app, prioridad)
+  - Sincronizar estado: cuando Issue se cierra, actualizar bug report
+  - GitHub API con token de servicio
+- [ ] **Integración con TODO.md:** `~35K tokens | ~2.5h`
+  - Botón "Agregar al Roadmap" desde Dev Dashboard
+  - Generar item formateado con estimado sugerido
+  - Elegir prioridad (P1/P2/P3) y sección
+  - Commit automático al archivo TODO.md
+  - Webhook o GitHub Action para push
+- [ ] **Auto-clasificación de bugs:** `~30K tokens | ~2h`
+  - Analizar descripción del bug con heurísticas
+  - Sugerir prioridad automáticamente
+  - Detectar duplicados potenciales
+  - Tags automáticos según página/componente afectado
+
 ### Sistema de Reputación
-- [ ] **Obtención de puntos:**
+- [ ] **Obtención de puntos:** `~50K tokens | ~4h`
   - Participar/generar conversaciones (comentarios)
   - Usar sistema @ en comentarios (menciones)
   - Recibir reacciones positivas en comentarios
@@ -141,29 +231,29 @@
   - Bug desestimado (-puntos, penalización)
   - Crear decks originales
   - Recibir reacciones positivas en decks
-- [ ] **Penalización por moderación:**
+- [ ] **Penalización por moderación:** `~30K tokens | ~2h`
   - Comentario moderado = penalización fuerte de puntos
   - Sistema de rollback si comentario es restaurado
   - Registro en ledger de la penalización y posible reversión
-- [ ] **Configuración de Pesos (Mod Dashboard):**
+- [ ] **Configuración de Pesos (Mod Dashboard):** `~45K tokens | ~3h`
   - UI en dashboard para configurar puntos por cada acción
   - Tabla de acciones con peso editable (ej: comentario=5pts, mención=2pts)
   - Decay configurable por tipo de acción (ej: comentario=60días, reacción=30días)
   - Preview de impacto antes de aplicar cambios
-- [ ] **Aplicación Reactiva de Pesos:**
+- [ ] **Aplicación Reactiva de Pesos:** `~55K tokens | ~4h`
   - Al cambiar pesos, recalcular puntos de todos los usuarios
   - Job en background para recálculo masivo
   - Notificación a usuarios si su reputación cambia significativamente
   - Historial de cambios de configuración (quién, cuándo, qué cambió)
-- [ ] **Deck Hash System:**
+- [ ] **Deck Hash System:** `~25K tokens | ~2h`
   - Generar hash único por composición de deck
   - Verificar unicidad al crear/modificar deck
   - Detectar decks duplicados/copiados
-- [ ] **Ledger de Puntos:**
+- [ ] **Ledger de Puntos:** `~35K tokens | ~2.5h`
   - Registro histórico de todas las transacciones de puntos
   - Inspección por mods (quién, cuándo, por qué)
   - Detalle de cada evento que generó puntos
-- [ ] **Wither System (Decay):**
+- [ ] **Wither System (Decay):** `~40K tokens | ~3h`
   - Puntos tienen fecha de expiración (2 meses después de obtenidos)
   - Puntos "marchitan" (wither) y no cuentan al total
   - Cron job para procesar decay automáticamente
@@ -219,6 +309,20 @@
 - Remover "Tabla de Tipos" (TypeChart page)
 - Mejores mensajes de error en login (códigos específicos + bilingüe)
 - Renombrar "Bug Reports" a "Dev Dashboard" con health monitoring
+
+---
+
+## Resumen de Estimados
+
+| Prioridad | Tokens Estimados | Tiempo Estimado |
+|-----------|------------------|-----------------|
+| P1: UX/UI | ~845K tokens | ~59.5h |
+| P2: Funcionalidad | ~165K tokens | ~12h |
+| P3: Backend/Infra | ~495K tokens | ~34.5h |
+| **TOTAL** | **~1,505K tokens** | **~106h** |
+
+> **Nota**: Estos estimados asumen implementación desde cero con Claude.
+> El consumo real puede variar según iteraciones, debugging y cambios de scope.
 
 ---
 
