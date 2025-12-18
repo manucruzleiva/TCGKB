@@ -76,23 +76,46 @@
   - Si un comentario tiene @ referenciando carta/habilidad/ataque, mostrar flecha de conexión
 
 ### Sistema de Reprints
-- [ ] **Modelo de datos para Reprints:** `~35K tokens | ~2.5h`
+- [ ] **Modelo de datos para Reprints:** `~40K tokens | ~3h`
   - Campo `reprintGroup` o `canonicalId` que agrupa cartas equivalentes
   - Identificar reprints por: mismo nombre + mismo texto de ataque/habilidad
   - Diferenciar: reprint exacto vs alternate art vs promo version
   - Tipos de reprint: `exact`, `alternate_art`, `promo`, `special_art`
+  - **Datos COMPARTIDOS entre reprints (por canonicalId):**
+    - Comentarios y reacciones (engagement unificado)
+    - Stats de jugabilidad (HP, ataques, habilidades, costos)
+    - Nombre canónico de la carta
+  - **Datos ÚNICOS por versión:**
+    - Artista de la carta
+    - Set y número de carta
+    - Rareza
+    - Arte/imagen
+    - Fans del artista
 - [ ] **Algoritmo de detección automática:** `~45K tokens | ~3h`
   - Comparar nombre de carta (normalizado, sin sufijos de set)
   - Comparar texto de ataques/habilidades (fuzzy match para variaciones menores)
   - Comparar stats (HP, daño, costo de energía)
   - Script de análisis masivo para cartas existentes en cache
   - Marcar como "pendiente de revisión" si match es parcial
-- [ ] **UI en página de carta:** `~30K tokens | ~2h`
-  - Sección "Otras versiones de esta carta"
-  - Mostrar thumbnail de cada reprint con set y rareza
-  - Indicador de tipo (exact/alt art/promo)
-  - Click para navegar al reprint
-  - Badge "X versiones disponibles" en card header
+- [ ] **Carrusel de Artes (UI principal):** `~50K tokens | ~4h`
+  - Click en arte de carta → mostrar siguiente versión (carousel)
+  - Indicador de dots/pills mostrando versión actual (1/5, 2/5, etc.)
+  - Swipe en móvil para cambiar arte
+  - Transición suave entre artes (fade o slide)
+  - Mantener visible: nombre artista actual, set, rareza de versión mostrada
+  - Info de jugabilidad permanece estática (no cambia con el arte)
+  - Botón "Ver todas las versiones" → abre galería completa
+- [ ] **Engagement unificado por canonicalId:** `~35K tokens | ~2.5h`
+  - Comentarios se guardan con `canonicalId`, no con `cardId` individual
+  - Reacciones a la carta se agregan al grupo de reprints
+  - Contador de comentarios muestra total del grupo
+  - Al comentar, se asocia al canonicalId
+  - Migración de comentarios existentes a canonicalId
+- [ ] **Sección de Artistas por versión:** `~30K tokens | ~2h`
+  - Mostrar artista de la versión actualmente visible en carrusel
+  - Botón "Fan" específico por artista (no por carta)
+  - "Este arte por [Artista] - X fans"
+  - Al cambiar arte en carrusel, actualiza info del artista
 - [ ] **Filtros y búsqueda por reprints:** `~25K tokens | ~2h`
   - En catálogo: toggle "Mostrar solo una versión por carta"
   - Filtro "Solo alternate arts"
@@ -316,10 +339,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~845K tokens | ~59.5h |
+| P1: UX/UI | ~935K tokens | ~66.5h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,505K tokens** | **~106h** |
+| **TOTAL** | **~1,595K tokens** | **~113h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
