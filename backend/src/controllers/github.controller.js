@@ -79,10 +79,15 @@ export const createIssue = async (req, res) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      log.error(MODULE, `GitHub API error: ${response.status}`, errorData)
+      log.error(MODULE, `GitHub API error: ${response.status}`, {
+        error: errorData,
+        owner: GITHUB_OWNER,
+        repo: GITHUB_REPO,
+        tokenConfigured: !!GITHUB_TOKEN
+      })
       return res.status(response.status).json({
         success: false,
-        message: errorData.message || 'Failed to create GitHub issue'
+        message: errorData.message || `GitHub API error: ${response.status}`
       })
     }
 
