@@ -112,6 +112,12 @@
   - Mostrar progreso de análisis (X de Y cartas procesadas)
   - Reporte de reprints encontrados con estadísticas
   - Opción de revisar/aprobar matches parciales
+- [ ] **Poblar reprints para Pokemon:** `~30K tokens | ~2h`
+  - Actualmente cartas Pokemon no muestran reprints (ej: Pikachu EX sv8-57)
+  - Ejecutar algoritmo de detección en todas las cartas Pokemon cacheadas
+  - Pokemon TCG API puede tener campo de reprints/related cards
+  - Considerar usar nombre exacto + tipo de carta para matching
+  - Priorizar cartas populares/meta relevantes
 - [ ] **UI en página de carta - Carrusel de reprints:** `~45K tokens | ~3h`
   - Remover contador x/2 de esquina superior izquierda de imagen
   - Swipe o click para ciclar entre imágenes de reprints
@@ -142,6 +148,13 @@
   - Insertar salto de línea automático
   - Ejemplo: "battlefield.Friendly" → "battlefield.\nFriendly"
   - Mejorar legibilidad del texto de cartas
+- [ ] **Sprites de energía en ataques Pokemon (no emojis):** `~25K tokens | ~2h`
+  - Reemplazar emojis de tipos por sprites oficiales de energía
+  - Grass, Fire, Water, Lightning, Psychic, Fighting, etc.
+  - Usar sprites de PokeAPI o recursos existentes
+  - Aplicar en costo de energía de cada ataque
+  - Colorless energy también con sprite
+  - Consistente tamaño y alineación con texto
 
 ### Catálogo (/catalog)
 - [x] Página de catálogo completo de cartas
@@ -333,10 +346,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~820K tokens | ~58h |
+| P1: UX/UI | ~875K tokens | ~62h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~625K tokens | ~44h |
-| **TOTAL** | **~1,610K tokens** | **~114h** |
+| **TOTAL** | **~1,665K tokens** | **~118h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
