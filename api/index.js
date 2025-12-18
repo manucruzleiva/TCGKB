@@ -365,6 +365,17 @@ app.get('/api/health/endpoints', async (req, res) => {
 
     // Users
     { name: 'User Activity', method: 'GET', path: '/api/users/:username/activity', category: 'users', protected: false },
+    { name: 'User Collection', method: 'GET', path: '/api/users/:username/collection', category: 'users', protected: false },
+
+    // Collection (authenticated user)
+    { name: 'My Collection', method: 'GET', path: '/api/collection', category: 'collection', protected: true },
+    { name: 'Collection Stats', method: 'GET', path: '/api/collection/stats', category: 'collection', protected: true },
+    { name: 'Collection Filters', method: 'GET', path: '/api/collection/filters', category: 'collection', protected: true },
+    { name: 'Batch Check Ownership', method: 'POST', path: '/api/collection/batch', category: 'collection', protected: true },
+    { name: 'Card Ownership', method: 'GET', path: '/api/collection/card/:cardId', category: 'collection', protected: true },
+    { name: 'Add to Collection', method: 'POST', path: '/api/collection/add', category: 'collection', protected: true },
+    { name: 'Set Quantity', method: 'PUT', path: '/api/collection/quantity', category: 'collection', protected: true },
+    { name: 'Remove from Collection', method: 'DELETE', path: '/api/collection/card/:cardId', category: 'collection', protected: true },
 
     // Health
     { name: 'Health Check', method: 'GET', path: '/api/health', category: 'health', protected: false },
@@ -456,6 +467,7 @@ app.use('/api', async (req, res, next) => {
       const bugReportRoutes = (await import('../backend/src/routes/bugReport.routes.js')).default
       const githubRoutes = (await import('../backend/src/routes/github.routes.js')).default
       const usersRoutes = (await import('../backend/src/routes/users.routes.js')).default
+      const collectionRoutes = (await import('../backend/src/routes/collection.routes.js')).default
 
       app.use('/api/auth', ensureDbConnection, authRoutes)
       app.use('/api/cards', ensureDbConnection, cardsRoutes)
@@ -467,6 +479,7 @@ app.use('/api', async (req, res, next) => {
       app.use('/api/bugs', ensureDbConnection, bugReportRoutes)
       app.use('/api/github', ensureDbConnection, githubRoutes)
       app.use('/api/users', ensureDbConnection, usersRoutes)
+      app.use('/api/collection', ensureDbConnection, collectionRoutes)
 
       routesLoaded = true
     } catch (error) {
