@@ -512,20 +512,19 @@ export const getRelationshipMap = async (req, res) => {
     // Get unique card IDs
     const cardIds = cardsWithComments.map(c => c._id)
 
-    // Fetch card details from cache
-    const cards = await CardCache.find({ id: { $in: cardIds } })
-      .select('id name images tcgSystem set')
+    // Fetch card details from cache - use cardId field, data is in 'data' object
+    const cards = await CardCache.find({ cardId: { $in: cardIds } })
       .lean()
 
     // Create card lookup map
     const cardMap = {}
     cards.forEach(card => {
-      cardMap[card.id] = {
-        id: card.id,
-        name: card.name,
-        image: card.images?.small || card.images?.large,
+      cardMap[card.cardId] = {
+        id: card.cardId,
+        name: card.data?.name,
+        image: card.data?.images?.small || card.data?.images?.large,
         tcgSystem: card.tcgSystem,
-        set: card.set?.name
+        set: card.data?.set?.name
       }
     })
 
@@ -579,17 +578,16 @@ export const getRelationshipMap = async (req, res) => {
     const missingCardIds = mentionedCardIds.filter(id => !cardMap[id])
 
     if (missingCardIds.length > 0) {
-      const missingCards = await CardCache.find({ id: { $in: missingCardIds } })
-        .select('id name images tcgSystem set')
+      const missingCards = await CardCache.find({ cardId: { $in: missingCardIds } })
         .lean()
 
       missingCards.forEach(card => {
         nodes.push({
-          id: card.id,
-          name: card.name,
-          image: card.images?.small || card.images?.large,
+          id: card.cardId,
+          name: card.data?.name,
+          image: card.data?.images?.small || card.data?.images?.large,
           tcgSystem: card.tcgSystem,
-          set: card.set?.name,
+          set: card.data?.set?.name,
           commentCount: 0
         })
       })

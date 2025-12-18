@@ -377,7 +377,7 @@ export const getCatalog = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(pageSize)
     const limit = Math.min(parseInt(pageSize), 48) // Max 48 per page
 
-    // Build MongoDB query
+    // Build MongoDB query - card data is stored in 'data' field
     const query = {}
 
     if (tcgSystem) {
@@ -385,36 +385,55 @@ export const getCatalog = async (req, res) => {
     }
 
     if (set) {
-      query['set.id'] = set
+      query['data.set.id'] = set
     }
 
     if (supertype) {
-      query.supertype = supertype
+      query['data.supertype'] = supertype
     }
 
     if (rarity) {
-      query.rarity = rarity
+      query['data.rarity'] = rarity
     }
 
     if (name) {
-      query.name = { $regex: name, $options: 'i' }
+      query['data.name'] = { $regex: name, $options: 'i' }
     }
 
-    // Build sort object
+    // Build sort object - fields are in data.*
     const sort = {}
-    const sortField = sortBy === 'releaseDate' ? 'set.releaseDate' : sortBy
+    let sortField
+    if (sortBy === 'releaseDate') {
+      sortField = 'data.set.releaseDate'
+    } else if (sortBy === 'name') {
+      sortField = 'data.name'
+    } else {
+      sortField = `data.${sortBy}`
+    }
     sort[sortField] = sortOrder === 'desc' ? -1 : 1
 
     // Get total count and cards
-    const [total, cards] = await Promise.all([
+    const [total, cachedCards] = await Promise.all([
       CardCache.countDocuments(query),
       CardCache.find(query)
-        .select('id name supertype images set number rarity tcgSystem regulationMark')
         .sort(sort)
         .skip(skip)
         .limit(limit)
         .lean()
     ])
+
+    // Transform cached cards to expected format
+    const cards = cachedCards.map(c => ({
+      id: c.cardId,
+      name: c.data?.name,
+      supertype: c.data?.supertype,
+      images: c.data?.images,
+      set: c.data?.set,
+      number: c.data?.number,
+      rarity: c.data?.rarity,
+      tcgSystem: c.tcgSystem,
+      regulationMark: c.data?.regulationMark
+    }))
 
     const totalPages = Math.ceil(total / limit)
 
@@ -450,20 +469,21 @@ export const getCatalogFilters = async (req, res) => {
 
     const matchStage = tcgSystem ? { tcgSystem } : {}
 
+    // Card data is stored in 'data' field
     const [sets, supertypes, rarities] = await Promise.all([
       CardCache.aggregate([
         { $match: matchStage },
-        { $group: { _id: { id: '$set.id', name: '$set.name' }, count: { $sum: 1 } } },
+        { $group: { _id: { id: '$data.set.id', name: '$data.set.name' }, count: { $sum: 1 } } },
         { $sort: { '_id.name': 1 } }
       ]),
       CardCache.aggregate([
         { $match: matchStage },
-        { $group: { _id: '$supertype', count: { $sum: 1 } } },
+        { $group: { _id: '$data.supertype', count: { $sum: 1 } } },
         { $sort: { _id: 1 } }
       ]),
       CardCache.aggregate([
         { $match: matchStage },
-        { $group: { _id: '$rarity', count: { $sum: 1 } } },
+        { $group: { _id: '$data.rarity', count: { $sum: 1 } } },
         { $sort: { _id: 1 } }
       ])
     ])
