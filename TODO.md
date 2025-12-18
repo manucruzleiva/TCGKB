@@ -19,6 +19,14 @@
   - Genera JSON con items pendientes/completados
   - Página /roadmap que muestra el progreso público
   - Actualización automática al hacer deploy
+- [ ] **Changelog con commits de Staging:** `~50K tokens | ~3.5h`
+  - Endpoint que consulta GitHub API para commits de `stage` branch
+  - Mostrar lista de commits recientes con mensaje, autor, fecha
+  - Filtrar commits por tipo (feat, fix, refactor, etc.)
+  - Indicador visual de "En desarrollo" vs "En producción"
+  - Sección "Próximamente" con commits pendientes de merge a main
+  - Auto-refresh periódico o webhook de GitHub
+  - Agrupación por fecha o por feature
 
 ### Homepage Refresh
 - [x] Cambiar emoji de rayo ⚡ por Pokebola para Pokemon
@@ -284,10 +292,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~660K tokens | ~46.5h |
+| P1: UX/UI | ~710K tokens | ~50h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,320K tokens** | **~93h** |
+| **TOTAL** | **~1,370K tokens** | **~96.5h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
