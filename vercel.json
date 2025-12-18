@@ -2,8 +2,7 @@
   "git": {
     "deploymentEnabled": {
       "main": true,
-      "stage": true,
-      "dev": true
+      "stage": true
     }
   },
   "outputDirectory": "frontend/dist",

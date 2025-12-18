@@ -1,5 +1,5 @@
 import express from 'express'
-import { getStats, getDetailedStats } from '../controllers/stats.controller.js'
+import { getStats, getDetailedStats, getGitHubCommits } from '../controllers/stats.controller.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
 
 const router = express.Router()
@@ -9,5 +9,8 @@ router.get('/', generalLimiter, getStats)
 
 // Get detailed statistics with distributions
 router.get('/detailed', generalLimiter, getDetailedStats)
+
+// Get GitHub commits for changelog (supports ?branch=main|stage)
+router.get('/commits', generalLimiter, getGitHubCommits)
 
 export default router
