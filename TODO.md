@@ -169,6 +169,26 @@
   - Tiempo desde Processing → Closed
   - Tracking completo del ciclo de vida del reporte
 
+### Bug Reporter - Integraciones
+- [ ] **Integración con GitHub Issues:** `~45K tokens | ~3h`
+  - Botón "Crear Issue en GitHub" desde Dev Dashboard
+  - Mapear campos del bug report a formato de Issue
+  - Incluir screenshot como imagen en el issue
+  - Labels automáticos (bug, from-app, prioridad)
+  - Sincronizar estado: cuando Issue se cierra, actualizar bug report
+  - GitHub API con token de servicio
+- [ ] **Integración con TODO.md:** `~35K tokens | ~2.5h`
+  - Botón "Agregar al Roadmap" desde Dev Dashboard
+  - Generar item formateado con estimado sugerido
+  - Elegir prioridad (P1/P2/P3) y sección
+  - Commit automático al archivo TODO.md
+  - Webhook o GitHub Action para push
+- [ ] **Auto-clasificación de bugs:** `~30K tokens | ~2h`
+  - Analizar descripción del bug con heurísticas
+  - Sugerir prioridad automáticamente
+  - Detectar duplicados potenciales
+  - Tags automáticos según página/componente afectado
+
 ### Sistema de Reputación
 - [ ] **Obtención de puntos:** `~50K tokens | ~4h`
   - Participar/generar conversaciones (comentarios)
@@ -266,8 +286,8 @@
 |-----------|------------------|-----------------|
 | P1: UX/UI | ~660K tokens | ~46.5h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
-| P3: Backend/Infra | ~385K tokens | ~27h |
-| **TOTAL** | **~1,210K tokens** | **~85.5h** |
+| P3: Backend/Infra | ~495K tokens | ~34.5h |
+| **TOTAL** | **~1,320K tokens** | **~93h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
