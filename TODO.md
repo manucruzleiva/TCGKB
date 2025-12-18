@@ -32,6 +32,25 @@
   - Revisar endpoint que trae los bug reports
   - Verificar paginación o filtrado incorrecto
   - Revisar rendering de la tabla en DevDashboard
+- [ ] **Fix Mobile: Buscador no visible en modo vertical:** `~20K tokens | ~1.5h`
+  - BUG CRÍTICO: App inutilizable en mobile vertical
+  - El search bar tiene `hidden md:block`, se oculta en pantallas pequeñas
+  - Agregar ícono de lupa visible en mobile para invocar búsqueda
+  - Crear overlay/modal de búsqueda para mobile
+  - Mantener funcionalidad de autocomplete en mobile
+- [ ] **Refactor Header: Mover theme/language al user dropdown:** `~15K tokens | ~1h`
+  - Remover ThemeSwitcher y LanguageSwitcher de la nav bar principal
+  - Agregar toggles de theme/language dentro del dropdown del usuario
+  - Ubicarlos sobre el link de Settings
+  - Simplifica el header, especialmente en mobile
+- [ ] **Fix User Dropdown: Remover email visible:** `~5K tokens | ~0.25h`
+  - El email no debería mostrarse en el dropdown (privacidad)
+  - Mantener solo username y avatar en el header del dropdown
+- [ ] **Agregar link "Mi Página" en user dropdown:** `~10K tokens | ~0.5h`
+  - Link a `/user/:username` del usuario autenticado
+  - Mostrar colección del usuario y su actividad
+  - Ver comentarios y reacciones del usuario
+  - Ubicar debajo del username en el dropdown
 
 ### Navegación / Menú
 - [x] **Hamburger Menu Refresh:**
@@ -167,6 +186,26 @@
 
 ## Prioridad 3: Backend / Infraestructura
 
+### Mod Dashboard Mejoras
+- [ ] **Fichas adicionales en dashboard:** `~20K tokens | ~1.5h`
+  - Ficha de Developers (cantidad de devs activos)
+  - Ficha de Total Interactions (comentarios + reacciones)
+  - Ficha de Mods (cantidad de moderadores)
+- [ ] **Gráficas incrementales (acumulativas):** `~35K tokens | ~2.5h`
+  - Cambiar de "cuántos ese día" a "cuántos tenemos al día de la fecha"
+  - Comentarios: línea acumulativa de total histórico
+  - Reacciones: línea acumulativa de total histórico
+  - Actividad: línea acumulativa
+  - Toggle para ver incremental vs diario (opcional)
+- [ ] **Users Over Time segmentado:** `~25K tokens | ~2h`
+  - Separar en líneas/áreas diferentes:
+    - Users totales
+    - Users inactivos
+    - Developers
+    - Mods
+  - Leyenda con colores distintivos
+  - Hover muestra breakdown por categoría
+
 ### Dev Dashboard
 - [ ] **API Endpoints - Vista compacta:** `~15K tokens | ~1h`
   - Visualización más compacta de métodos (GET/POST/PUT/DELETE en badges pequeños)
@@ -248,10 +287,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~605K tokens | ~43h |
+| P1: UX/UI | ~655K tokens | ~46h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
-| P3: Backend/Infra | ~545K tokens | ~38h |
-| **TOTAL** | **~1,315K tokens** | **~93h** |
+| P3: Backend/Infra | ~625K tokens | ~44h |
+| **TOTAL** | **~1,445K tokens** | **~102h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
