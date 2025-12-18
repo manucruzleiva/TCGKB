@@ -124,6 +124,18 @@
   - Búsqueda que agrupa reprints en resultados
   - Contador de versiones en resultados de búsqueda
 
+### Página de Carta (Card Details)
+- [ ] **Parsing de sprites en card text (Riftbound):** `~20K tokens | ~1.5h`
+  - Detectar tokens como `:rb_might:`, `:rb_grace:`, etc. en el texto
+  - Reemplazar por sprites correspondientes de runas
+  - Usar assets de Drive/librería de recursos existente
+  - Aplicar en descripción de carta, efectos, habilidades
+- [ ] **Fix line breaks en card text:** `~10K tokens | ~0.5h`
+  - Detectar punto seguido sin espacio (`.X` donde X es mayúscula)
+  - Insertar salto de línea automático
+  - Ejemplo: "battlefield.Friendly" → "battlefield.\nFriendly"
+  - Mejorar legibilidad del texto de cartas
+
 ### Catálogo (/catalog)
 - [x] Página de catálogo completo de cartas
 - [x] Filtros por TCG (Pokemon / Riftbound)
@@ -308,10 +320,10 @@
 
 | Prioridad | Tokens Estimados | Tiempo Estimado |
 |-----------|------------------|-----------------|
-| P1: UX/UI | ~740K tokens | ~52h |
+| P1: UX/UI | ~770K tokens | ~54h |
 | P2: Funcionalidad | ~165K tokens | ~12h |
 | P3: Backend/Infra | ~625K tokens | ~44h |
-| **TOTAL** | **~1,530K tokens** | **~108h** |
+| **TOTAL** | **~1,560K tokens** | **~110h** |
 
 > **Nota**: Estos estimados asumen implementación desde cero con Claude.
 > El consumo real puede variar según iteraciones, debugging y cambios de scope.
