@@ -18,6 +18,7 @@ import deckRoutes from './routes/deck.routes.js'
 import usersRoutes from './routes/users.routes.js'
 import collectionRoutes from './routes/collection.routes.js'
 import artistsRoutes from './routes/artists.routes.js'
+import githubRoutes from './routes/github.routes.js'
 
 // Load environment variables
 dotenv.config()
@@ -275,6 +276,7 @@ app.use('/api/decks', deckRoutes)
 app.use('/api/users', usersRoutes)
 app.use('/api/collection', collectionRoutes)
 app.use('/api/artists', artistsRoutes)
+app.use('/api/github', githubRoutes)
 
 // Error handler (must be last)
 app.use(errorHandler)
