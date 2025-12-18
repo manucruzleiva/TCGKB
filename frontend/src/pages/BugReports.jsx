@@ -168,11 +168,12 @@ const DevDashboard = () => {
     }
   }
 
-  const syncPokemonCards = async () => {
+  const syncPokemonCards = async (allSets = false) => {
     try {
       setSyncingPokemon(true)
       setSyncResult(null)
-      const response = await api.post('/mod/cache/sync/pokemon', {}, { timeout: 600000 })
+      const url = allSets ? '/mod/cache/sync/pokemon?allSets=true' : '/mod/cache/sync/pokemon'
+      const response = await api.post(url, {}, { timeout: 600000 })
       if (response.data.success) {
         setSyncResult({
           success: true,
@@ -614,26 +615,50 @@ const DevDashboard = () => {
               {language === 'es' ? 'Sincronización Manual' : 'Manual Sync'}
             </h3>
             <div className="flex flex-wrap gap-3">
-              <button
-                onClick={syncPokemonCards}
-                disabled={syncingPokemon || syncingRiftbound}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
-                  ${syncingPokemon || syncingRiftbound
-                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
-                    : 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                  }`}
-              >
-                {syncingPokemon ? (
-                  <>
-                    <Spinner size="sm" />
-                    {language === 'es' ? 'Sincronizando...' : 'Syncing...'}
-                  </>
-                ) : (
-                  <>
-                    ⚡ {language === 'es' ? 'Sync Pokémon' : 'Sync Pokémon'}
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => syncPokemonCards(false)}
+                  disabled={syncingPokemon || syncingRiftbound}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                    ${syncingPokemon || syncingRiftbound
+                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                      : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                    }`}
+                  title={language === 'es' ? 'Solo cartas Standard (Scarlet & Violet)' : 'Standard cards only (Scarlet & Violet)'}
+                >
+                  {syncingPokemon ? (
+                    <>
+                      <Spinner size="sm" />
+                      {language === 'es' ? 'Sincronizando...' : 'Syncing...'}
+                    </>
+                  ) : (
+                    <>
+                      ⚡ {language === 'es' ? 'Sync Standard' : 'Sync Standard'}
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => syncPokemonCards(true)}
+                  disabled={syncingPokemon || syncingRiftbound}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                    ${syncingPokemon || syncingRiftbound
+                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                      : 'bg-orange-600 hover:bg-orange-700 text-white'
+                    }`}
+                  title={language === 'es' ? 'TODAS las cartas de Pokemon (puede tardar mucho)' : 'ALL Pokemon cards (may take a long time)'}
+                >
+                  {syncingPokemon ? (
+                    <>
+                      <Spinner size="sm" />
+                      {language === 'es' ? 'Sincronizando...' : 'Syncing...'}
+                    </>
+                  ) : (
+                    <>
+                      🌐 {language === 'es' ? 'Sync TODO' : 'Sync ALL'}
+                    </>
+                  )}
+                </button>
+              </div>
 
               <button
                 onClick={syncRiftboundCards}
@@ -698,8 +723,8 @@ const DevDashboard = () => {
                 {syncResult.data && syncResult.type === 'pokemon' && (
                   <p className="text-xs mt-1">
                     {language === 'es'
-                      ? `Sincronizadas: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Errores: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
-                      : `Synced: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Errors: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
+                      ? `Modo: ${syncResult.data.mode === 'all' ? 'TODOS' : 'Standard'} | Sincronizadas: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Omitidas: ${syncResult.data.skipped || 0} | Errores: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
+                      : `Mode: ${syncResult.data.mode === 'all' ? 'ALL' : 'Standard'} | Synced: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Skipped: ${syncResult.data.skipped || 0} | Errors: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
                     }
                   </p>
                 )}
