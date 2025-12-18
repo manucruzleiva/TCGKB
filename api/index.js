@@ -83,7 +83,7 @@ app.use('/api', async (req, res, next) => {
       app.use('/api/stats', ensureDbConnection, statsRoutes)
       app.use('/api/mod', ensureDbConnection, modRoutes)
       app.use('/api/decks', ensureDbConnection, deckRoutes)
-      app.use('/api/bug-reports', ensureDbConnection, bugReportRoutes)
+      app.use('/api/bugs', ensureDbConnection, bugReportRoutes)
 
       routesLoaded = true
     } catch (error) {

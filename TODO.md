@@ -11,7 +11,7 @@
 - [x] Login funcionando en producción
 - [x] Registro funcionando en producción
 - [x] Configurar deploy basado en GitHub (auto-deploy en push a main)
-- [] integracion de dominio tcgkb.app
+- [x] integracion de dominio tcgkb.app from namecheap
 
 ## Mejoras Pendientes
 

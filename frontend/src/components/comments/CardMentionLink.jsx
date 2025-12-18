@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { cardService } from '../../services/cardService'
+import PokemonSprite from '../common/PokemonSprite'
 
 const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = null }) => {
   const [showTooltip, setShowTooltip] = useState(false)
@@ -87,7 +88,7 @@ const CardMentionLink = ({ cardId, cardName, abilityName = null, abilityType = n
           </>
         ) : (
           <>
-            <span className="text-base">🃏</span>
+            <PokemonSprite cardName={cardName} size="sm" fallbackEmoji="🃏" />
             <span>{cardName}</span>
           </>
         )}

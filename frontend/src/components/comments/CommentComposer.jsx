@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { cardService } from '../../services/cardService'
 import { commentService } from '../../services/commentService'
 import Button from '../common/Button'
+import PokemonSprite from '../common/PokemonSprite'
 import { COMMENT_MAX_LENGTH } from '../../utils/constants'
 import { useDebounce } from '../../hooks/useDebounce'
 import { mentionCache } from '../../utils/mentionCache'
@@ -306,7 +307,7 @@ const CommentComposer = ({ cardId, deckId, targetType = 'card', parentId = null,
                   </>
                 ) : (
                   <>
-                    <span className="text-sm">🃏</span>
+                    <PokemonSprite cardName={mention.cardName} size="sm" fallbackEmoji="🃏" />
                     <span>{mention.cardName}</span>
                   </>
                 )}
