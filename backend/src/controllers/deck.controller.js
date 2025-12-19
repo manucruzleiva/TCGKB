@@ -1,5 +1,8 @@
 import Deck from '../models/Deck.js'
+import Collection from '../models/Collection.js'
 import log from '../utils/logger.js'
+import reputationService from '../services/reputation.service.js'
+import { generateDeckHash, findExactDuplicate, findSimilarDecks } from '../utils/deckHash.js'
 
 const MODULE = 'DeckController'
 
@@ -97,13 +100,40 @@ export const createDeck = async (req, res) => {
       deckCards = parseTCGLiveFormat(importString)
     }
 
+    // Generate composition hash for duplicate detection
+    const compositionHash = generateDeckHash(deckCards)
+
+    // Check for exact duplicates
+    let duplicateInfo = null
+    let isOriginal = true
+    let copiedFrom = null
+
+    if (compositionHash) {
+      const existingDeck = await findExactDuplicate(compositionHash, Deck)
+      if (existingDeck) {
+        isOriginal = false
+        copiedFrom = existingDeck._id
+        duplicateInfo = {
+          existingDeck: {
+            _id: existingDeck._id,
+            name: existingDeck.name,
+            owner: existingDeck.userId?.username || 'Unknown'
+          }
+        }
+        log.info(MODULE, `New deck is duplicate of "${existingDeck.name}" (${existingDeck._id})`)
+      }
+    }
+
     const deck = new Deck({
       name,
       description: description || '',
       cards: deckCards,
       userId: req.user._id,
       isPublic: isPublic || false,
-      tags: tags || []
+      tags: tags || [],
+      compositionHash,
+      isOriginal,
+      copiedFrom
     })
 
     await deck.save()
@@ -111,10 +141,26 @@ export const createDeck = async (req, res) => {
 
     log.info(MODULE, `Deck "${name}" created by ${req.user.username}`)
 
+    // Award reputation for creating a deck
+    try {
+      await reputationService.awardPoints({
+        userId: req.user._id,
+        actionType: 'deck_created',
+        sourceType: 'deck',
+        sourceId: deck._id,
+        description: `Created deck: ${name.substring(0, 50)}`
+      })
+    } catch (repError) {
+      log.error(MODULE, 'Failed to award reputation for deck creation', repError)
+    }
+
     res.status(201).json({
       success: true,
       data: deck,
-      message: 'Deck created successfully'
+      duplicateInfo,
+      message: duplicateInfo
+        ? 'Deck created (duplicate of existing deck)'
+        : 'Deck created successfully'
     })
   } catch (error) {
     log.error(MODULE, 'Create deck failed', error)
@@ -278,10 +324,39 @@ export const updateDeck = async (req, res) => {
     if (tags !== undefined) deck.tags = tags
 
     // Handle cards update
+    let cardsChanged = false
     if (importString) {
       deck.cards = parseTCGLiveFormat(importString)
+      cardsChanged = true
     } else if (cards) {
       deck.cards = cards
+      cardsChanged = true
+    }
+
+    // Recalculate hash if cards changed
+    let duplicateInfo = null
+    if (cardsChanged) {
+      const newHash = generateDeckHash(deck.cards)
+      deck.compositionHash = newHash
+
+      // Check if this now matches another deck
+      if (newHash) {
+        const existingDeck = await findExactDuplicate(newHash, Deck, deck._id)
+        if (existingDeck) {
+          deck.isOriginal = false
+          deck.copiedFrom = existingDeck._id
+          duplicateInfo = {
+            existingDeck: {
+              _id: existingDeck._id,
+              name: existingDeck.name,
+              owner: existingDeck.userId?.username || 'Unknown'
+            }
+          }
+        } else {
+          deck.isOriginal = true
+          deck.copiedFrom = null
+        }
+      }
     }
 
     await deck.save()
@@ -292,6 +367,7 @@ export const updateDeck = async (req, res) => {
     res.status(200).json({
       success: true,
       data: deck,
+      duplicateInfo,
       message: 'Deck updated successfully'
     })
   } catch (error) {
@@ -514,6 +590,260 @@ export const getAvailableTags = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get available tags'
+    })
+  }
+}
+
+/**
+ * Get deck suggestions based on user's collection
+ * Shows decks the user can build or almost build
+ */
+export const getSuggestedDecks = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, minCompletion = 0, tag } = req.query
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      })
+    }
+
+    // Get user's collection
+    const userCollection = await Collection.find({ userId: req.user._id })
+    const ownedCards = new Map()
+    userCollection.forEach(c => {
+      ownedCards.set(c.cardId, c.quantity)
+    })
+
+    // Query for public decks
+    const deckQuery = { isPublic: true }
+    if (tag) {
+      deckQuery.tags = tag
+    }
+
+    // Get popular public decks
+    const decks = await Deck.find(deckQuery)
+      .populate('userId', 'username')
+      .sort({ copies: -1, views: -1 })
+      .limit(100) // Get top 100 popular decks
+      .lean()
+
+    // Calculate completion for each deck
+    const deckSuggestions = decks.map(deck => {
+      let ownedCount = 0
+      let totalCount = 0
+      const missingCards = []
+      const partialCards = []
+
+      deck.cards.forEach(card => {
+        totalCount += card.quantity
+        const owned = ownedCards.get(card.cardId) || 0
+
+        if (owned >= card.quantity) {
+          ownedCount += card.quantity
+        } else if (owned > 0) {
+          ownedCount += owned
+          partialCards.push({
+            cardId: card.cardId,
+            name: card.name,
+            imageSmall: card.imageSmall,
+            needed: card.quantity,
+            owned: owned,
+            missing: card.quantity - owned
+          })
+        } else {
+          missingCards.push({
+            cardId: card.cardId,
+            name: card.name,
+            imageSmall: card.imageSmall,
+            needed: card.quantity,
+            owned: 0,
+            missing: card.quantity
+          })
+        }
+      })
+
+      const completionPercent = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0
+
+      return {
+        deck: {
+          _id: deck._id,
+          name: deck.name,
+          description: deck.description,
+          tags: deck.tags,
+          totalCards: deck.cards.reduce((sum, c) => sum + c.quantity, 0),
+          breakdown: deck.breakdown,
+          views: deck.views,
+          copies: deck.copies,
+          userId: deck.userId,
+          createdAt: deck.createdAt
+        },
+        completion: {
+          percent: completionPercent,
+          owned: ownedCount,
+          total: totalCount
+        },
+        missingCards: missingCards.slice(0, 10), // Top 10 missing
+        partialCards: partialCards.slice(0, 5),  // Top 5 partial
+        totalMissing: missingCards.length + partialCards.length
+      }
+    })
+
+    // Filter by minimum completion
+    const filtered = deckSuggestions.filter(s => s.completion.percent >= parseInt(minCompletion))
+
+    // Sort by completion percentage (highest first)
+    filtered.sort((a, b) => b.completion.percent - a.completion.percent)
+
+    // Paginate
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const paginated = filtered.slice(skip, skip + parseInt(limit))
+
+    res.status(200).json({
+      success: true,
+      data: {
+        suggestions: paginated,
+        stats: {
+          canBuildNow: filtered.filter(s => s.completion.percent === 100).length,
+          almostComplete: filtered.filter(s => s.completion.percent >= 80 && s.completion.percent < 100).length,
+          inProgress: filtered.filter(s => s.completion.percent >= 50 && s.completion.percent < 80).length
+        },
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: filtered.length,
+          pages: Math.ceil(filtered.length / parseInt(limit))
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get suggested decks failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get deck suggestions'
+    })
+  }
+}
+
+/**
+ * Check for duplicate/similar decks
+ * Can be used before creating a deck to warn about duplicates
+ */
+export const checkDuplicates = async (req, res) => {
+  try {
+    const { cards, importString, threshold = 80 } = req.body
+
+    // Parse cards from import string if provided
+    let deckCards = cards || []
+    if (importString) {
+      deckCards = parseTCGLiveFormat(importString)
+    }
+
+    if (!deckCards.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No cards provided'
+      })
+    }
+
+    // Generate hash for exact match check
+    const hash = generateDeckHash(deckCards)
+
+    // Check for exact duplicate
+    const exactMatch = hash ? await findExactDuplicate(hash, Deck) : null
+
+    // Find similar decks
+    const similarDecks = await findSimilarDecks(deckCards, Deck, {
+      threshold: parseInt(threshold),
+      limit: 5,
+      onlyPublic: true
+    })
+
+    res.status(200).json({
+      success: true,
+      data: {
+        isExactDuplicate: !!exactMatch,
+        exactMatch: exactMatch ? {
+          _id: exactMatch._id,
+          name: exactMatch.name,
+          owner: exactMatch.userId?.username || 'Unknown',
+          createdAt: exactMatch.createdAt
+        } : null,
+        similarDecks,
+        hash,
+        cardsAnalyzed: deckCards.length,
+        totalCards: deckCards.reduce((sum, c) => sum + c.quantity, 0)
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Check duplicates failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check for duplicates'
+    })
+  }
+}
+
+/**
+ * Get deck duplicates (admin/dev only)
+ * Returns all decks that share the same composition hash
+ */
+export const getDuplicateGroups = async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query
+
+    // Aggregate to find duplicate groups
+    const duplicateGroups = await Deck.aggregate([
+      { $match: { compositionHash: { $ne: null } } },
+      {
+        $group: {
+          _id: '$compositionHash',
+          count: { $sum: 1 },
+          decks: {
+            $push: {
+              _id: '$_id',
+              name: '$name',
+              userId: '$userId',
+              isOriginal: '$isOriginal',
+              createdAt: '$createdAt'
+            }
+          }
+        }
+      },
+      { $match: { count: { $gt: 1 } } }, // Only groups with duplicates
+      { $sort: { count: -1 } },
+      { $skip: (parseInt(page) - 1) * parseInt(limit) },
+      { $limit: parseInt(limit) }
+    ])
+
+    // Get total count
+    const totalGroups = await Deck.aggregate([
+      { $match: { compositionHash: { $ne: null } } },
+      { $group: { _id: '$compositionHash', count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } },
+      { $count: 'total' }
+    ])
+
+    const total = totalGroups[0]?.total || 0
+
+    res.status(200).json({
+      success: true,
+      data: {
+        groups: duplicateGroups,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit))
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get duplicate groups failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get duplicate groups'
     })
   }
 }

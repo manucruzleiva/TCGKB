@@ -81,6 +81,27 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: true
     }
+  },
+
+  // Reputation system
+  reputation: {
+    // Cached total points (updated periodically or on significant events)
+    totalPoints: {
+      type: Number,
+      default: 0,
+      index: true
+    },
+    // When the cache was last updated
+    lastCalculated: {
+      type: Date,
+      default: null
+    },
+    // Reputation tier based on points
+    tier: {
+      type: String,
+      enum: ['newcomer', 'contributor', 'trusted', 'expert', 'legend'],
+      default: 'newcomer'
+    }
   }
 }, {
   timestamps: true

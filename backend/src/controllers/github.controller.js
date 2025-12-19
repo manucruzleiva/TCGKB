@@ -1,4 +1,7 @@
 import log from '../utils/logger.js'
+import BugReport from '../models/BugReport.js'
+import { classifyBug, suggestPriority, suggestLabels, findPotentialDuplicates } from '../utils/bugClassifier.js'
+import reputationService from '../services/reputation.service.js'
 
 const MODULE = 'GitHubController'
 
@@ -60,10 +63,30 @@ export const createIssue = async (req, res) => {
 
     body += `---\n*Submitted via TCGKB Bug Reporter*`
 
-    // Create the issue via GitHub API (without labels to avoid errors if they don't exist)
+    // Auto-classify the bug
+    const classification = await classifyBug(title, description, pageUrl)
+    const autoLabels = suggestLabels(pageUrl, title, description)
+
+    // Add classification info to body
+    body += `\n\n---\n### Auto-Classification\n`
+    body += `**Suggested Priority:** ${classification.priority.priority} (confidence: ${Math.round(classification.priority.confidence * 100)}%)`
+    if (classification.priority.matchedKeyword) {
+      body += ` - matched: "${classification.priority.matchedKeyword}"`
+    }
+    body += `\n**Auto Labels:** ${autoLabels.join(', ')}\n`
+
+    if (classification.hasPotentialDuplicates) {
+      body += `\n**Potential Duplicates:**\n`
+      classification.potentialDuplicates.forEach(dup => {
+        body += `- #${dup.githubIssueNumber || 'N/A'}: ${dup.title} (${dup.similarity}% similar)\n`
+      })
+    }
+
+    // Create the issue via GitHub API with auto-generated labels
     const issueData = {
       title: `[Bug] ${title}`,
-      body
+      body,
+      labels: autoLabels
     }
 
     const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues`, {
@@ -94,6 +117,46 @@ export const createIssue = async (req, res) => {
     const issue = await response.json()
 
     log.info(MODULE, `GitHub issue created: #${issue.number} - ${title}`)
+
+    // Save bug report to database with GitHub issue reference and auto-classification
+    try {
+      const bugReport = await BugReport.create({
+        title: title.trim(),
+        description: description.trim(),
+        screenshot: screenshot || null,
+        pageUrl: pageUrl || '',
+        userAgent: userAgent || '',
+        theme: theme || 'light',
+        language: language || 'en',
+        screenSize: screenSize || '',
+        userId: req.user?._id || null,
+        status: 'new',
+        priority: classification.priority.priority, // Use auto-suggested priority
+        githubIssueNumber: issue.number,
+        githubIssueUrl: issue.html_url,
+        githubIssueState: issue.state
+      })
+      log.info(MODULE, `Bug report saved to database with GitHub issue #${issue.number}, auto-priority: ${classification.priority.priority}`)
+
+      // Award reputation points for reporting a bug (only for authenticated users)
+      if (req.user?._id) {
+        try {
+          await reputationService.awardPoints({
+            userId: req.user._id,
+            actionType: 'bug_reported',
+            sourceType: 'bug_report',
+            sourceId: bugReport._id,
+            description: `Reported bug: ${title.substring(0, 50)}`
+          })
+          log.info(MODULE, `Reputation awarded for bug report to user ${req.user._id}`)
+        } catch (repError) {
+          log.error(MODULE, 'Failed to award reputation for bug report', repError)
+        }
+      }
+    } catch (dbError) {
+      // Log but don't fail - GitHub issue was created successfully
+      log.error(MODULE, 'Failed to save bug report to database', dbError)
+    }
 
     res.status(201).json({
       success: true,
@@ -478,6 +541,51 @@ export const updateIssueState = async (req, res) => {
 
     log.info(MODULE, `Issue #${issueNumber} state changed to ${state}`)
 
+    // Sync bug report status with GitHub issue state
+    try {
+      const updateData = {
+        githubIssueState: issue.state
+      }
+
+      // If issue is closed, update bug report status
+      if (issue.state === 'closed') {
+        updateData.status = 'resolved'
+        updateData.resolvedAt = new Date()
+        updateData.resolvedBy = req.user?._id || null
+      } else if (issue.state === 'open') {
+        // If reopened, set back to in_progress
+        updateData.status = 'in_progress'
+        updateData.resolvedAt = null
+        updateData.resolvedBy = null
+      }
+
+      const bugReport = await BugReport.findOneAndUpdate(
+        { githubIssueNumber: parseInt(issueNumber) },
+        updateData,
+        { new: true }
+      )
+      log.info(MODULE, `Bug report synced with GitHub issue #${issueNumber} state: ${state}`)
+
+      // Award reputation to the bug reporter when their bug is resolved
+      if (issue.state === 'closed' && bugReport?.userId) {
+        try {
+          await reputationService.awardPoints({
+            userId: bugReport.userId,
+            actionType: 'bug_processed',
+            sourceType: 'bug_report',
+            sourceId: bugReport._id,
+            triggeredBy: req.user?._id,
+            description: `Bug report resolved: #${issueNumber}`
+          })
+          log.info(MODULE, `Reputation awarded for bug processed to user ${bugReport.userId}`)
+        } catch (repError) {
+          log.error(MODULE, 'Failed to award reputation for bug processed', repError)
+        }
+      }
+    } catch (syncError) {
+      log.error(MODULE, `Failed to sync bug report with GitHub issue #${issueNumber}`, syncError)
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -511,4 +619,318 @@ export const checkConfig = async (req, res) => {
       } : null
     }
   })
+}
+
+/**
+ * Get commits from GitHub (for changelog)
+ * Fetches commits from stage and main branches to show what's in development vs production
+ */
+export const getCommits = async (req, res) => {
+  try {
+    if (!GITHUB_TOKEN) {
+      return res.status(500).json({
+        success: false,
+        message: 'GitHub integration not configured'
+      })
+    }
+
+    const { branch = 'stage', page = 1, per_page = 30, since } = req.query
+
+    // Build query params
+    const params = new URLSearchParams({
+      sha: branch,
+      page: String(page),
+      per_page: String(per_page)
+    })
+
+    if (since) {
+      params.append('since', since)
+    }
+
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?${params}`,
+      {
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      log.error(MODULE, `GitHub API error fetching commits: ${response.status}`, errorData)
+      return res.status(response.status).json({
+        success: false,
+        message: errorData.message || 'Failed to fetch commits'
+      })
+    }
+
+    const commits = await response.json()
+
+    // Parse commit type from conventional commit format
+    const parseCommitType = (message) => {
+      const match = message.match(/^(feat|fix|refactor|docs|style|test|chore|perf|ci|build|revert)(\(.+?\))?:\s*/i)
+      if (match) {
+        return {
+          type: match[1].toLowerCase(),
+          scope: match[2] ? match[2].replace(/[()]/g, '') : null,
+          message: message.replace(match[0], '').split('\n')[0]
+        }
+      }
+      // Check for merge commits
+      if (message.startsWith('Merge')) {
+        return { type: 'merge', scope: null, message: message.split('\n')[0] }
+      }
+      // Auto-merge commits
+      if (message.includes('Auto-merge')) {
+        return { type: 'auto-merge', scope: null, message: message.split('\n')[0] }
+      }
+      return { type: 'other', scope: null, message: message.split('\n')[0] }
+    }
+
+    // Map commits to simpler format
+    const mappedCommits = commits.map(commit => {
+      const parsed = parseCommitType(commit.commit.message)
+      return {
+        sha: commit.sha,
+        shortSha: commit.sha.substring(0, 7),
+        type: parsed.type,
+        scope: parsed.scope,
+        message: parsed.message,
+        fullMessage: commit.commit.message,
+        author: {
+          name: commit.commit.author.name,
+          email: commit.commit.author.email,
+          date: commit.commit.author.date,
+          avatar_url: commit.author?.avatar_url || null,
+          login: commit.author?.login || null
+        },
+        url: commit.html_url,
+        stats: commit.stats || null
+      }
+    })
+
+    // Get pagination info from Link header
+    const linkHeader = response.headers.get('Link')
+    let totalPages = parseInt(page)
+    if (linkHeader) {
+      const lastMatch = linkHeader.match(/page=(\d+)>; rel="last"/)
+      if (lastMatch) {
+        totalPages = parseInt(lastMatch[1])
+      }
+    }
+
+    // Group commits by date for easier display
+    const groupedByDate = {}
+    mappedCommits.forEach(commit => {
+      const date = commit.author.date.split('T')[0]
+      if (!groupedByDate[date]) {
+        groupedByDate[date] = []
+      }
+      groupedByDate[date].push(commit)
+    })
+
+    res.status(200).json({
+      success: true,
+      data: {
+        commits: mappedCommits,
+        groupedByDate,
+        branch,
+        pagination: {
+          page: parseInt(page),
+          per_page: parseInt(per_page),
+          total_pages: totalPages,
+          has_more: mappedCommits.length === parseInt(per_page)
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get commits failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch commits'
+    })
+  }
+}
+
+/**
+ * Get changelog - commits in stage not yet in main (upcoming features)
+ * and recent commits in main (released features)
+ */
+export const getChangelog = async (req, res) => {
+  try {
+    if (!GITHUB_TOKEN) {
+      return res.status(500).json({
+        success: false,
+        message: 'GitHub integration not configured'
+      })
+    }
+
+    const headers = {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+
+    // Fetch recent commits from main (production)
+    const mainResponse = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?sha=main&per_page=50`,
+      { headers }
+    )
+
+    // Fetch recent commits from stage (staging)
+    const stageResponse = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?sha=stage&per_page=50`,
+      { headers }
+    )
+
+    let mainCommits = []
+    let stageCommits = []
+    let pendingCommits = []
+
+    if (mainResponse.ok) {
+      mainCommits = await mainResponse.json()
+    }
+
+    if (stageResponse.ok) {
+      stageCommits = await stageResponse.json()
+    }
+
+    // Find commits in stage that are not in main (pending deployment)
+    const mainShas = new Set(mainCommits.map(c => c.sha))
+    pendingCommits = stageCommits.filter(c => !mainShas.has(c.sha))
+
+    // Parse commit info
+    const parseCommit = (commit) => {
+      const message = commit.commit.message
+      const match = message.match(/^(feat|fix|refactor|docs|style|test|chore|perf|ci|build|revert)(\(.+?\))?:\s*/i)
+
+      let type = 'other'
+      let scope = null
+      let cleanMessage = message.split('\n')[0]
+
+      if (match) {
+        type = match[1].toLowerCase()
+        scope = match[2] ? match[2].replace(/[()]/g, '') : null
+        cleanMessage = message.replace(match[0], '').split('\n')[0]
+      } else if (message.startsWith('Merge')) {
+        type = 'merge'
+      } else if (message.includes('Auto-merge')) {
+        type = 'auto-merge'
+      }
+
+      return {
+        sha: commit.sha,
+        shortSha: commit.sha.substring(0, 7),
+        type,
+        scope,
+        message: cleanMessage,
+        author: {
+          name: commit.commit.author.name,
+          date: commit.commit.author.date,
+          avatar_url: commit.author?.avatar_url || null,
+          login: commit.author?.login || null
+        },
+        url: commit.html_url
+      }
+    }
+
+    // Filter out merge/auto-merge commits for cleaner changelog
+    const filterMergeCommits = (commits) =>
+      commits.filter(c => !['merge', 'auto-merge'].includes(c.type))
+
+    const parsedMainCommits = mainCommits.map(parseCommit)
+    const parsedPendingCommits = pendingCommits.map(parseCommit)
+
+    // Group by type for better organization
+    const groupByType = (commits) => {
+      const groups = {
+        feat: [],
+        fix: [],
+        refactor: [],
+        perf: [],
+        docs: [],
+        other: []
+      }
+
+      commits.forEach(commit => {
+        if (groups[commit.type]) {
+          groups[commit.type].push(commit)
+        } else {
+          groups.other.push(commit)
+        }
+      })
+
+      return groups
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        pending: {
+          commits: filterMergeCommits(parsedPendingCommits),
+          byType: groupByType(filterMergeCommits(parsedPendingCommits)),
+          count: filterMergeCommits(parsedPendingCommits).length
+        },
+        released: {
+          commits: filterMergeCommits(parsedMainCommits).slice(0, 30),
+          byType: groupByType(filterMergeCommits(parsedMainCommits).slice(0, 30)),
+          count: filterMergeCommits(parsedMainCommits).length
+        },
+        repository: {
+          owner: GITHUB_OWNER,
+          repo: GITHUB_REPO,
+          url: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}`
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get changelog failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch changelog'
+    })
+  }
+}
+
+/**
+ * Get bug classification suggestions before submitting
+ * Analyzes title and description to suggest priority, labels, and detect duplicates
+ */
+export const classifyBugReport = async (req, res) => {
+  try {
+    const { title, description, pageUrl } = req.body
+
+    if (!title || !description) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and description are required'
+      })
+    }
+
+    // Get full classification
+    const classification = await classifyBug(title, description, pageUrl || '')
+
+    res.status(200).json({
+      success: true,
+      data: {
+        priority: {
+          suggested: classification.priority.priority,
+          confidence: classification.priority.confidence,
+          matchedKeyword: classification.priority.matchedKeyword
+        },
+        labels: classification.labels,
+        potentialDuplicates: classification.potentialDuplicates,
+        hasPotentialDuplicates: classification.hasPotentialDuplicates
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Classify bug report failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to classify bug report'
+    })
+  }
 }

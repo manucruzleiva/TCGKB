@@ -107,5 +107,6 @@ class MemoryCache {
 // Global cache instances - aggressive TTLs for better performance
 export const searchCache = new MemoryCache(10000, 14400000) // 10k items, 4 hours TTL
 export const cardCache = new MemoryCache(20000, 86400000) // 20k items, 24 hours TTL
+export const popularityCache = new MemoryCache(100, 3600000) // 100 items, 1 hour TTL for popularity data
 
 export default MemoryCache

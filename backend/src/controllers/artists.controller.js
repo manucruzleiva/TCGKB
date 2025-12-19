@@ -1,4 +1,5 @@
 import ArtistFan from '../models/ArtistFan.js'
+import CardCache from '../models/CardCache.js'
 import log from '../utils/logger.js'
 
 const MODULE = 'ArtistsController'
@@ -214,6 +215,163 @@ export const batchCheckFanStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to check fan status'
+    })
+  }
+}
+
+/**
+ * Get all cards by an artist
+ */
+export const getCardsByArtist = async (req, res) => {
+  try {
+    const { artistName } = req.params
+    const { page = 1, limit = 24, tcgSystem } = req.query
+
+    if (!artistName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Artist name is required'
+      })
+    }
+
+    const decodedName = decodeURIComponent(artistName)
+    const pageNum = parseInt(page) || 1
+    const limitNum = Math.min(parseInt(limit) || 24, 60)
+    const skip = (pageNum - 1) * limitNum
+
+    // Build query
+    const query = {
+      'data.artist': { $regex: new RegExp(`^${decodedName}$`, 'i') }
+    }
+
+    if (tcgSystem && ['pokemon', 'riftbound'].includes(tcgSystem)) {
+      query.tcgSystem = tcgSystem
+    }
+
+    // Get total count
+    const total = await CardCache.countDocuments(query)
+
+    // Get cards
+    const cards = await CardCache.find(query)
+      .sort({ 'data.releaseDate': -1, cardId: 1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean()
+
+    // Format cards for response
+    const formattedCards = cards.map(card => ({
+      id: card.cardId,
+      name: card.data.name || card.data.cardName || 'Unknown',
+      imageUrl: card.data.images?.small || card.data.images?.large || card.data.imageUrl,
+      set: card.data.set?.name || card.data.setName || 'Unknown Set',
+      rarity: card.data.rarity || 'Unknown',
+      tcgSystem: card.tcgSystem,
+      artist: card.data.artist
+    }))
+
+    // Get fan count for this artist
+    const fanCount = await ArtistFan.getFanCount(decodedName)
+    const userId = req.user?._id
+    const isFan = userId ? await ArtistFan.isFan(decodedName, userId) : false
+
+    res.status(200).json({
+      success: true,
+      data: {
+        artist: {
+          name: decodedName,
+          fanCount,
+          isFan,
+          cardCount: total
+        },
+        cards: formattedCards,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum)
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get cards by artist failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get cards by artist'
+    })
+  }
+}
+
+/**
+ * Get all unique artists with card counts
+ */
+export const getAllArtists = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, search, sortBy = 'fanCount' } = req.query
+    const pageNum = parseInt(page) || 1
+    const limitNum = Math.min(parseInt(limit) || 50, 100)
+    const skip = (pageNum - 1) * limitNum
+
+    // Get all unique artists with card counts
+    const artistAggregation = await CardCache.aggregate([
+      { $match: { 'data.artist': { $exists: true, $ne: null, $ne: '' } } },
+      { $group: {
+        _id: '$data.artist',
+        cardCount: { $sum: 1 },
+        tcgSystems: { $addToSet: '$tcgSystem' }
+      }},
+      ...(search ? [{ $match: { _id: { $regex: new RegExp(search, 'i') } } }] : []),
+      { $project: {
+        artistName: '$_id',
+        cardCount: 1,
+        tcgSystems: 1,
+        _id: 0
+      }}
+    ])
+
+    // Get fan counts for all artists
+    const fanCounts = await ArtistFan.aggregate([
+      { $group: { _id: '$artistName', fanCount: { $sum: 1 } } }
+    ])
+    const fanCountMap = fanCounts.reduce((acc, item) => {
+      acc[item._id] = item.fanCount
+      return acc
+    }, {})
+
+    // Merge and sort
+    let artists = artistAggregation.map(artist => ({
+      ...artist,
+      fanCount: fanCountMap[artist.artistName] || 0
+    }))
+
+    // Sort
+    if (sortBy === 'fanCount') {
+      artists.sort((a, b) => b.fanCount - a.fanCount || b.cardCount - a.cardCount)
+    } else if (sortBy === 'cardCount') {
+      artists.sort((a, b) => b.cardCount - a.cardCount)
+    } else if (sortBy === 'name') {
+      artists.sort((a, b) => a.artistName.localeCompare(b.artistName))
+    }
+
+    const total = artists.length
+    const paginatedArtists = artists.slice(skip, skip + limitNum)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        artists: paginatedArtists,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum)
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get all artists failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get artists'
     })
   }
 }
