@@ -151,7 +151,10 @@ export const es = {
     unknown: 'Desconocido',
     confidence: 'confianza',
     parseWarnings: 'Advertencias de análisis',
-    more: 'más'
+    more: 'más',
+    reprintGroups: 'Límites de copias',
+    exceedLimit: 'exceden límite',
+    unlimitedCopies: 'Energía Básica - copias ilimitadas'
   },
 
   // Deck Validation

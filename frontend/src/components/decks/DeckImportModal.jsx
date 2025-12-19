@@ -15,6 +15,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
   const [parsing, setParsing] = useState(false)
   const [parseError, setParseError] = useState(null)
   const [importing, setImporting] = useState(false)
+  const [showReprintGroups, setShowReprintGroups] = useState(false)
 
   // Debounced parse effect
   useEffect(() => {
@@ -227,6 +228,97 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
                   validation={parseResult.validation}
                   format={parseResult.format}
                 />
+              )}
+
+              {/* Reprint Groups - Copy limit validation with set breakdown */}
+              {parseResult.reprintGroups && parseResult.reprintGroups.length > 0 && (
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setShowReprintGroups(!showReprintGroups)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {t('deckImport.reprintGroups')}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        ({parseResult.stats?.uniqueNames || parseResult.reprintGroups.length} {t('deckImport.uniqueCards')})
+                      </span>
+                      {parseResult.stats?.groupsExceedingLimit > 0 && (
+                        <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 rounded text-xs">
+                          {parseResult.stats.groupsExceedingLimit} {t('deckImport.exceedLimit')}
+                        </span>
+                      )}
+                    </div>
+                    <svg
+                      className={`w-5 h-5 text-gray-500 transition-transform ${showReprintGroups ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showReprintGroups && (
+                    <div className="px-4 pb-4 space-y-2 max-h-60 overflow-y-auto">
+                      {parseResult.reprintGroups.map((group, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-2 rounded border ${
+                            group.status === 'exceeded'
+                              ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-600'
+                              : group.status === 'at_limit'
+                              ? 'border-green-400 bg-green-50 dark:bg-green-900/20 dark:border-green-600'
+                              : 'border-gray-200 dark:border-gray-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                              {group.displayName}
+                            </span>
+                            <span className={`text-sm font-bold ${
+                              group.status === 'exceeded'
+                                ? 'text-yellow-600 dark:text-yellow-400'
+                                : group.status === 'at_limit'
+                                ? 'text-green-600 dark:text-green-400'
+                                : group.status === 'unlimited'
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-gray-600 dark:text-gray-400'
+                            }`}>
+                              {group.isBasicEnergy ? (
+                                <span title={t('deckImport.unlimitedCopies')}>{group.totalQuantity} ∞</span>
+                              ) : (
+                                <>
+                                  {group.totalQuantity}/{group.limit}
+                                  {group.status === 'exceeded' && ' ⚠️'}
+                                  {group.status === 'at_limit' && ' ✓'}
+                                </>
+                              )}
+                            </span>
+                          </div>
+
+                          {/* Show set breakdown if multiple cards in group */}
+                          {group.cards.length > 1 && (
+                            <div className="mt-1 pl-3 space-y-0.5">
+                              {group.cards.map((card, cardIdx) => (
+                                <div key={cardIdx} className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                  <span className="text-gray-400">├─</span>
+                                  {card.setCode && card.number ? (
+                                    <span>{card.setCode} {card.number}</span>
+                                  ) : (
+                                    <span className="italic">{card.name}</span>
+                                  )}
+                                  <span className="text-gray-400">×{card.quantity}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Parse warnings */}

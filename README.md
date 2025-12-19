@@ -111,7 +111,7 @@ TCGKB/
 - **Transparent search** across Pokemon TCG + Riftbound
 - **7-day MongoDB cache** with TTL auto-expiration
 - **Fuzzy search** with Levenshtein distance (1-2 char tolerance)
-- **Regulation mark filtering** (G, H, I, J, K only)
+- **Regulation mark filtering** (G, H, I, J, K only) (for PTCGL only)
 - **Reprints detection** and alternate art linking
 
 ### Community Features
@@ -138,6 +138,7 @@ See [Deck Manager V2 Technical Spec](#deck-manager-v2) for detailed implementati
 
 ### Admin Tools
 - **KPI Dashboard** with platform analytics
+- **Roadmap** to show users the development work
 - **Moderation queue** for comments
 - **User management** and restrictions
 - **Cache management** and manual sync
@@ -539,16 +540,6 @@ This project uses Claude Code agents via GitHub Actions for automated developmen
 │              │      ──→ FAIL? Create bug Issue → @dev loops                 │
 │              ▼                                                              │
 │         ┌─────────┐                                                         │
-│         │  @docs  │ ──→ Update CHANGELOG.md                                 │
-│         └────┬────┘ ──→ Add inline comments                                 │
-│              │      ──→ Update API docs                                     │
-│              ▼                                                              │
-│         ┌─────────┐                                                         │
-│         │ @clean  │ ──→ Fix lint, dead code                                 │
-│         └────┬────┘ ──→ Refactor inconsistencies                            │
-│              │      ──→ Act as developer (full context)                     │
-│              ▼                                                              │
-│         ┌─────────┐                                                         │
 │         │  Human  │ ──→ Review PR                                           │
 │         └────┬────┘ ──→ Merge to staging                                    │
 │              │      ──→ Test on staging.tcgkb.app                           │
@@ -799,6 +790,38 @@ Cards with the **same name from different sets** count together for copy limits.
 - `Pikachu` ≠ `Pikachu ex` (different cards)
 - Basic Energy has no copy limit
 
+#### Reprint Grouping UI
+
+The DeckImportModal displays a collapsible "Copy limits" section that groups cards by normalized name:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Copy limits (4 unique cards) [1 exceed limit]           [▼]   │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Professor's Research                            [4/4] ✓   │  │
+│  │   ├─ SVI 189 ×2                                           │  │
+│  │   └─ PAL 172 ×2                                           │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Boss's Orders                                   [5/4] ⚠️  │  │
+│  │   ├─ PAL 172 ×3                                           │  │
+│  │   └─ BRS 132 ×2                                           │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Lightning Energy                                [8] ∞     │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Status indicators**:
+| Status | Color | Icon | Description |
+|--------|-------|------|-------------|
+| `valid` | Gray | - | Under limit |
+| `at_limit` | Green | ✓ | At max copies |
+| `exceeded` | Yellow | ⚠️ | Over limit (still saveable) |
+| `unlimited` | Blue | ∞ | Basic Energy (no limit) |
+
 ### Import Formats
 
 #### Pokemon TCG Live
@@ -832,20 +855,54 @@ Raichu x2
 
 **Component**: `frontend/src/components/decks/DeckImportModal.jsx`
 
-Modal for importing decks with real-time preview and auto-detection.
+Modal for importing decks with real-time preview, auto-detection, and **validation**.
 
 #### Features
 | Feature | Description |
 |---------|-------------|
 | **Real-time Preview** | Parses deck as user types (500ms debounce) |
+| **Real-time Validation** | Validates deck structure against format rules (see [Card Enrichment](#card-enrichment-real-time-validation)) |
 | **TCG Detection** | Shows Pokemon or Riftbound badge |
 | **Format Detection** | Shows Standard, GLC, Expanded, Constructed |
 | **Input Format Detection** | Identifies Pokemon TCG Live, Pocket, or Riftbound format |
 | **Card Breakdown** | Visual bar showing Pokémon/Trainer/Energy distribution |
 | **Parse Warnings** | Shows lines that couldn't be parsed |
+| **Validation Errors** | Shows deck rule violations inline (not popup) |
 | **Auto-Tagging** | Automatically adds detected format tag to deck |
 
-#### UI Flow
+#### Complete Data Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         DECK IMPORT FLOW                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  User pastes       500ms         POST /api/decks/parse                      │
+│  deck text ─────► debounce ─────► ┌───────────────────────────────────┐    │
+│                                   │ 1. deckParser.js                  │    │
+│                                   │    - Extract cards from text      │    │
+│                                   │    - Detect TCG (Pokemon/Riftbound)│    │
+│                                   │    - Detect format (Standard/GLC) │    │
+│                                   ├───────────────────────────────────┤    │
+│                                   │ 2. cardEnricher.service.js        │    │
+│                                   │    - Query CardCache for metadata │    │
+│                                   │    - Add supertype, subtypes, etc │    │
+│                                   ├───────────────────────────────────┤    │
+│                                   │ 3. deckValidator.js               │    │
+│                                   │    - Validate against format rules│    │
+│                                   │    - Return errors/warnings       │    │
+│                                   └───────────────┬───────────────────┘    │
+│                                                   │                         │
+│                                                   ▼                         │
+│  DeckImportModal ◄──────────────────────────────────                        │
+│  ┌─────────────────────────────────────────────────────┐                    │
+│  │ Shows: Preview + Breakdown + Validation Status      │                    │
+│  └─────────────────────────────────────────────────────┘                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### UI Flow (with Validation)
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Importar Mazo                               [X]    │
@@ -866,6 +923,18 @@ Modal for importing decks with real-time preview and auto-detection.
 │                                                     │
 │  4 cartas únicas                                    │
 │                                                     │
+│  ┌─────────────────────────────────────────────┐    │
+│  │ ✅ Mazo válido                    [60/60]   │    │
+│  │ Basic Pokémon: 4  │ ACE SPEC: 1/1           │    │
+│  └─────────────────────────────────────────────┘    │
+│  OR                                                 │
+│  ┌─────────────────────────────────────────────┐    │
+│  │ ⚠️ Mazo inválido                  [52/60]   │    │
+│  │ Errores:                                    │    │
+│  │ • El mazo debe tener exactamente 60 cartas  │    │
+│  │ • El mazo debe tener al menos 1 Basic Pokémon│   │
+│  └─────────────────────────────────────────────┘    │
+│                                                     │
 │  [Cancelar]                        [Importar Mazo]  │
 └─────────────────────────────────────────────────────┘
 ```
@@ -878,17 +947,23 @@ import DeckImportModal from '../components/decks/DeckImportModal'
   isOpen={showImportModal}
   onClose={() => setShowImportModal(false)}
   onImport={(importData) => {
-    // importData.cards - Array of parsed cards
+    // importData.cards - Array of enriched cards (with metadata)
     // importData.tcg - "pokemon" | "riftbound"
     // importData.format - "standard" | "glc" | etc.
     // importData.breakdown - { pokemon, trainer, energy }
     // importData.stats - { totalCards, uniqueCards }
+    // importData.validation - { isValid, errors, warnings, summary }
   }}
 />
 ```
 
 #### API Integration
-Uses `POST /api/decks/parse` endpoint for server-side parsing and detection.
+Uses `POST /api/decks/parse` endpoint for server-side parsing, enrichment, and validation.
+
+**Request Flow:**
+1. **Parse** deck text → extract cards
+2. **Enrich** cards with CardCache metadata → add supertype, subtypes, types
+3. **Validate** against format rules → return errors/warnings
 
 ### DeckBuilder Interactions
 
@@ -991,7 +1066,9 @@ Deck validation is shown **inline** (no popups):
 
 **Component**: `frontend/src/components/decks/DeckValidationIndicator.jsx`
 
-Displays real-time validation status inline.
+> **Used by**: [DeckImportModal](#deckimportmodal-component) to show validation results inline.
+
+Displays real-time validation status inline (never as popup/modal).
 
 #### Props
 | Prop | Type | Description |
@@ -1058,6 +1135,20 @@ Parses a deck string, auto-detects TCG/format, and validates against format rule
         "supertype": "Pokémon"
       }
     ],
+    "reprintGroups": [
+      {
+        "normalizedName": "pikachu ex",
+        "displayName": "Pikachu ex",
+        "totalQuantity": 4,
+        "limit": 4,
+        "isBasicEnergy": false,
+        "exceedsLimit": false,
+        "status": "at_limit",
+        "cards": [
+          { "name": "Pikachu ex", "setCode": "SVI", "number": "057", "quantity": 4 }
+        ]
+      }
+    ],
     "breakdown": {
       "pokemon": 8,
       "trainer": 4,
@@ -1066,7 +1157,9 @@ Parses a deck string, auto-detects TCG/format, and validates against format rule
     },
     "stats": {
       "totalCards": 20,
-      "uniqueCards": 4
+      "uniqueCards": 4,
+      "uniqueNames": 4,
+      "groupsExceedingLimit": 0
     },
     "errors": [],
     "validation": {
@@ -1106,6 +1199,118 @@ Parses a deck string, auto-detects TCG/format, and validates against format rule
 **Detected Formats:**
 - Pokemon: `standard`, `glc`, `expanded`
 - Riftbound: `constructed`
+
+### Card Enrichment (Real-time Validation)
+
+> **Context**: This service is a critical component of the [DeckImportModal](#deckimportmodal-component) real-time validation feature. It enables accurate deck validation by enriching parsed cards with metadata from CardCache.
+
+The deck parser extracts text data, but validation requires card metadata. The **Card Enrichment** service bridges this gap.
+
+#### The Problem
+
+```
+Parser Output:           Validator Needs:
+┌──────────────────┐     ┌──────────────────┐
+│ name: "Pikachu"  │     │ supertype        │ ← Missing!
+│ setCode: "SVI"   │     │ subtypes         │ ← Missing!
+│ setNumber: "057" │     │ types            │ ← Missing!
+│ quantity: 4      │     │ regulationMark   │ ← Missing!
+└──────────────────┘     └──────────────────┘
+```
+
+Without metadata, these validations **CANNOT** work:
+- "At least 1 Basic Pokémon" (needs `subtypes: ["Basic"]`)
+- "No Rule Box in GLC" (needs `subtypes` for ex, V detection)
+- "Single Pokémon type in GLC" (needs `types` array)
+- "Regulation mark check" (needs `regulationMark` field)
+
+#### Solution: Card Enrichment Flow
+
+```
+┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│   deckParser.js  │────▶│cardEnricher.js   │────▶│ deckValidator.js │
+│                  │     │                  │     │                  │
+│ Extracts:        │     │ Adds from Cache: │     │ Validates:       │
+│ - name           │     │ - supertype      │     │ - 60 cards       │
+│ - setCode        │     │ - subtypes       │     │ - 4 copy limit   │
+│ - setNumber      │     │ - types          │     │ - Basic Pokémon  │
+│ - quantity       │     │ - regulationMark │     │ - ACE SPEC       │
+└──────────────────┘     └──────────────────┘     └──────────────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │   CardCache DB   │
+                         │ Batch query $in  │
+                         └──────────────────┘
+```
+
+#### Service: `cardEnricher.service.js`
+
+**Location**: `backend/src/services/cardEnricher.service.js`
+
+| Function | Description |
+|----------|-------------|
+| `enrichDeckCards(cards, tcg)` | Main function - enriches parsed cards with CardCache metadata |
+| `generatePossibleIds(card)` | Generates card IDs to search (e.g., `svi-057`, `svi-57`) |
+| `batchLookupCards(ids)` | Single DB call with `$in` operator for performance |
+| `lookupByName(name)` | Fallback for cards without set codes (limited to 10) |
+| `getEnrichmentRate(cards)` | Returns % of cards successfully enriched |
+
+#### Performance Requirements
+
+| Metric | Target | Reason |
+|--------|--------|--------|
+| Enrichment time | <500ms | Must complete within 500ms debounce window |
+| DB calls | 1 | Use `$in` batch query, not individual lookups |
+| Name fallbacks | Max 10 | Prevent slow queries for Pocket format |
+
+#### Enriched Card Structure
+
+```javascript
+// Before enrichment
+{
+  cardId: "svi-057",
+  name: "Pikachu ex",
+  quantity: 4,
+  setCode: "svi",
+  setNumber: "057",
+  supertype: null  // Only known if from section header
+}
+
+// After enrichment
+{
+  cardId: "svi-057",
+  name: "Pikachu ex",
+  quantity: 4,
+  setCode: "svi",
+  setNumber: "057",
+  supertype: "Pokémon",      // ✅ From CardCache
+  subtypes: ["Basic", "ex"], // ✅ From CardCache
+  types: ["Lightning"],      // ✅ From CardCache
+  regulationMark: "G",       // ✅ From CardCache
+  _enriched: true            // ✅ Flag for tracking
+}
+```
+
+#### Enrichment Stats Response
+
+```json
+{
+  "enrichment": {
+    "total": 15,
+    "enriched": 14,
+    "notFound": 1,
+    "durationMs": 123
+  }
+}
+```
+
+#### Related Issues
+
+| Issue | Description |
+|-------|-------------|
+| [#36](https://github.com/manucruzleiva/TCGKB/issues/36) | DM-V2-21: Card Enrichment Service implementation |
+| [#37](https://github.com/manucruzleiva/TCGKB/issues/37) | DM-V2-22: Real-time validation in DeckImportModal |
 
 ---
 

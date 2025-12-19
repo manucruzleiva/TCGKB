@@ -171,7 +171,10 @@ export const en = {
     unknown: 'Unknown',
     confidence: 'confidence',
     parseWarnings: 'Parse warnings',
-    more: 'more'
+    more: 'more',
+    reprintGroups: 'Copy limits',
+    exceedLimit: 'exceed limit',
+    unlimitedCopies: 'Basic Energy - unlimited copies'
   },
 
   // Deck Validation
