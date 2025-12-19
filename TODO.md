@@ -72,18 +72,18 @@
   - Si un comentario tiene @ referenciando carta/habilidad/ataque, mostrar flecha de conexión
 
 ### Sistema de Reprints
-- [ ] **Modelo de datos para Reprints:** `~35K tokens | ~2.5h`
+- [x] **Modelo de datos para Reprints:** `~35K tokens | ~2.5h`
   - Campo `reprintGroup` o `canonicalId` que agrupa cartas equivalentes
   - Identificar reprints por: mismo nombre + mismo texto de ataque/habilidad
   - Diferenciar: reprint exacto vs alternate art vs promo version
   - Tipos de reprint: `exact`, `alternate_art`, `promo`, `special_art`
-- [ ] **Algoritmo de detección automática:** `~45K tokens | ~3h`
+- [x] **Algoritmo de detección automática:** `~45K tokens | ~3h`
   - Comparar nombre de carta (normalizado, sin sufijos de set)
   - Comparar texto de ataques/habilidades (fuzzy match para variaciones menores)
   - Comparar stats (HP, daño, costo de energía)
   - Script de análisis masivo para cartas existentes en cache
   - Marcar como "pendiente de revisión" si match es parcial
-- [ ] **UI en página de carta:** `~30K tokens | ~2h`
+- [x] **UI en página de carta:** `~30K tokens | ~2h`
   - Sección "Otras versiones de esta carta"
   - Mostrar thumbnail de cada reprint con set y rareza
   - Indicador de tipo (exact/alt art/promo)
