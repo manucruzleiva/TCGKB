@@ -189,10 +189,14 @@
 ## Prioridad 3: Backend / Infraestructura
 
 ### Dev Dashboard
-- [ ] Health check de todos los endpoints API `~25K tokens | ~2h`
-- [ ] Lista de reportes - filtrar por asignatario `~15K tokens | ~1h`
-- [ ] Lista de reportes - filtrar por estado `~15K tokens | ~1h`
-- [ ] Lista de reportes - sort oldest/newest `~10K tokens | ~0.5h`
+- [x] Health check de todos los endpoints API `~25K tokens | ~2h`
+  - Ya implementado en checkEndpointsHealth()
+- [x] Lista de reportes - filtrar por asignatario `~15K tokens | ~1h`
+  - Dropdown de asignatarios dinámico
+- [x] Lista de reportes - filtrar por estado `~15K tokens | ~1h`
+  - Botones de filtro por estado (all/open/closed)
+- [x] Lista de reportes - sort oldest/newest `~10K tokens | ~0.5h`
+  - Sort por newest/oldest/updated/comments
 - [ ] SLA tracking `~40K tokens | ~3h`
   - Tiempo desde NEW → Processing
   - Tiempo desde Processing → Closed

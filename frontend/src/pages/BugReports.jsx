@@ -23,6 +23,8 @@ const DevDashboard = () => {
   const [counts, setCounts] = useState({ total: 0, open: 0, closed: 0 })
   const [timeSeries, setTimeSeries] = useState([])
   const [stateFilter, setStateFilter] = useState('all')
+  const [assigneeFilter, setAssigneeFilter] = useState('all')
+  const [sortOrder, setSortOrder] = useState('newest')
   const [selectedIssue, setSelectedIssue] = useState(null)
   const [githubConfigured, setGithubConfigured] = useState(true)
   const [repoInfo, setRepoInfo] = useState(null)
@@ -282,6 +284,32 @@ const DevDashboard = () => {
     { name: language === 'es' ? 'Abiertos' : 'Open', value: counts.open, color: STATE_COLORS.open.chart },
     { name: language === 'es' ? 'Cerrados' : 'Closed', value: counts.closed, color: STATE_COLORS.closed.chart }
   ].filter(d => d.value > 0)
+
+  // Filter and sort issues
+  const filteredAndSortedIssues = issues
+    .filter(issue => {
+      // Assignee filter
+      if (assigneeFilter === 'unassigned') {
+        return !issue.assignees || issue.assignees.length === 0
+      }
+      if (assigneeFilter !== 'all') {
+        return issue.assignees?.some(a => a.login === assigneeFilter)
+      }
+      return true
+    })
+    .sort((a, b) => {
+      switch (sortOrder) {
+        case 'oldest':
+          return new Date(a.created_at) - new Date(b.created_at)
+        case 'updated':
+          return new Date(b.updated_at) - new Date(a.updated_at)
+        case 'comments':
+          return (b.comments || 0) - (a.comments || 0)
+        case 'newest':
+        default:
+          return new Date(b.created_at) - new Date(a.created_at)
+      }
+    })
 
   if (loading && issues.length === 0) {
     return (
@@ -1015,39 +1043,85 @@ const DevDashboard = () => {
         {/* Filter Buttons */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {language === 'es' ? 'Filtrar por Estado' : 'Filter by State'}
+            {language === 'es' ? 'Filtros y Ordenamiento' : 'Filters & Sorting'}
           </h2>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setStateFilter('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                stateFilter === 'all'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              {language === 'es' ? 'Todos' : 'All'} ({counts.total || 0})
-            </button>
-            <button
-              onClick={() => setStateFilter('open')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                stateFilter === 'open'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900'
-              }`}
-            >
-              {language === 'es' ? 'Abiertos' : 'Open'} ({counts.open || 0})
-            </button>
-            <button
-              onClick={() => setStateFilter('closed')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                stateFilter === 'closed'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900'
-              }`}
-            >
-              {language === 'es' ? 'Cerrados' : 'Closed'} ({counts.closed || 0})
-            </button>
+
+          {/* State Filter */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+              {language === 'es' ? 'Estado' : 'State'}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setStateFilter('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  stateFilter === 'all'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {language === 'es' ? 'Todos' : 'All'} ({counts.total || 0})
+              </button>
+              <button
+                onClick={() => setStateFilter('open')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  stateFilter === 'open'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900'
+                }`}
+              >
+                {language === 'es' ? 'Abiertos' : 'Open'} ({counts.open || 0})
+              </button>
+              <button
+                onClick={() => setStateFilter('closed')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  stateFilter === 'closed'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900'
+                }`}
+              >
+                {language === 'es' ? 'Cerrados' : 'Closed'} ({counts.closed || 0})
+              </button>
+            </div>
+          </div>
+
+          {/* Assignee Filter & Sort Order Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Assignee Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                {language === 'es' ? 'Asignatario' : 'Assignee'}
+              </label>
+              <select
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="all">{language === 'es' ? 'Todos' : 'All'}</option>
+                <option value="unassigned">{language === 'es' ? 'Sin asignar' : 'Unassigned'}</option>
+                {/* Dynamic assignees from issues */}
+                {[...new Set(issues.flatMap(i => i.assignees?.map(a => a.login) || []))].map(login => (
+                  <option key={login} value={login}>{login}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sort Order */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                {language === 'es' ? 'Ordenar por' : 'Sort by'}
+              </label>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="newest">{language === 'es' ? 'Más reciente' : 'Newest'}</option>
+                <option value="oldest">{language === 'es' ? 'Más antiguo' : 'Oldest'}</option>
+                <option value="updated">{language === 'es' ? 'Actualizado recientemente' : 'Recently updated'}</option>
+                <option value="comments">{language === 'es' ? 'Más comentarios' : 'Most comments'}</option>
+              </select>
+            </div>
           </div>
 
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -1065,19 +1139,24 @@ const DevDashboard = () => {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            {language === 'es' ? 'Issues' : 'Issues'} ({issues.length})
+            {language === 'es' ? 'Issues' : 'Issues'} ({filteredAndSortedIssues.length}
+            {filteredAndSortedIssues.length !== issues.length && (
+              <span className="text-sm font-normal text-gray-500 dark:text-gray-400"> / {issues.length}</span>
+            )})
           </h2>
         </div>
 
-        {issues.length === 0 ? (
+        {filteredAndSortedIssues.length === 0 ? (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">
             {githubConfigured
-              ? (language === 'es' ? 'No hay issues de GitHub' : 'No GitHub issues')
+              ? (issues.length === 0
+                  ? (language === 'es' ? 'No hay issues de GitHub' : 'No GitHub issues')
+                  : (language === 'es' ? 'No hay issues que coincidan con los filtros' : 'No issues match the filters'))
               : (language === 'es' ? 'GitHub no configurado' : 'GitHub not configured')}
           </div>
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {issues.map((issue) => (
+            {filteredAndSortedIssues.map((issue) => (
               <div
                 key={issue.id}
                 className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
