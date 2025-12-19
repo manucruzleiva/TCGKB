@@ -19,7 +19,7 @@
   - Genera JSON con items pendientes/completados
   - Página /roadmap que muestra el progreso público
   - Actualización automática al hacer deploy
-- [ ] **Changelog con commits de Staging:** `~50K tokens | ~3.5h`
+- [x] **Changelog con commits de Staging:** `~50K tokens | ~3.5h`
   - Endpoint que consulta GitHub API para commits de `stage` branch
   - Mostrar lista de commits recientes con mensaje, autor, fecha
   - Filtrar commits por tipo (feat, fix, refactor, etc.)
