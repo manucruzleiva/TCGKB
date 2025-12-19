@@ -1029,39 +1029,61 @@ export const getProjectItems = async (req, res) => {
       })
     }
 
-    // Process items into roadmap format
-    const items = project.items.nodes.map(item => {
-      const content = item.content || {}
-      const fieldValues = {}
+    // SECURITY: Labels that should NEVER appear in public roadmap
+    // Exposing vulnerability details is a security risk
+    const SENSITIVE_LABELS = [
+      'security',
+      'secret-exposed',
+      'dependabot',
+      'codeql',
+      'vulnerability',
+      'cve'
+    ]
 
-      // Extract field values
-      item.fieldValues?.nodes?.forEach(fv => {
-        const fieldName = fv.field?.name
-        if (fieldName) {
-          fieldValues[fieldName] = fv.text || fv.number || fv.name || fv.date
+    // Helper to check if item has sensitive labels
+    const hasSensitiveLabel = (labels) => {
+      if (!labels || !Array.isArray(labels)) return false
+      return labels.some(label =>
+        SENSITIVE_LABELS.includes(label.name?.toLowerCase())
+      )
+    }
+
+    // Process items into roadmap format
+    const items = project.items.nodes
+      .map(item => {
+        const content = item.content || {}
+        const fieldValues = {}
+
+        // Extract field values
+        item.fieldValues?.nodes?.forEach(fv => {
+          const fieldName = fv.field?.name
+          if (fieldName) {
+            fieldValues[fieldName] = fv.text || fv.number || fv.name || fv.date
+          }
+        })
+
+        return {
+          id: item.id,
+          contentType: content.number ? 'issue' : 'draft',
+          issueNumber: content.number || null,
+          title: content.title || 'Untitled',
+          body: content.body || '',
+          state: content.state || 'OPEN',
+          labels: content.labels?.nodes || [],
+          url: content.url || null,
+          createdAt: content.createdAt,
+          updatedAt: content.updatedAt,
+          closedAt: content.closedAt,
+          // Custom fields from GitHub Project
+          status: fieldValues['Status'] || 'Backlog',
+          priority: fieldValues['Priority'] || null,
+          itemType: fieldValues['Type'] || null,
+          cost: fieldValues['Cost'] || null,
+          targetRelease: fieldValues['Target Release'] || null
         }
       })
-
-      return {
-        id: item.id,
-        contentType: content.number ? 'issue' : 'draft',
-        issueNumber: content.number || null,
-        title: content.title || 'Untitled',
-        body: content.body || '',
-        state: content.state || 'OPEN',
-        labels: content.labels?.nodes || [],
-        url: content.url || null,
-        createdAt: content.createdAt,
-        updatedAt: content.updatedAt,
-        closedAt: content.closedAt,
-        // Custom fields from GitHub Project
-        status: fieldValues['Status'] || 'Backlog',
-        priority: fieldValues['Priority'] || null,
-        itemType: fieldValues['Type'] || null,
-        cost: fieldValues['Cost'] || null,
-        targetRelease: fieldValues['Target Release'] || null
-      }
-    })
+      // SECURITY: Filter out items with sensitive security labels
+      .filter(item => !hasSensitiveLabel(item.labels))
 
     // Group by status for roadmap view
     const byStatus = {

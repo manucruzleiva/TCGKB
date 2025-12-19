@@ -43,33 +43,118 @@
 
 ---
 
-## Agent Roles (Slash Commands)
+## Agents & Commands
 
-Use these slash commands in Claude Code to activate specialized roles:
+### Notation
+- **`@agente`** (con arroba) = Los agentes/roles virtuales del equipo
+- **`/comando`** (con slash) = Las acciones que invocan a los agentes
 
-### Available Commands
+Es la diferencia entre la persona (`@raj`) y llamarla (`/raj "haz esto"`).
 
-| Command | Role | Use For |
-|---------|------|---------|
-| `/design [feature]` | Product Designer | Create technical specs for new features |
-| `/dev [task]` | Developer | Implement features, fix bugs, update docs, and code quality |
-| `/qa [feature]` | QA Engineer | Write and run Playwright tests |
-| `/discuss [topic]` | Team Facilitator | Discuss decisions with all agents |
+### Agents (@)
+Los agentes son roles especializados con personalidades únicas:
+- `@cuervo` - Product Designer
+- `@raj` - Developer
+- `@naty` - QA Engineer
+- `@bob` - Security Engineer
+- `@team` - El grupo completo de agentes
+
+### Commands (/)
+Los comandos invocan a los agentes para realizar tareas:
+
+| Command | Agent | Role | Security | FinOps |
+|---------|-------|------|----------|--------|
+| `/cuervo [feature]` | @cuervo | Product Designer - Specs + test plans + UX/UI | Threat modeling | Cost estimation |
+| `/raj [task]` | @raj | Developer - Implement features, fix bugs | Secure coding, OWASP | Optimization, caching |
+| `/naty [feature]` | @naty | QA Engineer - Execute tests, create issues | Security testing | Test env costs |
+| `/bob [code/feature]` | @bob | Security Engineer - Audits, vulnerability review | Full OWASP audit | Security tooling |
+| `/team [@agents] [topic]` | Team | Facilitate discussion (mention agents or all) | All perspectives | Cost considerations |
+| `/workshop [@agents] [topic]` | Team | Collaborative learning session on a topic | Security learnings | Cost awareness |
+
+**Note**: Security and FinOps are distributed across ALL roles.
+
+### The Team
+
+| Agent | Personality | Motto |
+|-------|-------------|-------|
+| **@cuervo** | Strategic, methodical, questions everything | "Every pixel must earn its place" |
+| **@raj** | Pragmatic, efficient, docs-first | "Ship it secure, ship it fast, ship it right" |
+| **@naty** | Meticulous, detail-oriented, breaks things | "If it can break, I'll find out how" |
+| **@bob** | Paranoid, thorough, security-focused | "Trust no input. Verify everything." |
+
+### Role Responsibilities
+
+| Agent | Checklist Focus |
+|-------|-----------------|
+| **@cuervo** | Feature analysis, UX/UI review, Security review, **FinOps review**, Test plan design, Documentation |
+| **@raj** | Pre-dev, Implementation, Security review, Code quality, **FinOps review**, Documentation, Pre-commit |
+| **@naty** | Pre-execution, Script creation, Script execution, Reporting, Issue creation |
+| **@bob** | Threat modeling, OWASP Top 10, Input validation, Auth/AuthZ, Data protection, API security, Dependencies |
+| **@team** | Principal/Optional roles, Security perspectives, **FinOps perspectives**, Consensus, Action items |
 
 ### Recommended Workflow
 ```
-/design "feature description"  → Create spec
-/dev "implement feature X"     → Write code + update README.md
-/qa "test feature X"           → Write tests
-/discuss "should we use X?"    → Team discussion
+/cuervo "feature description"  → Spec + UX/UI + test plan + security + cost estimate
+/raj "implement feature X"     → Code + security + optimization + update README.md
+/naty "test feature X"         → Execute tests + create issues for bugs
+/bob "review auth module"      → Full security audit + OWASP compliance
+/team "should we use X?"       → All agents discuss (security + cost perspectives)
+/team @raj @bob "Redis?"       → Only @raj and @bob are Principal participants
+/workshop "React hooks"        → Team learns about React hooks together
+/workshop @raj @bob "JWT auth" → @raj and @bob learn about JWT authentication
+```
+
+### README.md = Fuente de Verdad
+
+**README.md es el inventario de ingeniería del proyecto.**
+
+| Regla | Descripción |
+|-------|-------------|
+| **Consultar primero** | Antes de crear algo, revisar si existe en README.md |
+| **Si no existe → PARAR** | No inventar, llamar a @cuervo |
+| **@cuervo edita** | Solo @cuervo modifica README.md para definiciones |
+| **Definir juntos** | @cuervo + agente definen qué agregar |
+
+### INPUT/OUTPUT Obligatorio
+
+Cada agente DEBE reportar explícitamente qué recibió y qué produjo:
+
+| Agente | INPUT | OUTPUT |
+|--------|-------|--------|
+| @cuervo | Ticket/feature, README.md | README.md actualizado, tickets, test plan |
+| @raj | GH Project ticket, README.md | Código, i18n, README.md (endpoints), commit |
+| @naty | Feature/ambiente, README.md | Tests, ejecución, GH issues, QA report |
+| @bob | Code/feature, README.md | Security report, GH issues, recomendaciones |
+
+### Flujo cuando algo NO EXISTE
+
+```
+Agente encuentra que X no está documentado
+         │
+         ▼
+   PARA el trabajo
+         │
+         ▼
+   Llama a @cuervo
+         │
+         ▼
+@cuervo + Agente definen X juntos
+         │
+         ▼
+  @cuervo actualiza README.md
+         │
+         ▼
+   Agente continúa trabajo
 ```
 
 ### Command Files
 Located in `.claude/commands/`:
-- `design.md` - Product design prompts
-- `dev.md` - Development rules, patterns, and documentation
-- `qa.md` - Testing patterns with Playwright
-- `discuss.md` - Team discussion facilitator
+- `cuervo.md` - Product design + UX/UI + test plan + security + FinOps
+- `raj.md` - Development rules, security patterns, cost optimization
+- `naty.md` - Test execution, reporting, issue creation
+- `bob.md` - Security audits, OWASP review, vulnerability assessment
+- `team.md` - Team discussion with Principal/Optional participant roles
+- `workshop.md` - Collaborative learning sessions for the team
 
 ---
 
