@@ -160,7 +160,7 @@
 ## Prioridad 2: Funcionalidad
 
 ### Decks
-- [ ] Import Deck `~35K tokens | ~2.5h`
+- [x] Import Deck `~35K tokens | ~2.5h`
   - Botón directo en Decks para importar decks de Riftbound o Pokemon
 
 ### Autenticación / Usuario
