@@ -1,180 +1,170 @@
-# TODO
-
-> **Leyenda de Estimados:**
-> - 🎯 **Tokens**: Consumo estimado de tokens de Claude para implementar
-> - ⏱️ **Tiempo**: Tiempo estimado de desarrollo
+# TODO - TCGKB
 
 ---
 
-## Prioridad 1: UX/UI
+## ROADMAP
+
+> Features de alto nivel para visibilidad pública. Considera migrar a GitHub Projects.
+
+### En Progreso
+- 🔧 **Bugs Críticos** - Fixes de UX en mobile y dashboards
+- 🎨 **Sistema de Sprites** - Reemplazar emojis por sprites oficiales (energías, runas)
+- 🃏 **Deck Builder** - Constructores para Riftbound y Pokemon
+
+### Próximamente
+- 🔄 **Sistema de Reprints** - Detectar y mostrar versiones alternativas de cartas
+- 👤 **Sistema de Fans de Artistas** - Seguir artistas favoritos
+- ⚖️ **Card Legality Tracking** - Legalidad y rotación de sets (Riftbound)
+- 🏆 **Sistema de Reputación** - Puntos, decay, y ledger
+
+### Futuro
+- 📊 **GitHub Projects Integration** - Migrar gestión de proyecto
+- 🎯 **Ranking Híbrido de Popularidad** - Algoritmo de cartas populares
+- 🎨 **Overhaul de Diseño Gráfico** - Rediseño visual completo
+
+---
+
+## PENDING TASKS
+
+> **Leyenda:** `~XXK tokens | ~Xh` = Estimado de consumo Claude + tiempo
 
 ### Bugs Críticos
-- [ ] **Fix Sync Manual Pokemon (Dev Dashboard):** `~15K tokens | ~1h`
-  - Error: "Cannot read properties of undefined (reading 'length')"
-  - Revisar endpoint POST `/api/mod/cache/sync/pokemon`
-  - Verificar respuesta de Pokemon TCG API
-  - Agregar validación de datos antes de acceder a `.length`
-  - Mejorar manejo de errores con mensaje descriptivo
-- [ ] **Fix User Activity no se muestra:** `~15K tokens | ~1h`
-  - La página de usuario `/user/:username` no muestra actividad
-  - Revisar endpoint GET `/api/users/:username/activity`
-  - Verificar que UserActivity.jsx esté consumiendo datos correctamente
-  - Revisar si hay error en el fetch o en el rendering
+- [ ] Fix Sync Manual Pokemon (Dev Dashboard) `~15K | ~1h`
+- [ ] Cachear TODAS las cartas Pokemon (no solo Standard) `~25K | ~2h`
+- [ ] Fix User Activity no se muestra `~15K | ~1h`
+- [ ] Fix Bug Reports - Tabla no muestra todos los tickets `~10K | ~0.5h`
+- [ ] Fix Mobile: Buscador no visible en modo vertical `~20K | ~1.5h`
+- [ ] Fix User Dropdown: Remover email visible `~5K | ~0.25h`
+- [ ] Fix playset Riftbound - debe ser x/3 no x/4 `~10K | ~0.5h`
+- [ ] Fix line breaks en card text `~10K | ~0.5h`
+- [ ] Fix Popular Comments en conexión (Relationship Map) `~20K | ~1.5h`
 
-### Navegación / Menú
-- [x] **Hamburger Menu Refresh:**
-  - Eliminar ícono hamburguesa, usar logo de la app como invocador
-  - Agregar sección Changelog
-  - Agregar sección Roadmap
-- [x] **Roadmap Automático desde TODO.md:**
-  - Script/endpoint que parsea TODO.md
-  - Extrae secciones de Prioridad 1, 2, 3
-  - Genera JSON con items pendientes/completados
-  - Página /roadmap que muestra el progreso público
-  - Actualización automática al hacer deploy
-- [ ] **Changelog con commits de Staging:** `~50K tokens | ~3.5h`
-  - Endpoint que consulta GitHub API para commits de `stage` branch
-  - Mostrar lista de commits recientes con mensaje, autor, fecha
-  - Filtrar commits por tipo (feat, fix, refactor, etc.)
-  - Indicador visual de "En desarrollo" vs "En producción"
-  - Sección "Próximamente" con commits pendientes de merge a main
-  - Auto-refresh periódico o webhook de GitHub
-  - Agrupación por fecha o por feature
+### Header / Navegación
+- [ ] Refactor Header: Mover theme/language al user dropdown `~15K | ~1h`
+- [ ] Agregar link "Mi Página" en user dropdown `~10K | ~0.5h`
+- [ ] Changelog con commits de Staging `~50K | ~3.5h`
 
-### Homepage Refresh
-- [x] Cambiar emoji de rayo ⚡ por Pokebola para Pokemon
-- [x] Cambiar hanafuda 🎴 por logo de Riftbound
-- [x] Separar cantidad de cartas en stats MVP (Pokemon vs Riftbound)
-- [x] Refinar diseño general del homepage
-- [x] Destacar que Riftbound está 100% soportado
-
-### Smart Mentions System
-- [x] **Fase 1: Asistencia Contextual**
-- [x] **Fase 2: Doble Iconografía en Chips**
-- [x] **Fase 3: Desambiguación Visual**
-- [x] **Tooltip Horizontal para Atributos**
+### Smart Mentions
+- [ ] Expandir @ para más atributos de carta `~40K | ~3h`
 
 ### Sistema de Avatares
-- [x] Búsqueda de Pokémon para avatar
-- [x] Elegir background del avatar (colores, patrones, etc.)
-- [ ] Sprites de entrenadores como opción de avatar `~15K tokens | ~1h`
-- [ ] Sprites de backgrounds como opción `~20K tokens | ~1.5h`
+- [ ] Sprites de entrenadores como opción `~15K | ~1h`
+- [ ] Sprites de backgrounds como opción `~20K | ~1.5h`
+- [ ] Runas de Riftbound como opción de avatar `~15K | ~1h`
 
 ### Relationship Map
-- [x] RELATIONSHIP MAP en hamburger menu
+- [ ] Modal de conexión - Datos completos `~25K | ~2h`
+- [ ] Canvas full screen (sin spacers) `~15K | ~1h`
+- [ ] Layers con sprites TCG (no iconos) `~20K | ~1.5h`
 
 ### Sistema de Reprints
-- [ ] **Modelo de datos para Reprints:** `~35K tokens | ~2.5h`
-  - Campo `reprintGroup` o `canonicalId` que agrupa cartas equivalentes
-  - Identificar reprints por: mismo nombre + mismo texto de ataque/habilidad
-  - Diferenciar: reprint exacto vs alternate art vs promo version
-  - Tipos de reprint: `exact`, `alternate_art`, `promo`, `special_art`
-- [ ] **Algoritmo de detección automática:** `~45K tokens | ~3h`
-  - Comparar nombre de carta (normalizado, sin sufijos de set)
-  - Comparar texto de ataques/habilidades (fuzzy match para variaciones menores)
-  - Comparar stats (HP, daño, costo de energía)
-  - Script de análisis masivo para cartas existentes en cache
-  - Marcar como "pendiente de revisión" si match es parcial
-- [ ] **UI en página de carta:** `~30K tokens | ~2h`
-  - Sección "Otras versiones de esta carta"
-  - Mostrar thumbnail de cada reprint con set y rareza
-  - Indicador de tipo (exact/alt art/promo)
-  - Click para navegar al reprint
-  - Badge "X versiones disponibles" en card header
-- [ ] **Filtros y búsqueda por reprints:** `~25K tokens | ~2h`
-  - En catálogo: toggle "Mostrar solo una versión por carta"
-  - Filtro "Solo alternate arts"
-  - Búsqueda que agrupa reprints en resultados
-  - Contador de versiones en resultados de búsqueda
+- [ ] Modelo de datos para Reprints `~35K | ~2.5h`
+- [ ] Algoritmo de detección automática `~45K | ~3h`
+- [ ] Botón "Discover Reprints" en Dev Dashboard `~20K | ~1.5h`
+- [ ] Poblar reprints para Pokemon `~30K | ~2h`
+- [ ] UI en página de carta - Carrusel de reprints `~45K | ~3h`
+- [ ] Filtros y búsqueda por reprints `~25K | ~2h`
 
-### Catálogo (/catalog)
-- [x] Página de catálogo completo de cartas
-- [x] Filtros por TCG (Pokemon / Riftbound)
-- [x] Filtros por set, tipo, rareza, etc.
-- [x] Vista grid/list toggle
-- [x] Infinite scroll
+### Página de Carta
+- [ ] Parsing de sprites en card text (Riftbound) `~20K | ~1.5h`
+- [ ] Sprites para atributos Domain y Might `~15K | ~1h`
+- [ ] Sprites de energía en ataques Pokemon `~25K | ~2h`
 
-### Binder / Colección Personal
-- [x] **Modelo de datos** (playset tracking)
-- [x] **UI en página de carta** (contador, barra de progreso)
-- [x] **Página /collection** (filtros, stats, grid/list)
-- [ ] **Decks sugeridos:** `~60K tokens | ~4h`
-  - Basado en cartas que el usuario posee
-  - Mostrar % de completitud de decks populares
-  - Sugerir cartas faltantes para completar decks
+### Catálogo
+- [ ] Filtros TCG con iconos visuales (no dropdown) `~25K | ~2h`
+- [ ] Filtros por subtipo con sprites `~35K | ~2.5h`
+
+### Colección / Binder
+- [ ] Contador de colección más discreto `~15K | ~1h`
+- [ ] Decks sugeridos `~60K | ~4h`
+- [ ] Import colección desde TCGCollector `~45K | ~3h`
 
 ### Sistema de Fans de Artistas
-- [ ] **Modelo Artist:** `~25K tokens | ~2h`
-  - Nombre del artista
-  - Contador de fans
-  - Lista de usuarios fans
-- [ ] **UI en página de carta:** `~30K tokens | ~2h`
-  - Nombre del artista clickeable
-  - Mostrar cantidad de fans del artista
-  - Click para hacerse fan (toggle)
-  - Cambio visual cuando eres fan (highlight, icono, etc.)
-- [ ] **Página de artista (opcional):** `~35K tokens | ~2.5h`
-  - Ver todas las cartas de un artista
-  - Ranking de artistas más populares
+- [ ] Modelo Artist `~25K | ~2h`
+- [ ] UI Toggle de fan en nombre del artista `~30K | ~2h`
+- [ ] Página de artista (opcional) `~35K | ~2.5h`
+- [ ] Link a catálogo filtrado por artista `~20K | ~1.5h`
 
-### Overhaul de Diseño Gráfico
-- [ ] **Rediseño de identidad visual:** `~30K tokens | ~2h`
-- [ ] **Componentes UI mejorados:** `~40K tokens | ~3h`
-- [ ] **Animaciones y transiciones:** `~25K tokens | ~2h`
-- [ ] **Responsive design audit:** `~35K tokens | ~2.5h`
-- [ ] **Iconografía consistente:** `~20K tokens | ~1.5h`
-
----
-
-## Prioridad 2: Funcionalidad
+### Overhaul de Diseño
+- [ ] Rediseño de identidad visual `~30K | ~2h`
+- [ ] Componentes UI mejorados `~40K | ~3h`
+- [ ] Animaciones y transiciones `~25K | ~2h`
+- [ ] Responsive design audit `~35K | ~2.5h`
+- [ ] Iconografía consistente `~20K | ~1.5h`
 
 ### Decks
-- [ ] **Import Deck:** `~35K tokens | ~2.5h`
-  - Botón directo en Decks para importar decks de Riftbound o Pokemon
+- [ ] Import Deck Riftbound (TCG Arena format) `~45K | ~3h`
+- [ ] Import Deck Pokemon `~35K | ~2.5h`
+- [ ] Deck Builder para Riftbound `~80K | ~6h`
+- [ ] Deck Builder para Pokemon `~60K | ~4h`
+- [ ] Página Decks - Filtros por juego `~30K | ~2h`
+- [ ] Sistema de Tags para Decks `~45K | ~3h`
+- [ ] Auto-tagging de Decks (TYPE) `~25K | ~2h`
+- [ ] Vista de Deck - Info del creador `~20K | ~1.5h`
+- [ ] Decks públicos del usuario `~25K | ~2h`
+- [ ] Confirmación al eliminar deck `~10K | ~0.5h`
 
-### Autenticación / Usuario
-- [x] User data chips - reemplazar chip 'admin' por tags actuales
-- [ ] Change email `~20K tokens | ~1.5h`
-- [x] Login con username
-- [x] Username único (case-insensitive)
+### Usuario / Auth
+- [ ] Change email `~20K | ~1.5h`
 
-### Ranking Híbrido de Popularidad
-- [ ] Endpoint `GET /api/cards/popular` `~30K tokens | ~2h`
-- [ ] Cachear resultado `~15K tokens | ~1h`
-- [ ] Lógica de query vacío `~20K tokens | ~1.5h`
-- [ ] Fórmula de popularidad `~25K tokens | ~2h`
-- [ ] Endpoint `GET /api/stats/popularity` `~20K tokens | ~1.5h`
+### Ranking de Popularidad
+- [ ] Endpoint GET /api/cards/popular `~30K | ~2h`
+- [ ] Cachear resultado `~15K | ~1h`
+- [ ] Lógica de query vacío `~20K | ~1.5h`
+- [ ] Fórmula de popularidad `~25K | ~2h`
+- [ ] Endpoint GET /api/stats/popularity `~20K | ~1.5h`
 
----
-
-## Prioridad 3: Backend / Infraestructura
+### Mod Dashboard
+- [ ] Fichas adicionales (devs, interactions, mods) `~20K | ~1.5h`
+- [ ] Gráficas incrementales (acumulativas) `~35K | ~2.5h`
+- [ ] Users Over Time segmentado `~25K | ~2h`
+- [ ] Sistema de cierre de cuenta (CLOSED tag) `~40K | ~3h`
+- [ ] Reactivación de cuenta cerrada `~30K | ~2h`
 
 ### Dev Dashboard
-- [ ] Health check de todos los endpoints API `~25K tokens | ~2h`
-- [ ] Lista de reportes - filtrar por asignatario `~15K tokens | ~1h`
-- [ ] Lista de reportes - filtrar por estado `~15K tokens | ~1h`
-- [ ] Lista de reportes - sort oldest/newest `~10K tokens | ~0.5h`
-- [ ] SLA tracking `~40K tokens | ~3h`
+- [ ] API Endpoints - Vista compacta `~15K | ~1h`
+- [ ] External Data Resources - Pre-cargados `~20K | ~1.5h`
+- [ ] System Health - Commit ID por ambiente `~15K | ~1h`
+- [ ] Health check de todos los endpoints API `~25K | ~2h`
+- [ ] Lista de reportes - filtrar por asignatario `~15K | ~1h`
+- [ ] Lista de reportes - filtrar por estado `~15K | ~1h`
+- [ ] Lista de reportes - sort oldest/newest `~10K | ~0.5h`
+- [ ] SLA tracking `~40K | ~3h`
 
-### Bug Reporter - Integraciones
-- [ ] **Integración con GitHub Issues:** `~45K tokens | ~3h`
-- [ ] **Integración con TODO.md:** `~35K tokens | ~2.5h`
-- [ ] **Auto-clasificación de bugs:** `~30K tokens | ~2h`
+### Bug Reporter
+- [ ] Integración con GitHub Issues `~45K | ~3h`
+- [ ] Integración con TODO.md `~35K | ~2.5h`
+- [ ] Auto-clasificación de bugs `~30K | ~2h`
+
+### Card Legality (Riftbound)
+- [ ] Modelo de datos para Sets y Legalidad `~35K | ~2.5h`
+- [ ] Card-level legality `~25K | ~2h`
+- [ ] Auto-update de legalidad `~20K | ~1.5h`
+- [ ] UI de legalidad en página de carta `~15K | ~1h`
+- [ ] Filtro de legalidad en catálogo `~15K | ~1h`
 
 ### Sistema de Reputación
-- [ ] **Obtención de puntos:** `~50K tokens | ~4h`
-- [ ] **Penalización por moderación:** `~30K tokens | ~2h`
-- [ ] **Configuración de Pesos (Mod Dashboard):** `~45K tokens | ~3h`
-- [ ] **Aplicación Reactiva de Pesos:** `~55K tokens | ~4h`
-- [ ] **Deck Hash System:** `~25K tokens | ~2h`
-- [ ] **Ledger de Puntos:** `~35K tokens | ~2.5h`
-- [ ] **Wither System (Decay):** `~40K tokens | ~3h`
+- [ ] Obtención de puntos `~50K | ~4h`
+- [ ] Penalización por moderación `~30K | ~2h`
+- [ ] Configuración de Pesos (Mod Dashboard) `~45K | ~3h`
+- [ ] Aplicación Reactiva de Pesos `~55K | ~4h`
+- [ ] Deck Hash System `~25K | ~2h`
+- [ ] Ledger de Puntos `~35K | ~2.5h`
+- [ ] Wither System (Decay) `~40K | ~3h`
+
+### Infraestructura / Meta
+- [ ] **Migrar a GitHub Projects** `~30K | ~2h`
+  - Crear proyecto en GitHub
+  - Migrar items del TODO a Issues
+  - Configurar board Kanban (Backlog, In Progress, Done)
+  - Actualizar endpoint /roadmap para leer GitHub API
+  - Automatizaciones (mover cards al cerrar PRs)
 
 ---
 
-## Completado
+## COMPLETED TASKS
 
-### Deployment en Vercel
+### Deployment
 - [x] Deploy inicial a Vercel
 - [x] Configurar variables de entorno
 - [x] Whitelist IPs de MongoDB Atlas
@@ -184,48 +174,80 @@
 - [x] Auto-deploy en push a main
 - [x] Integración de dominio tcgkb.app
 
-### Funcionalidad Completada
-- [x] Extreme caching with sync routines
-- [x] PokeAPI sprites en chips de mención
-- [x] Riftbound API source of data
+### Navegación / Menú
 - [x] Hamburger Menu con logo como invocador
 - [x] Roadmap automático desde TODO.md
-- [x] Sistema de Avatares (búsqueda Pokemon + backgrounds)
-- [x] Relationship Map (canvas SVG interactivo)
-- [x] Catálogo con filtros e infinite scroll
-- [x] Binder / Colección Personal completo
+
+### Homepage
+- [x] Cambiar emoji de rayo por Pokebola
+- [x] Cambiar hanafuda por logo Riftbound
+- [x] Separar stats Pokemon vs Riftbound
+- [x] Refinar diseño general
+- [x] Destacar soporte Riftbound 100%
+
+### Smart Mentions
+- [x] Fase 1: Asistencia Contextual
+- [x] Fase 2: Doble Iconografía en Chips
+- [x] Fase 3: Desambiguación Visual
+- [x] Tooltip Horizontal para Atributos
+
+### Sistema de Avatares
+- [x] Búsqueda de Pokémon para avatar
+- [x] Elegir background del avatar
+
+### Relationship Map
+- [x] RELATIONSHIP MAP en hamburger menu
+
+### Catálogo
+- [x] Página de catálogo completo
+- [x] Filtros por TCG (Pokemon / Riftbound)
+- [x] Filtros por set, tipo, rareza
+- [x] Vista grid/list toggle
+- [x] Infinite scroll
+
+### Colección / Binder
+- [x] Modelo de datos (playset tracking)
+- [x] UI en página de carta
+- [x] Página /collection
+
+### Usuario / Auth
+- [x] User data chips con tags actuales
+- [x] Login con username
+- [x] Username único (case-insensitive)
+
+### Backend
+- [x] Extreme caching with sync routines
+- [x] PokeAPI sprites en chips
+- [x] Riftbound API source of data
 - [x] Staging favicon grayscale
 
-### Sesiones Anteriores
-- Fix API URL para producción
-- Fix rate limiter blocking login en serverless
-- Fix JWT_EXPIRES_IN inválido
-- Trust proxy configurado
-- Removed duplicate Mongoose indexes
-- Agregar "GLC" a format tags
-- Remover "Tabla de Tipos"
-- Mejores mensajes de error en login
-- Renombrar "Bug Reports" a "Dev Dashboard"
+### Fixes Históricos
+- [x] Fix API URL para producción
+- [x] Fix rate limiter blocking login
+- [x] Fix JWT_EXPIRES_IN inválido
+- [x] Trust proxy configurado
+- [x] Removed duplicate Mongoose indexes
+- [x] Agregar "GLC" a format tags
+- [x] Remover "Tabla de Tipos"
+- [x] Mejores mensajes de error en login
+- [x] Renombrar "Bug Reports" a "Dev Dashboard"
 
 ---
 
 ## Resumen de Estimados
 
-| Prioridad | Tokens Estimados | Tiempo Estimado |
-|-----------|------------------|-----------------|
-| P1: UX/UI | ~550K tokens | ~39h |
-| P2: Funcionalidad | ~165K tokens | ~12h |
-| P3: Backend/Infra | ~495K tokens | ~34.5h |
-| **TOTAL** | **~1,210K tokens** | **~85.5h** |
-
-> **Nota**: Estos estimados asumen implementación desde cero con Claude.
-> El consumo real puede variar según iteraciones, debugging y cambios de scope.
+| Categoría | Tokens | Tiempo |
+|-----------|--------|--------|
+| Bugs Críticos | ~130K | ~9h |
+| Features UX/UI | ~925K | ~66h |
+| Funcionalidad | ~505K | ~36h |
+| Backend/Infra | ~835K | ~59h |
+| **TOTAL** | **~2,395K** | **~170h** |
 
 ---
 
 ## Notas Técnicas
-- El rate limiter usa memoria in-memory que no persiste entre invocaciones serverless
-- Para producción seria considerar Redis store
-- La URL de API se detecta en runtime: localhost -> localhost:3001, producción -> /api
-- Dev Dashboard ahora incluye monitoreo de salud de API y Database
-- El endpoint `/api/cards/batch` permite obtener hasta 60 cartas en paralelo
+- Rate limiter: memoria in-memory (considerar Redis para prod)
+- API URL: runtime detection (localhost → localhost:3001, prod → /api)
+- Dev Dashboard: monitoreo de salud de API y Database
+- Batch endpoint: `/api/cards/batch` hasta 60 cartas en paralelo
