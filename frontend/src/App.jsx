@@ -25,7 +25,6 @@ import Artists from './pages/Artists'
 import ArtistDetail from './pages/ArtistDetail'
 import Support from './pages/Support'
 import BugReportButton from './components/common/BugReportButton'
-import SupportButton from './components/common/SupportButton'
 
 function App() {
   return (
@@ -61,7 +60,6 @@ function App() {
                       <Route path="/support" element={<Support />} />
                     </Routes>
                   </main>
-                  <SupportButton />
                   <BugReportButton />
                   <Footer />
                 </div>

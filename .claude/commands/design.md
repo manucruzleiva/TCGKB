@@ -69,6 +69,61 @@ As a [user type], I want to [action] so that [benefit].
 - [Questions for clarification]
 ```
 
+## Target User Profile
+
+TCGKB users are **efficiency-focused adults** (including neurodivergent users) who value:
+- **Speed** over aesthetics
+- **Clarity** over cleverness
+- **Minimal UI** over feature-rich interfaces
+- **Predictable patterns** over novel interactions
+
+## UX Design Principles (CRITICAL)
+
+### Core Rules
+| Rule | Description |
+|------|-------------|
+| **ONE floating button max** | Only BugReportButton. Never stack floating buttons. |
+| **Footer for secondary actions** | Support links, social links, version info = footer |
+| **No modals for simple actions** | If it's just a link, open in new tab directly |
+| **No animations that block** | User should never wait for an animation |
+
+### Before Adding ANY UI Element, Ask:
+1. Does this NEED to be visible at all times? (If no → footer or menu)
+2. Is there already a similar element? (If yes → combine or replace)
+3. Can this be a simple link instead of a component? (If yes → use link)
+4. Will this add visual clutter? (If yes → reconsider)
+
+### What NOT to Do
+- Multiple floating buttons (2+ is clutter)
+- Modals for external links (just open new tab)
+- Hover-only features (not accessible)
+- Decorative elements that don't serve function
+- Animations that delay user actions
+
+### Examples
+
+**BAD**: Adding a floating donate button when there's already a floating bug button
+```
+❌ Two floating buttons = visual clutter
+┌─────┐
+│  ❤️ │
+└─────┘
+┌─────┐
+│  🐛 │
+└─────┘
+```
+
+**GOOD**: Donate link in footer, one floating button for bugs
+```
+✅ Clean: one floating button, secondary actions in footer
+Footer: © 2024 TCGKB | GitHub | ❤️ Support | Version
+                                    ┌─────┐
+                                    │  🐛 │
+                                    └─────┘
+```
+
+---
+
 ## Rules
 
 ### CRITICAL: Documentation Only
@@ -77,11 +132,12 @@ As a [user type], I want to [action] so that [benefit].
 - For implementation, hand off to @dev with clear specs
 
 ### Design Process
-- Read README.md before designing
+- Read README.md before designing (especially UX Design Principles section)
 - Consider i18n (ES/EN) for all UI text
 - Follow existing patterns in the codebase
-- Keep designs simple - avoid over-engineering
+- **Keep designs MINIMAL** - less is more
 - Consider security implications
+- **Always question if a new UI element is truly needed**
 
 ### What @design CAN Do
 - Create/update README.md sections

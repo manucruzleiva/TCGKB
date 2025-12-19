@@ -541,6 +541,26 @@ Project items use cost estimate labels: `cost-5000`, `cost-10000`, `cost-25000`
 
 ---
 
+## UX Design Principles
+
+TCGKB targets **efficiency-focused users** who value speed and minimal UI clutter.
+
+### Core Principles
+| Principle | Description |
+|-----------|-------------|
+| **Minimal floating elements** | Only ONE floating button (BugReportButton). No stacking. |
+| **Footer for secondary actions** | Support, GitHub, version info go in footer |
+| **Fast navigation** | Header menu for primary nav, no modals for simple actions |
+| **Consistent patterns** | Same component patterns across all pages |
+
+### What NOT to do
+- Multiple floating buttons (clutters screen)
+- Modals for simple links (just open in new tab)
+- Animations that delay user actions
+- Hidden features behind hover states
+
+---
+
 ## Support / Monetization
 
 TCGKB uses GitHub Sponsors for community support. This keeps the project ad-free and user-focused.
@@ -550,8 +570,9 @@ TCGKB uses GitHub Sponsors for community support. This keeps the project ad-free
 | Component | Location | Description |
 |-----------|----------|-------------|
 | **Footer Link** | Footer, next to GitHub link | Heart icon + "Apoyar/Support" text |
-| **Support Button** | Floating, bottom-right (above bug button) | Pink heart button, opens GitHub Sponsors |
 | **Support Page** | `/support` | Full page explaining project costs and tiers |
+
+> **Note**: No floating support button. Footer link is sufficient and keeps UI clean.
 
 ### GitHub Sponsors URL
 - **Main**: `https://github.com/sponsors/manucruzleiva`
@@ -576,19 +597,6 @@ TCGKB uses GitHub Sponsors for community support. This keeps the project ad-free
 - Icon: Heart (pink/rose color)
 - Opens in new tab with `rel="noopener noreferrer"`
 
-#### Support Button (Floating)
-```
-                                    ┌─────┐
-                                    │  ❤️ │  ← SupportButton (z-41)
-                                    └─────┘
-                                    ┌─────┐
-                                    │  🐛 │  ← BugReportButton (z-40)
-                                    └─────┘
-```
-- Position: `fixed bottom-24 right-4`
-- Style: Pink gradient, white heart icon
-- Behavior: Opens GitHub Sponsors in new tab
-
 #### Support Page (`/support`)
 Sections:
 1. **Hero**: Title + subtitle with heart emoji
@@ -598,38 +606,14 @@ Sections:
 5. **CTA Button**: Large "Support on GitHub Sponsors" button
 6. **Supporters Wall**: (Phase 2) Grid of supporter names
 
-### i18n Keys Required
-```javascript
-support: {
-  footerLink: 'Apoyar' / 'Support',
-  buttonTooltip: 'Apoya TCGKB' / 'Support TCGKB',
-  pageTitle: 'Apoya TCGKB' / 'Support TCGKB',
-  pageSubtitle: 'Ayuda a mantener este proyecto vivo',
-  whySupport: { title, reason1, reason2, reason3, reason4 },
-  costs: { title, hosting, database, apis, domain },
-  tiers: { title, supporter, champion, hero },
-  cta: { primary, oneTime },
-  thanks: { title, anonymous }
-}
-```
-
-### Files to Create/Modify
+### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `Footer.jsx` | MODIFY | Add heart link next to GitHub |
-| `SupportButton.jsx` | CREATE | Floating support button component |
-| `Support.jsx` | CREATE | Support page in `/pages` |
-| `App.jsx` | MODIFY | Add `/support` route |
-| `es.js` | MODIFY | Add support translations |
-| `en.js` | MODIFY | Add support translations |
-
-### Implementation Priority
-1. **P0**: Footer link (30 min) - Quick win, immediate visibility
-2. **P0**: i18n translations (30 min) - Required for all components
-3. **P1**: Support page (2-3 hours) - Main content
-4. **P1**: Support button (1 hour) - Additional visibility
-5. **P2**: Supporters wall (Phase 2) - Requires GitHub API
+| `Footer.jsx` | DONE | Heart link next to GitHub |
+| `Support.jsx` | DONE | Support page in `/pages` |
+| `App.jsx` | MODIFY | Remove SupportButton, keep route |
+| `SupportButton.jsx` | DELETE | Not needed - footer link is sufficient |
 
 ---
 
