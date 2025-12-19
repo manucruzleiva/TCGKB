@@ -230,7 +230,7 @@
   - Tags automáticos según página/componente afectado
 
 ### Sistema de Reputación
-- [ ] **Obtención de puntos:** `~50K tokens | ~4h`
+- [x] **Obtención de puntos:** `~50K tokens | ~4h`
   - Participar/generar conversaciones (comentarios)
   - Usar sistema @ en comentarios (menciones)
   - Recibir reacciones positivas en comentarios
@@ -239,11 +239,11 @@
   - Bug desestimado (-puntos, penalización)
   - Crear decks originales
   - Recibir reacciones positivas en decks
-- [ ] **Penalización por moderación:** `~30K tokens | ~2h`
+- [x] **Penalización por moderación:** `~30K tokens | ~2h`
   - Comentario moderado = penalización fuerte de puntos
   - Sistema de rollback si comentario es restaurado
   - Registro en ledger de la penalización y posible reversión
-- [ ] **Configuración de Pesos (Mod Dashboard):** `~45K tokens | ~3h`
+- [x] **Configuración de Pesos (Mod Dashboard):** `~45K tokens | ~3h`
   - UI en dashboard para configurar puntos por cada acción
   - Tabla de acciones con peso editable (ej: comentario=5pts, mención=2pts)
   - Decay configurable por tipo de acción (ej: comentario=60días, reacción=30días)
@@ -257,11 +257,11 @@
   - Generar hash único por composición de deck
   - Verificar unicidad al crear/modificar deck
   - Detectar decks duplicados/copiados
-- [ ] **Ledger de Puntos:** `~35K tokens | ~2.5h`
+- [x] **Ledger de Puntos:** `~35K tokens | ~2.5h`
   - Registro histórico de todas las transacciones de puntos
   - Inspección por mods (quién, cuándo, por qué)
   - Detalle de cada evento que generó puntos
-- [ ] **Wither System (Decay):** `~40K tokens | ~3h`
+- [x] **Wither System (Decay):** `~40K tokens | ~3h`
   - Puntos tienen fecha de expiración (2 meses después de obtenidos)
   - Puntos "marchitan" (wither) y no cuentan al total
   - Cron job para procesar decay automáticamente
