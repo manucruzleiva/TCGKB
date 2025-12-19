@@ -956,6 +956,61 @@ Deck validation is shown **inline** (no popups):
 └────────────────────────────────────────────┘
 ```
 
+### Validation Rules
+
+#### Pokemon Standard
+| Rule | Requirement |
+|------|-------------|
+| Total cards | Exactly 60 |
+| Copy limit | Max 4 per name (except Basic Energy) |
+| Basic Pokémon | At least 1 required |
+| ACE SPEC | Max 1 per deck |
+| Radiant Pokémon | Max 1 per deck |
+| Regulation marks | G, H, I only (current rotation) |
+
+#### Pokemon GLC (Gym Leader Challenge)
+| Rule | Requirement |
+|------|-------------|
+| Total cards | Exactly 60 |
+| Copy limit | 1 per name (Singleton, except Basic Energy) |
+| Pokémon type | Single type only |
+| Rule Box | Prohibited (ex, V, VSTAR, VMAX, Radiant) |
+| ACE SPEC | Prohibited |
+
+#### Riftbound Constructed
+| Rule | Requirement |
+|------|-------------|
+| Main Deck | Exactly 40 cards |
+| Legend | Exactly 1 |
+| Battlefields | Exactly 3 |
+| Runes | Exactly 12 |
+| Copy limit | Max 3 per name |
+| Sideboard | 0 or 8 cards (optional) |
+
+### DeckValidationIndicator Component
+
+**Component**: `frontend/src/components/decks/DeckValidationIndicator.jsx`
+
+Displays real-time validation status inline.
+
+#### Props
+| Prop | Type | Description |
+|------|------|-------------|
+| `validation` | Object | `{ isValid, errors, warnings, summary }` |
+| `format` | String | Detected format (standard, glc, etc.) |
+| `compact` | Boolean | Show compact version (default: false) |
+
+#### Usage
+```jsx
+import DeckValidationIndicator from '../components/decks/DeckValidationIndicator'
+
+<DeckValidationIndicator
+  validation={parseResult.validation}
+  format={parseResult.format}
+  compact={false}
+/>
+```
+
 ### API Endpoints (New)
 
 | Method | Endpoint | Description | Auth |
@@ -968,14 +1023,20 @@ Deck validation is shown **inline** (no popups):
 
 #### POST /api/decks/parse
 
-Parses a deck string and auto-detects the TCG and format.
+Parses a deck string, auto-detects TCG/format, and validates against format rules.
 
 **Request:**
 ```json
 {
-  "deckString": "Pokémon: 12\n4 Pikachu ex SVI 057\n4 Raichu SVI 058\n\nTrainer: 36\n4 Professor's Research SVI 189\n\nEnergy: 12\n8 Electric Energy SVE 004"
+  "deckString": "Pokémon: 12\n4 Pikachu ex SVI 057\n...",
+  "validate": true
 }
 ```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `deckString` | String | required | The deck text to parse |
+| `validate` | Boolean | `true` | Run format validation |
 
 **Response:**
 ```json
@@ -1007,7 +1068,27 @@ Parses a deck string and auto-detects the TCG and format.
       "totalCards": 20,
       "uniqueCards": 4
     },
-    "errors": []
+    "errors": [],
+    "validation": {
+      "isValid": false,
+      "format": "standard",
+      "errors": [
+        {
+          "type": "card_count",
+          "message": "Deck must have exactly 60 cards (currently 20)",
+          "current": 20,
+          "expected": 60
+        }
+      ],
+      "warnings": [],
+      "summary": {
+        "totalCards": 20,
+        "basicPokemon": 2,
+        "aceSpecs": 0,
+        "radiants": 0,
+        "uniqueCards": 4
+      }
+    }
   }
 }
 ```

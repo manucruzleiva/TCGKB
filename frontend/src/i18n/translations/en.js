@@ -174,6 +174,24 @@ export const en = {
     more: 'more'
   },
 
+  // Deck Validation
+  deckValidation: {
+    valid: 'Valid deck',
+    invalid: 'Invalid deck',
+    cards: 'cards',
+    errors: 'Errors',
+    warnings: 'Warnings',
+    basicPokemon: 'Basic Pokémon',
+    errorCardCount: 'Deck must have exactly {{expected}} cards (currently {{current}})',
+    errorCopyLimit: '"{{card}}" exceeds {{limit}} copy limit ({{current}}/{{limit}})',
+    errorSingleton: '"{{card}}" exceeds singleton limit ({{current}}/1)',
+    errorNoBasic: 'Deck must have at least 1 Basic Pokémon',
+    errorAceSpec: 'Deck can only have 1 ACE SPEC card (currently {{current}})',
+    errorRadiant: 'Deck can only have 1 Radiant Pokémon (currently {{current}})',
+    errorRuleBox: 'Rule Box Pokémon (ex, V, VSTAR, VMAX, Radiant) are not allowed in GLC',
+    errorAceSpecGLC: 'ACE SPEC cards are not allowed in GLC'
+  },
+
   // Support / Monetization
   support: {
     footerLink: 'Support',

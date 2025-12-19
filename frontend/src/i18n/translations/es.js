@@ -154,6 +154,24 @@ export const es = {
     more: 'más'
   },
 
+  // Deck Validation
+  deckValidation: {
+    valid: 'Mazo válido',
+    invalid: 'Mazo inválido',
+    cards: 'cartas',
+    errors: 'Errores',
+    warnings: 'Advertencias',
+    basicPokemon: 'Pokémon Básico',
+    errorCardCount: 'El mazo debe tener exactamente {{expected}} cartas (actualmente {{current}})',
+    errorCopyLimit: '"{{card}}" excede el límite de {{limit}} copias ({{current}}/{{limit}})',
+    errorSingleton: '"{{card}}" excede el límite singleton ({{current}}/1)',
+    errorNoBasic: 'El mazo debe tener al menos 1 Pokémon Básico',
+    errorAceSpec: 'El mazo solo puede tener 1 carta ACE SPEC (actualmente {{current}})',
+    errorRadiant: 'El mazo solo puede tener 1 Pokémon Radiant (actualmente {{current}})',
+    errorRuleBox: 'Los Pokémon Rule Box (ex, V, VSTAR, VMAX, Radiant) no están permitidos en GLC',
+    errorAceSpecGLC: 'Las cartas ACE SPEC no están permitidas en GLC'
+  },
+
   // Support / Monetization
   support: {
     footerLink: 'Apoyar',

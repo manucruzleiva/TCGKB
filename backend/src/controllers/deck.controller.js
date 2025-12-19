@@ -4,6 +4,7 @@ import log from '../utils/logger.js'
 import reputationService from '../services/reputation.service.js'
 import { generateDeckHash, findExactDuplicate, findSimilarDecks } from '../utils/deckHash.js'
 import { parseDeckString } from '../utils/deckParser.js'
+import { validateDeck } from '../utils/deckValidator.js'
 
 const MODULE = 'DeckController'
 
@@ -853,7 +854,7 @@ export const getDuplicateGroups = async (req, res) => {
  * Parse a deck string and detect TCG/format
  * POST /api/decks/parse
  *
- * Body: { deckString: "..." }
+ * Body: { deckString: "...", validate: true }
  *
  * Returns:
  * - tcg: "pokemon" | "riftbound"
@@ -861,10 +862,11 @@ export const getDuplicateGroups = async (req, res) => {
  * - cards: parsed cards with cardId, name, quantity
  * - breakdown: card type breakdown
  * - errors: any parsing errors
+ * - validation: format validation results (if validate=true)
  */
 export const parseDeck = async (req, res) => {
   try {
-    const { deckString } = req.body
+    const { deckString, validate = true } = req.body
 
     if (!deckString) {
       return res.status(400).json({
@@ -883,7 +885,13 @@ export const parseDeck = async (req, res) => {
       })
     }
 
-    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}`)
+    // Run validation if requested
+    let validation = null
+    if (validate && result.cards.length > 0) {
+      validation = validateDeck(result.cards, result.tcg, result.format)
+    }
+
+    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}, Valid=${validation?.isValid ?? 'N/A'}`)
 
     res.status(200).json({
       success: true,
@@ -896,7 +904,8 @@ export const parseDeck = async (req, res) => {
         cards: result.cards,
         breakdown: result.breakdown,
         stats: result.stats,
-        errors: result.errors
+        errors: result.errors,
+        validation
       }
     })
   } catch (error) {

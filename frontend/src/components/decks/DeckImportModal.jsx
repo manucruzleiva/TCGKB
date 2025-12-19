@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { deckService } from '../../services/deckService'
 import Spinner from '../common/Spinner'
+import DeckValidationIndicator from './DeckValidationIndicator'
 
 /**
  * DeckImportModal - Modal for importing decks with auto-detection
@@ -219,6 +220,14 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
                   </span>
                 </div>
               </div>
+
+              {/* Validation status */}
+              {parseResult.validation && (
+                <DeckValidationIndicator
+                  validation={parseResult.validation}
+                  format={parseResult.format}
+                />
+              )}
 
               {/* Parse warnings */}
               {parseResult.errors?.length > 0 && (
