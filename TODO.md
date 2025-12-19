@@ -253,7 +253,7 @@
   - Job en background para recálculo masivo
   - Notificación a usuarios si su reputación cambia significativamente
   - Historial de cambios de configuración (quién, cuándo, qué cambió)
-- [ ] **Deck Hash System:** `~25K tokens | ~2h`
+- [x] **Deck Hash System:** `~25K tokens | ~2h`
   - Generar hash único por composición de deck
   - Verificar unicidad al crear/modificar deck
   - Detectar decks duplicados/copiados
