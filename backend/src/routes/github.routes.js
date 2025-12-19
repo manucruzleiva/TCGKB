@@ -31,8 +31,8 @@ router.get('/commits', generalLimiter, getCommits)
 // Classify bug report before submission (get suggestions for priority, labels, duplicates)
 router.post('/classify', optionalAuth, generalLimiter, classifyBugReport)
 
-// Create issue (protected - any authenticated user can report bugs)
-router.post('/issues', protect, generalLimiter, createIssue)
+// Create issue (public - anyone can report bugs, auth optional for attribution)
+router.post('/issues', optionalAuth, generalLimiter, createIssue)
 
 // Get issues (protected - for dashboard)
 router.get('/issues', protect, getIssues)

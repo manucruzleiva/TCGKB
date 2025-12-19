@@ -1,13 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import html2canvas from 'html2canvas'
 import { useLanguage } from '../../contexts/LanguageContext'
-import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import api from '../../services/api'
 
 const BugReportButton = () => {
   const { language } = useLanguage()
-  const { isAuthenticated } = useAuth()
   const { isDark } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [screenshot, setScreenshot] = useState(null)
