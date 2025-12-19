@@ -512,3 +512,277 @@ export const checkConfig = async (req, res) => {
     }
   })
 }
+
+/**
+ * Get commits from GitHub (for changelog)
+ * Fetches commits from stage and main branches to show what's in development vs production
+ */
+export const getCommits = async (req, res) => {
+  try {
+    if (!GITHUB_TOKEN) {
+      return res.status(500).json({
+        success: false,
+        message: 'GitHub integration not configured'
+      })
+    }
+
+    const { branch = 'stage', page = 1, per_page = 30, since } = req.query
+
+    // Build query params
+    const params = new URLSearchParams({
+      sha: branch,
+      page: String(page),
+      per_page: String(per_page)
+    })
+
+    if (since) {
+      params.append('since', since)
+    }
+
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?${params}`,
+      {
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      log.error(MODULE, `GitHub API error fetching commits: ${response.status}`, errorData)
+      return res.status(response.status).json({
+        success: false,
+        message: errorData.message || 'Failed to fetch commits'
+      })
+    }
+
+    const commits = await response.json()
+
+    // Parse commit type from conventional commit format
+    const parseCommitType = (message) => {
+      const match = message.match(/^(feat|fix|refactor|docs|style|test|chore|perf|ci|build|revert)(\(.+?\))?:\s*/i)
+      if (match) {
+        return {
+          type: match[1].toLowerCase(),
+          scope: match[2] ? match[2].replace(/[()]/g, '') : null,
+          message: message.replace(match[0], '').split('\n')[0]
+        }
+      }
+      // Check for merge commits
+      if (message.startsWith('Merge')) {
+        return { type: 'merge', scope: null, message: message.split('\n')[0] }
+      }
+      // Auto-merge commits
+      if (message.includes('Auto-merge')) {
+        return { type: 'auto-merge', scope: null, message: message.split('\n')[0] }
+      }
+      return { type: 'other', scope: null, message: message.split('\n')[0] }
+    }
+
+    // Map commits to simpler format
+    const mappedCommits = commits.map(commit => {
+      const parsed = parseCommitType(commit.commit.message)
+      return {
+        sha: commit.sha,
+        shortSha: commit.sha.substring(0, 7),
+        type: parsed.type,
+        scope: parsed.scope,
+        message: parsed.message,
+        fullMessage: commit.commit.message,
+        author: {
+          name: commit.commit.author.name,
+          email: commit.commit.author.email,
+          date: commit.commit.author.date,
+          avatar_url: commit.author?.avatar_url || null,
+          login: commit.author?.login || null
+        },
+        url: commit.html_url,
+        stats: commit.stats || null
+      }
+    })
+
+    // Get pagination info from Link header
+    const linkHeader = response.headers.get('Link')
+    let totalPages = parseInt(page)
+    if (linkHeader) {
+      const lastMatch = linkHeader.match(/page=(\d+)>; rel="last"/)
+      if (lastMatch) {
+        totalPages = parseInt(lastMatch[1])
+      }
+    }
+
+    // Group commits by date for easier display
+    const groupedByDate = {}
+    mappedCommits.forEach(commit => {
+      const date = commit.author.date.split('T')[0]
+      if (!groupedByDate[date]) {
+        groupedByDate[date] = []
+      }
+      groupedByDate[date].push(commit)
+    })
+
+    res.status(200).json({
+      success: true,
+      data: {
+        commits: mappedCommits,
+        groupedByDate,
+        branch,
+        pagination: {
+          page: parseInt(page),
+          per_page: parseInt(per_page),
+          total_pages: totalPages,
+          has_more: mappedCommits.length === parseInt(per_page)
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get commits failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch commits'
+    })
+  }
+}
+
+/**
+ * Get changelog - commits in stage not yet in main (upcoming features)
+ * and recent commits in main (released features)
+ */
+export const getChangelog = async (req, res) => {
+  try {
+    if (!GITHUB_TOKEN) {
+      return res.status(500).json({
+        success: false,
+        message: 'GitHub integration not configured'
+      })
+    }
+
+    const headers = {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+
+    // Fetch recent commits from main (production)
+    const mainResponse = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?sha=main&per_page=50`,
+      { headers }
+    )
+
+    // Fetch recent commits from stage (staging)
+    const stageResponse = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?sha=stage&per_page=50`,
+      { headers }
+    )
+
+    let mainCommits = []
+    let stageCommits = []
+    let pendingCommits = []
+
+    if (mainResponse.ok) {
+      mainCommits = await mainResponse.json()
+    }
+
+    if (stageResponse.ok) {
+      stageCommits = await stageResponse.json()
+    }
+
+    // Find commits in stage that are not in main (pending deployment)
+    const mainShas = new Set(mainCommits.map(c => c.sha))
+    pendingCommits = stageCommits.filter(c => !mainShas.has(c.sha))
+
+    // Parse commit info
+    const parseCommit = (commit) => {
+      const message = commit.commit.message
+      const match = message.match(/^(feat|fix|refactor|docs|style|test|chore|perf|ci|build|revert)(\(.+?\))?:\s*/i)
+
+      let type = 'other'
+      let scope = null
+      let cleanMessage = message.split('\n')[0]
+
+      if (match) {
+        type = match[1].toLowerCase()
+        scope = match[2] ? match[2].replace(/[()]/g, '') : null
+        cleanMessage = message.replace(match[0], '').split('\n')[0]
+      } else if (message.startsWith('Merge')) {
+        type = 'merge'
+      } else if (message.includes('Auto-merge')) {
+        type = 'auto-merge'
+      }
+
+      return {
+        sha: commit.sha,
+        shortSha: commit.sha.substring(0, 7),
+        type,
+        scope,
+        message: cleanMessage,
+        author: {
+          name: commit.commit.author.name,
+          date: commit.commit.author.date,
+          avatar_url: commit.author?.avatar_url || null,
+          login: commit.author?.login || null
+        },
+        url: commit.html_url
+      }
+    }
+
+    // Filter out merge/auto-merge commits for cleaner changelog
+    const filterMergeCommits = (commits) =>
+      commits.filter(c => !['merge', 'auto-merge'].includes(c.type))
+
+    const parsedMainCommits = mainCommits.map(parseCommit)
+    const parsedPendingCommits = pendingCommits.map(parseCommit)
+
+    // Group by type for better organization
+    const groupByType = (commits) => {
+      const groups = {
+        feat: [],
+        fix: [],
+        refactor: [],
+        perf: [],
+        docs: [],
+        other: []
+      }
+
+      commits.forEach(commit => {
+        if (groups[commit.type]) {
+          groups[commit.type].push(commit)
+        } else {
+          groups.other.push(commit)
+        }
+      })
+
+      return groups
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        pending: {
+          commits: filterMergeCommits(parsedPendingCommits),
+          byType: groupByType(filterMergeCommits(parsedPendingCommits)),
+          count: filterMergeCommits(parsedPendingCommits).length
+        },
+        released: {
+          commits: filterMergeCommits(parsedMainCommits).slice(0, 30),
+          byType: groupByType(filterMergeCommits(parsedMainCommits).slice(0, 30)),
+          count: filterMergeCommits(parsedMainCommits).length
+        },
+        repository: {
+          owner: GITHUB_OWNER,
+          repo: GITHUB_REPO,
+          url: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}`
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get changelog failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch changelog'
+    })
+  }
+}
