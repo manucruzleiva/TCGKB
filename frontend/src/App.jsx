@@ -5,6 +5,7 @@ import { LanguageProvider } from './contexts/LanguageContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { DateFormatProvider } from './contexts/DateFormatContext'
 import Header from './components/layout/Header'
+import Footer from './components/layout/Footer'
 import Home from './pages/Home'
 import CardDetails from './pages/CardDetails'
 import Login from './pages/Login'
@@ -58,6 +59,7 @@ function App() {
                     </Routes>
                   </main>
                   <BugReportButton />
+                  <Footer />
                 </div>
               </Router>
             </SocketProvider>
