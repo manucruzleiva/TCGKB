@@ -183,10 +183,12 @@
 - [x] Cachear resultado `~15K tokens | ~1h`
   - Actualizar cada hora (1 hour TTL con popularityCache)
   - Cache invalidation automática al agregar/modificar reacciones o comentarios
-- [ ] Lógica de query vacío `~20K tokens | ~1.5h`
-  - Top 1 más popular + mix aleatorio del pool top 50 (opcional)
-- [ ] Endpoint `GET /api/stats/popularity` `~20K tokens | ~1.5h`
-  - Stats agregados de popularidad (opcional)
+- [x] Lógica de query vacío `~20K tokens | ~1.5h`
+  - Endpoint GET /api/cards/featured
+  - Top 1 más popular + mix aleatorio del pool top 50
+- [x] Endpoint `GET /api/stats/popularity` `~20K tokens | ~1.5h`
+  - Stats agregados: totales, cobertura, top performers, distribución
+  - Incluye engagement rate y métricas por categoría
 
 ---
 

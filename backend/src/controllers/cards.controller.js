@@ -468,6 +468,107 @@ export const getPopularCards = async (req, res) => {
   }
 }
 
+/**
+ * Get featured cards for empty search queries
+ * Returns: Top 1 most popular + random mix from top 50
+ * Used when user hasn't entered a specific search term
+ */
+export const getFeaturedCards = async (req, res) => {
+  try {
+    const { limit = 12, tcgSystem } = req.query
+    const requestedLimit = Math.min(parseInt(limit), 20)
+
+    // Get cached popularity scores
+    let cardScores = popularityCache.get('popular', 'scores')
+
+    if (!cardScores) {
+      log.info(MODULE, 'Featured cards: cache miss, computing scores...')
+      cardScores = await computePopularityScores()
+      popularityCache.set('popular', 'scores', cardScores)
+    }
+
+    // Get top 50 pool
+    const top50 = cardScores.slice(0, 50)
+
+    if (top50.length === 0) {
+      // No popular cards yet, return empty
+      return res.status(200).json({
+        success: true,
+        data: {
+          cards: [],
+          featured: null,
+          message: 'No popular cards available yet'
+        }
+      })
+    }
+
+    // Top 1 is guaranteed (the most popular)
+    const topCard = top50[0]
+
+    // Random selection from remaining top 50 (excluding top 1)
+    const remainingPool = top50.slice(1)
+    const shuffled = remainingPool.sort(() => Math.random() - 0.5)
+    const randomSelection = shuffled.slice(0, requestedLimit - 1)
+
+    // Combine: top 1 + random selection
+    const selectedScores = [topCard, ...randomSelection]
+
+    // Fetch card details
+    const featuredCards = await Promise.all(
+      selectedScores.map(async ({ cardId, score, thumbsUp, thumbsDown, comments, mentions }) => {
+        try {
+          const card = await unifiedTCGService.getCardById(cardId)
+          if (tcgSystem && card.tcgSystem !== tcgSystem) {
+            return null
+          }
+          return {
+            id: card.id,
+            name: card.name,
+            images: card.images,
+            set: card.set,
+            number: card.number,
+            tcgSystem: card.tcgSystem || 'pokemon',
+            rarity: card.rarity,
+            popularity: {
+              score,
+              thumbsUp,
+              thumbsDown,
+              comments,
+              mentions
+            }
+          }
+        } catch (error) {
+          return null
+        }
+      })
+    )
+
+    const validCards = featuredCards.filter(c => c !== null)
+
+    // Separate featured (top 1) from random mix
+    const featured = validCards.length > 0 ? validCards[0] : null
+    const randomMix = validCards.slice(1)
+
+    log.info(MODULE, `Featured cards: 1 top + ${randomMix.length} random from top 50`)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        featured,
+        randomMix,
+        cards: validCards, // All cards combined for convenience
+        poolSize: top50.length
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get featured cards failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
 export const getMostCommentedCards = async (req, res) => {
   try {
     const { limit = 10 } = req.query

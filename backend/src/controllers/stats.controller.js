@@ -901,3 +901,143 @@ export const getRelationshipMap = async (req, res) => {
     })
   }
 }
+
+/**
+ * Get popularity statistics - aggregated data about card engagement
+ * Returns: totals, averages, top performers, and distribution
+ */
+export const getPopularityStats = async (req, res) => {
+  try {
+    const { tcgSystem } = req.query
+
+    // Get reaction totals by emoji
+    const reactionTotals = await Reaction.aggregate([
+      { $match: { targetType: 'card' } },
+      { $group: { _id: '$emoji', count: { $sum: 1 } } }
+    ])
+
+    const thumbsUp = reactionTotals.find(r => r._id === '👍')?.count || 0
+    const thumbsDown = reactionTotals.find(r => r._id === '👎')?.count || 0
+
+    // Get total comment count (non-moderated card comments)
+    const totalComments = await Comment.countDocuments({
+      targetType: 'card',
+      isModerated: false
+    })
+
+    // Get total mentions count
+    const mentionsResult = await Comment.aggregate([
+      { $match: { isModerated: false, 'mentions.type': 'card' } },
+      { $unwind: '$mentions' },
+      { $match: { 'mentions.type': 'card' } },
+      { $count: 'total' }
+    ])
+    const totalMentions = mentionsResult[0]?.total || 0
+
+    // Get count of unique cards with engagement
+    const cardsWithReactions = await Reaction.distinct('targetId', { targetType: 'card' })
+    const cardsWithComments = await Comment.distinct('cardId', { targetType: 'card', isModerated: false })
+    const cardsWithMentions = await Comment.aggregate([
+      { $match: { isModerated: false, 'mentions.type': 'card' } },
+      { $unwind: '$mentions' },
+      { $match: { 'mentions.type': 'card' } },
+      { $group: { _id: '$mentions.id' } }
+    ])
+
+    const uniqueCardsEngaged = new Set([
+      ...cardsWithReactions,
+      ...cardsWithComments,
+      ...cardsWithMentions.map(m => m._id)
+    ]).size
+
+    // Get top 5 cards by each metric
+    const topByThumbsUp = await Reaction.aggregate([
+      { $match: { targetType: 'card', emoji: '👍' } },
+      { $group: { _id: '$targetId', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ])
+
+    const topByComments = await Comment.aggregate([
+      { $match: { targetType: 'card', isModerated: false } },
+      { $group: { _id: '$cardId', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ])
+
+    const topByMentions = await Comment.aggregate([
+      { $match: { isModerated: false, 'mentions.type': 'card' } },
+      { $unwind: '$mentions' },
+      { $match: { 'mentions.type': 'card' } },
+      { $group: { _id: '$mentions.id', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ])
+
+    // Calculate engagement distribution (how many cards have 1, 2, 3... reactions)
+    const engagementDistribution = await Reaction.aggregate([
+      { $match: { targetType: 'card' } },
+      { $group: { _id: '$targetId', reactions: { $sum: 1 } } },
+      {
+        $bucket: {
+          groupBy: '$reactions',
+          boundaries: [1, 2, 5, 10, 20, 50, 100],
+          default: '100+',
+          output: { count: { $sum: 1 } }
+        }
+      }
+    ])
+
+    // Format distribution
+    const distributionFormatted = engagementDistribution.reduce((acc, bucket) => {
+      const key = bucket._id === '100+' ? '100+' : `${bucket._id}-${bucket._id === 50 ? 99 : bucket._id * 2 - 1}`
+      acc[key] = bucket.count
+      return acc
+    }, {})
+
+    // Get total cards for context
+    let totalCardsQuery = {}
+    if (tcgSystem) {
+      totalCardsQuery.tcgSystem = tcgSystem
+    }
+    const totalCards = await CardCache.countDocuments(totalCardsQuery)
+
+    // Calculate engagement rate
+    const engagementRate = totalCards > 0
+      ? ((uniqueCardsEngaged / totalCards) * 100).toFixed(2)
+      : 0
+
+    log.info(MODULE, `Popularity stats: ${uniqueCardsEngaged} engaged cards, ${thumbsUp + thumbsDown} reactions`)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totals: {
+          thumbsUp,
+          thumbsDown,
+          netReactions: thumbsUp - thumbsDown,
+          comments: totalComments,
+          mentions: totalMentions,
+          totalEngagements: thumbsUp + thumbsDown + totalComments + totalMentions
+        },
+        coverage: {
+          totalCards,
+          cardsWithEngagement: uniqueCardsEngaged,
+          engagementRate: `${engagementRate}%`
+        },
+        topPerformers: {
+          byThumbsUp: topByThumbsUp.map(t => ({ cardId: t._id, count: t.count })),
+          byComments: topByComments.map(t => ({ cardId: t._id, count: t.count })),
+          byMentions: topByMentions.map(t => ({ cardId: t._id, count: t.count }))
+        },
+        distribution: distributionFormatted
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get popularity stats failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get popularity statistics'
+    })
+  }
+}

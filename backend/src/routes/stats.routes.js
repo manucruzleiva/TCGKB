@@ -1,5 +1,5 @@
 import express from 'express'
-import { getStats, getDetailedStats, getGitHubCommits, getRoadmap, getRelationshipMap, addRoadmapItem, getRoadmapSections } from '../controllers/stats.controller.js'
+import { getStats, getDetailedStats, getGitHubCommits, getRoadmap, getRelationshipMap, addRoadmapItem, getRoadmapSections, getPopularityStats } from '../controllers/stats.controller.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
 import { protect, adminOrDevOnly } from '../middleware/auth.middleware.js'
 
@@ -25,5 +25,8 @@ router.post('/roadmap', protect, adminOrDevOnly, generalLimiter, addRoadmapItem)
 
 // Get relationship map data (cards with connections via mentions)
 router.get('/relationship-map', generalLimiter, getRelationshipMap)
+
+// Get popularity statistics (aggregated engagement data)
+router.get('/popularity', generalLimiter, getPopularityStats)
 
 export default router

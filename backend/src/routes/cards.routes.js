@@ -8,6 +8,7 @@ import {
   getNewestCards,
   getMostCommentedCards,
   getPopularCards,
+  getFeaturedCards,
   getCatalog,
   getCatalogFilters
 } from '../controllers/cards.controller.js'
@@ -29,6 +30,9 @@ router.get('/most-commented', getMostCommentedCards)
 
 // Get popular cards (hybrid ranking: reactions + comments + mentions)
 router.get('/popular', getPopularCards)
+
+// Get featured cards for empty queries (top 1 + random from top 50)
+router.get('/featured', getFeaturedCards)
 
 // Search cards for autocomplete
 router.get('/search', searchCardsAutocomplete)
