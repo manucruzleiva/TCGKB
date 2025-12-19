@@ -1044,7 +1044,7 @@ export const getProjectItems = async (req, res) => {
 
       return {
         id: item.id,
-        type: content.number ? 'issue' : 'draft',
+        contentType: content.number ? 'issue' : 'draft',
         issueNumber: content.number || null,
         title: content.title || 'Untitled',
         body: content.body || '',
@@ -1054,10 +1054,10 @@ export const getProjectItems = async (req, res) => {
         createdAt: content.createdAt,
         updatedAt: content.updatedAt,
         closedAt: content.closedAt,
-        // Custom fields
+        // Custom fields from GitHub Project
         status: fieldValues['Status'] || 'Backlog',
         priority: fieldValues['Priority'] || null,
-        type: fieldValues['Type'] || null,
+        itemType: fieldValues['Type'] || null,
         cost: fieldValues['Cost'] || null,
         targetRelease: fieldValues['Target Release'] || null
       }
