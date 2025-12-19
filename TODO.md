@@ -209,12 +209,13 @@
   - Barra de progreso visual con línea de tiempo
 
 ### Bug Reporter - Integraciones
-- [ ] **Integración con GitHub Issues:** `~45K tokens | ~3h`
-  - Botón "Crear Issue en GitHub" desde Dev Dashboard
-  - Mapear campos del bug report a formato de Issue
-  - Incluir screenshot como imagen en el issue
-  - Labels automáticos (bug, from-app, prioridad)
-  - Sincronizar estado: cuando Issue se cierra, actualizar bug report
+- [x] **Integración con GitHub Issues:** `~45K tokens | ~3h`
+  - Botón "Crear Issue en GitHub" desde Dev Dashboard (BugReportButton)
+  - Mapear campos del bug report a formato de Issue (title, description, page, theme, browser)
+  - Incluir screenshot como referencia en el issue (base64 captura automática)
+  - Labels automáticos (bug, from-app)
+  - Sincronizar estado: cuando Issue se cierra/reabre, actualizar bug report
+  - Bug reports guardados en DB con referencia a GitHub issue
   - GitHub API con token de servicio
 - [ ] **Integración con TODO.md:** `~35K tokens | ~2.5h`
   - Botón "Agregar al Roadmap" desde Dev Dashboard

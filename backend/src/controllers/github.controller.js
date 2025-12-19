@@ -1,4 +1,5 @@
 import log from '../utils/logger.js'
+import BugReport from '../models/BugReport.js'
 
 const MODULE = 'GitHubController'
 
@@ -60,10 +61,11 @@ export const createIssue = async (req, res) => {
 
     body += `---\n*Submitted via TCGKB Bug Reporter*`
 
-    // Create the issue via GitHub API (without labels to avoid errors if they don't exist)
+    // Create the issue via GitHub API with labels
     const issueData = {
       title: `[Bug] ${title}`,
-      body
+      body,
+      labels: ['bug', 'from-app']
     }
 
     const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues`, {
@@ -94,6 +96,30 @@ export const createIssue = async (req, res) => {
     const issue = await response.json()
 
     log.info(MODULE, `GitHub issue created: #${issue.number} - ${title}`)
+
+    // Save bug report to database with GitHub issue reference
+    try {
+      await BugReport.create({
+        title: title.trim(),
+        description: description.trim(),
+        screenshot: screenshot || null,
+        pageUrl: pageUrl || '',
+        userAgent: userAgent || '',
+        theme: theme || 'light',
+        language: language || 'en',
+        screenSize: screenSize || '',
+        userId: req.user?._id || null,
+        status: 'new',
+        priority: 'medium',
+        githubIssueNumber: issue.number,
+        githubIssueUrl: issue.html_url,
+        githubIssueState: issue.state
+      })
+      log.info(MODULE, `Bug report saved to database with GitHub issue #${issue.number}`)
+    } catch (dbError) {
+      // Log but don't fail - GitHub issue was created successfully
+      log.error(MODULE, 'Failed to save bug report to database', dbError)
+    }
 
     res.status(201).json({
       success: true,
@@ -477,6 +503,33 @@ export const updateIssueState = async (req, res) => {
     const issue = await response.json()
 
     log.info(MODULE, `Issue #${issueNumber} state changed to ${state}`)
+
+    // Sync bug report status with GitHub issue state
+    try {
+      const updateData = {
+        githubIssueState: issue.state
+      }
+
+      // If issue is closed, update bug report status
+      if (issue.state === 'closed') {
+        updateData.status = 'resolved'
+        updateData.resolvedAt = new Date()
+        updateData.resolvedBy = req.user?._id || null
+      } else if (issue.state === 'open') {
+        // If reopened, set back to in_progress
+        updateData.status = 'in_progress'
+        updateData.resolvedAt = null
+        updateData.resolvedBy = null
+      }
+
+      await BugReport.findOneAndUpdate(
+        { githubIssueNumber: parseInt(issueNumber) },
+        updateData
+      )
+      log.info(MODULE, `Bug report synced with GitHub issue #${issueNumber} state: ${state}`)
+    } catch (syncError) {
+      log.error(MODULE, `Failed to sync bug report with GitHub issue #${issueNumber}`, syncError)
+    }
 
     res.status(200).json({
       success: true,

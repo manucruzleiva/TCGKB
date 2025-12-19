@@ -69,6 +69,20 @@ const bugReportSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null
+  },
+  // GitHub integration
+  githubIssueNumber: {
+    type: Number,
+    default: null
+  },
+  githubIssueUrl: {
+    type: String,
+    default: null
+  },
+  githubIssueState: {
+    type: String,
+    enum: ['open', 'closed', null],
+    default: null
   }
 }, {
   timestamps: true
@@ -77,6 +91,7 @@ const bugReportSchema = new mongoose.Schema({
 // Index for faster queries
 bugReportSchema.index({ status: 1, createdAt: -1 })
 bugReportSchema.index({ userId: 1 })
+bugReportSchema.index({ githubIssueNumber: 1 })
 
 const BugReport = mongoose.model('BugReport', bugReportSchema)
 
