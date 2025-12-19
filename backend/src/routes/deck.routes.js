@@ -11,7 +11,8 @@ import {
   getAvailableTags,
   getSuggestedDecks,
   checkDuplicates,
-  getDuplicateGroups
+  getDuplicateGroups,
+  parseDeck
 } from '../controllers/deck.controller.js'
 import { protect, optionalAuth, adminOrDevOnly } from '../middleware/auth.middleware.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
@@ -25,6 +26,9 @@ router.get('/suggestions', protect, generalLimiter, getSuggestedDecks) // Sugges
 router.get('/duplicates', protect, adminOrDevOnly, getDuplicateGroups) // Admin: view duplicate groups
 router.get('/:deckId', optionalAuth, generalLimiter, getDeckById)
 router.get('/:deckId/export', optionalAuth, generalLimiter, exportDeck)
+
+// Parse route (public - no auth required for parsing)
+router.post('/parse', generalLimiter, parseDeck) // Parse deck string and detect TCG/format
 
 // Protected routes (require authentication)
 router.post('/', protect, generalLimiter, createDeck)

@@ -3,6 +3,7 @@ import Collection from '../models/Collection.js'
 import log from '../utils/logger.js'
 import reputationService from '../services/reputation.service.js'
 import { generateDeckHash, findExactDuplicate, findSimilarDecks } from '../utils/deckHash.js'
+import { parseDeckString } from '../utils/deckParser.js'
 
 const MODULE = 'DeckController'
 
@@ -844,6 +845,65 @@ export const getDuplicateGroups = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get duplicate groups'
+    })
+  }
+}
+
+/**
+ * Parse a deck string and detect TCG/format
+ * POST /api/decks/parse
+ *
+ * Body: { deckString: "..." }
+ *
+ * Returns:
+ * - tcg: "pokemon" | "riftbound"
+ * - format: "standard" | "expanded" | "glc" | "constructed" | etc.
+ * - cards: parsed cards with cardId, name, quantity
+ * - breakdown: card type breakdown
+ * - errors: any parsing errors
+ */
+export const parseDeck = async (req, res) => {
+  try {
+    const { deckString } = req.body
+
+    if (!deckString) {
+      return res.status(400).json({
+        success: false,
+        message: 'Deck string is required'
+      })
+    }
+
+    const result = parseDeckString(deckString)
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.error,
+        errors: result.errors
+      })
+    }
+
+    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}`)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        tcg: result.tcg,
+        format: result.format,
+        formatConfidence: result.formatConfidence,
+        formatReason: result.formatReason,
+        inputFormat: result.inputFormat,
+        cards: result.cards,
+        breakdown: result.breakdown,
+        stats: result.stats,
+        errors: result.errors
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Parse deck failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to parse deck'
     })
   }
 }
