@@ -279,6 +279,134 @@ const DevDashboard = () => {
     }
   }
 
+  // Calculate SLA metrics from issues
+  const calculateSLAMetrics = () => {
+    if (!issues || issues.length === 0) {
+      return {
+        avgTimeToAssign: null,
+        avgTimeToClose: null,
+        avgTotalResolution: null,
+        closedWithinSLA: 0,
+        totalClosed: 0,
+        openOverdue: 0,
+        openOk: 0
+      }
+    }
+
+    const closedIssues = issues.filter(i => i.state === 'closed' && i.closed_at)
+    const openIssues = issues.filter(i => i.state === 'open')
+
+    // Calculate average times
+    let totalTimeToAssign = 0
+    let assignedCount = 0
+    let totalTimeToCloseAfterAssign = 0
+    let closedAfterAssignCount = 0
+    let totalResolutionTime = 0
+    let resolutionCount = 0
+
+    // SLA thresholds (in milliseconds)
+    const SLA_ASSIGN_THRESHOLD = 24 * 60 * 60 * 1000 // 24 hours to assign
+    const SLA_CLOSE_THRESHOLD = 7 * 24 * 60 * 60 * 1000 // 7 days to close
+    let closedWithinSLA = 0
+    let openOverdue = 0
+    const now = new Date()
+
+    closedIssues.forEach(issue => {
+      const created = new Date(issue.created_at)
+      const closed = new Date(issue.closed_at)
+      const resolutionTime = closed - created
+
+      totalResolutionTime += resolutionTime
+      resolutionCount++
+
+      // Check if closed within SLA (7 days)
+      if (resolutionTime <= SLA_CLOSE_THRESHOLD) {
+        closedWithinSLA++
+      }
+    })
+
+    openIssues.forEach(issue => {
+      const created = new Date(issue.created_at)
+      const age = now - created
+      if (age > SLA_CLOSE_THRESHOLD) {
+        openOverdue++
+      }
+    })
+
+    return {
+      avgTimeToAssign: assignedCount > 0 ? totalTimeToAssign / assignedCount : null,
+      avgTimeToCloseAfterAssign: closedAfterAssignCount > 0 ? totalTimeToCloseAfterAssign / closedAfterAssignCount : null,
+      avgTotalResolution: resolutionCount > 0 ? totalResolutionTime / resolutionCount : null,
+      closedWithinSLA,
+      totalClosed: closedIssues.length,
+      openOverdue,
+      openOk: openIssues.length - openOverdue,
+      slaAssignThreshold: SLA_ASSIGN_THRESHOLD,
+      slaCloseThreshold: SLA_CLOSE_THRESHOLD
+    }
+  }
+
+  const slaMetrics = calculateSLAMetrics()
+
+  // Format duration for display
+  const formatDuration = (ms) => {
+    if (!ms) return '-'
+    const hours = Math.floor(ms / (1000 * 60 * 60))
+    const days = Math.floor(hours / 24)
+    const remainingHours = hours % 24
+
+    if (days > 0) {
+      return language === 'es'
+        ? `${days}d ${remainingHours}h`
+        : `${days}d ${remainingHours}h`
+    }
+    return language === 'es' ? `${hours}h` : `${hours}h`
+  }
+
+  // Calculate individual issue SLA status
+  const getIssueSLAStatus = (issue) => {
+    const created = new Date(issue.created_at)
+    const now = new Date()
+    const SLA_THRESHOLD = 7 * 24 * 60 * 60 * 1000 // 7 days
+
+    if (issue.state === 'closed' && issue.closed_at) {
+      const closed = new Date(issue.closed_at)
+      const resolutionTime = closed - created
+      const withinSLA = resolutionTime <= SLA_THRESHOLD
+      return {
+        status: withinSLA ? 'met' : 'breached',
+        duration: resolutionTime,
+        label: withinSLA
+          ? (language === 'es' ? 'SLA cumplido' : 'SLA met')
+          : (language === 'es' ? 'SLA incumplido' : 'SLA breached')
+      }
+    } else {
+      const age = now - created
+      const percentUsed = (age / SLA_THRESHOLD) * 100
+      if (percentUsed >= 100) {
+        return {
+          status: 'overdue',
+          duration: age,
+          percentUsed: 100,
+          label: language === 'es' ? 'Vencido' : 'Overdue'
+        }
+      } else if (percentUsed >= 75) {
+        return {
+          status: 'warning',
+          duration: age,
+          percentUsed,
+          label: language === 'es' ? 'Por vencer' : 'Due soon'
+        }
+      }
+      return {
+        status: 'ok',
+        duration: age,
+        percentUsed,
+        label: language === 'es' ? 'En tiempo' : 'On track'
+      }
+    }
+  }
+
   // Prepare chart data
   const chartData = [
     { name: language === 'es' ? 'Abiertos' : 'Open', value: counts.open, color: STATE_COLORS.open.chart },
@@ -939,6 +1067,158 @@ const DevDashboard = () => {
         </div>
       </div>
 
+      {/* SLA Metrics Section */}
+      {issues.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+            ⏱️ {language === 'es' ? 'Métricas SLA' : 'SLA Metrics'}
+            <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+              ({language === 'es' ? 'Objetivo: 7 días' : 'Target: 7 days'})
+            </span>
+          </h2>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {/* Average Resolution Time */}
+            <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <div className="text-2xl font-bold text-blue-800 dark:text-blue-200">
+                {formatDuration(slaMetrics.avgTotalResolution)}
+              </div>
+              <div className="text-xs text-blue-600 dark:text-blue-400">
+                {language === 'es' ? 'Tiempo promedio de resolución' : 'Avg resolution time'}
+              </div>
+            </div>
+
+            {/* SLA Compliance Rate */}
+            <div className={`p-4 rounded-lg border ${
+              slaMetrics.totalClosed > 0 && (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.8
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                : slaMetrics.totalClosed > 0 && (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.5
+                  ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+            }`}>
+              <div className={`text-2xl font-bold ${
+                slaMetrics.totalClosed > 0 && (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.8
+                  ? 'text-green-800 dark:text-green-200'
+                  : slaMetrics.totalClosed > 0 && (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.5
+                    ? 'text-yellow-800 dark:text-yellow-200'
+                    : 'text-red-800 dark:text-red-200'
+              }`}>
+                {slaMetrics.totalClosed > 0
+                  ? `${Math.round((slaMetrics.closedWithinSLA / slaMetrics.totalClosed) * 100)}%`
+                  : '-'}
+              </div>
+              <div className={`text-xs ${
+                slaMetrics.totalClosed > 0 && (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.8
+                  ? 'text-green-600 dark:text-green-400'
+                  : slaMetrics.totalClosed > 0 && (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.5
+                    ? 'text-yellow-600 dark:text-yellow-400'
+                    : 'text-red-600 dark:text-red-400'
+              }`}>
+                {language === 'es' ? 'Cumplimiento SLA' : 'SLA compliance'}
+                <span className="block text-gray-500 dark:text-gray-400">
+                  ({slaMetrics.closedWithinSLA}/{slaMetrics.totalClosed} {language === 'es' ? 'en tiempo' : 'on time'})
+                </span>
+              </div>
+            </div>
+
+            {/* Open Issues Status */}
+            <div className={`p-4 rounded-lg border ${
+              slaMetrics.openOverdue > 0
+                ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+            }`}>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-2xl font-bold ${
+                  slaMetrics.openOverdue > 0
+                    ? 'text-red-800 dark:text-red-200'
+                    : 'text-green-800 dark:text-green-200'
+                }`}>
+                  {slaMetrics.openOk}
+                </span>
+                {slaMetrics.openOverdue > 0 && (
+                  <span className="text-sm text-red-600 dark:text-red-400">
+                    +{slaMetrics.openOverdue} ⚠️
+                  </span>
+                )}
+              </div>
+              <div className={`text-xs ${
+                slaMetrics.openOverdue > 0
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-green-600 dark:text-green-400'
+              }`}>
+                {language === 'es' ? 'Issues abiertos en tiempo' : 'Open issues on track'}
+                {slaMetrics.openOverdue > 0 && (
+                  <span className="block text-red-500 dark:text-red-400">
+                    {slaMetrics.openOverdue} {language === 'es' ? 'vencidos' : 'overdue'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* SLA Health Score */}
+            <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`text-2xl ${
+                  slaMetrics.openOverdue === 0 && (slaMetrics.totalClosed === 0 || (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.8)
+                    ? ''
+                    : slaMetrics.openOverdue <= 2 && (slaMetrics.totalClosed === 0 || (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.5)
+                      ? ''
+                      : ''
+                }`}>
+                  {slaMetrics.openOverdue === 0 && (slaMetrics.totalClosed === 0 || (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.8)
+                    ? '🟢'
+                    : slaMetrics.openOverdue <= 2 && (slaMetrics.totalClosed === 0 || (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.5)
+                      ? '🟡'
+                      : '🔴'}
+                </span>
+                <span className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                  {slaMetrics.openOverdue === 0 && (slaMetrics.totalClosed === 0 || (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.8)
+                    ? (language === 'es' ? 'Saludable' : 'Healthy')
+                    : slaMetrics.openOverdue <= 2 && (slaMetrics.totalClosed === 0 || (slaMetrics.closedWithinSLA / slaMetrics.totalClosed) >= 0.5)
+                      ? (language === 'es' ? 'Atención' : 'Attention')
+                      : (language === 'es' ? 'Crítico' : 'Critical')}
+                </span>
+              </div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">
+                {language === 'es' ? 'Estado general SLA' : 'Overall SLA health'}
+              </div>
+            </div>
+          </div>
+
+          {/* SLA Progress Bar */}
+          {slaMetrics.totalClosed > 0 && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+                <span>{language === 'es' ? 'Distribución de cumplimiento' : 'Compliance distribution'}</span>
+                <span>{slaMetrics.closedWithinSLA} / {slaMetrics.totalClosed}</span>
+              </div>
+              <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex">
+                <div
+                  className="h-full bg-green-500 transition-all"
+                  style={{ width: `${(slaMetrics.closedWithinSLA / slaMetrics.totalClosed) * 100}%` }}
+                  title={language === 'es' ? 'Dentro de SLA' : 'Within SLA'}
+                />
+                <div
+                  className="h-full bg-red-500 transition-all"
+                  style={{ width: `${((slaMetrics.totalClosed - slaMetrics.closedWithinSLA) / slaMetrics.totalClosed) * 100}%` }}
+                  title={language === 'es' ? 'Fuera de SLA' : 'Outside SLA'}
+                />
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                  {language === 'es' ? 'En tiempo' : 'On time'} ({slaMetrics.closedWithinSLA})
+                </span>
+                <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                  {language === 'es' ? 'Tarde' : 'Late'} ({slaMetrics.totalClosed - slaMetrics.closedWithinSLA})
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Time Series Chart */}
       {timeSeries.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
@@ -1195,7 +1475,7 @@ const DevDashboard = () => {
                     </div>
 
                     {/* Meta Info */}
-                    <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
                       <span className="flex items-center gap-1">
                         {issue.user?.avatar_url && (
                           <img
@@ -1215,6 +1495,21 @@ const DevDashboard = () => {
                           🎯 {issue.assignees.map(a => a.login).join(', ')}
                         </span>
                       )}
+                      {/* SLA Status Indicator */}
+                      {(() => {
+                        const sla = getIssueSLAStatus(issue)
+                        return (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            sla.status === 'met' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' :
+                            sla.status === 'breached' ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' :
+                            sla.status === 'overdue' ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' :
+                            sla.status === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300' :
+                            'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                          }`}>
+                            {sla.status === 'met' ? '✓' : sla.status === 'breached' || sla.status === 'overdue' ? '⚠' : sla.status === 'warning' ? '⏰' : '◎'} {sla.label}
+                          </span>
+                        )
+                      })()}
                     </div>
                   </div>
 
@@ -1279,6 +1574,103 @@ const DevDashboard = () => {
                         </div>
                       </div>
                     )}
+
+                    {/* SLA Lifecycle */}
+                    {(() => {
+                      const sla = getIssueSLAStatus(issue)
+                      const created = new Date(issue.created_at)
+                      const now = new Date()
+                      const SLA_THRESHOLD = 7 * 24 * 60 * 60 * 1000 // 7 days
+
+                      return (
+                        <div className="mb-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            ⏱️ {language === 'es' ? 'Ciclo de Vida SLA' : 'SLA Lifecycle'}
+                            <span className={`px-2 py-0.5 rounded text-xs ${
+                              sla.status === 'met' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' :
+                              sla.status === 'breached' || sla.status === 'overdue' ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' :
+                              sla.status === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300' :
+                              'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                            }`}>
+                              {sla.label}
+                            </span>
+                          </p>
+
+                          {/* Timeline */}
+                          <div className="relative">
+                            {/* Progress bar background */}
+                            <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                              {issue.state === 'closed' && issue.closed_at ? (
+                                <div
+                                  className={`h-full ${sla.status === 'met' ? 'bg-green-500' : 'bg-red-500'} transition-all`}
+                                  style={{ width: '100%' }}
+                                />
+                              ) : (
+                                <div
+                                  className={`h-full transition-all ${
+                                    sla.percentUsed >= 100 ? 'bg-red-500' :
+                                    sla.percentUsed >= 75 ? 'bg-yellow-500' :
+                                    'bg-blue-500'
+                                  }`}
+                                  style={{ width: `${Math.min(sla.percentUsed || 0, 100)}%` }}
+                                />
+                              )}
+                            </div>
+
+                            {/* Timeline labels */}
+                            <div className="flex justify-between mt-2 text-xs">
+                              <div className="flex flex-col items-start">
+                                <span className="font-medium text-gray-700 dark:text-gray-300">
+                                  {language === 'es' ? 'Creado' : 'Created'}
+                                </span>
+                                <span className="text-gray-500 dark:text-gray-400">
+                                  {new Date(issue.created_at).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-col items-center">
+                                <span className="font-medium text-gray-700 dark:text-gray-300">
+                                  {language === 'es' ? 'Duración' : 'Duration'}
+                                </span>
+                                <span className={`font-medium ${
+                                  sla.status === 'met' || sla.status === 'ok' ? 'text-green-600 dark:text-green-400' :
+                                  sla.status === 'warning' ? 'text-yellow-600 dark:text-yellow-400' :
+                                  'text-red-600 dark:text-red-400'
+                                }`}>
+                                  {formatDuration(sla.duration)}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-col items-end">
+                                {issue.state === 'closed' && issue.closed_at ? (
+                                  <>
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                                      {language === 'es' ? 'Cerrado' : 'Closed'}
+                                    </span>
+                                    <span className="text-gray-500 dark:text-gray-400">
+                                      {new Date(issue.closed_at).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                                      {language === 'es' ? 'Objetivo SLA' : 'SLA Target'}
+                                    </span>
+                                    <span className={`${
+                                      sla.percentUsed >= 100 ? 'text-red-600 dark:text-red-400' :
+                                      sla.percentUsed >= 75 ? 'text-yellow-600 dark:text-yellow-400' :
+                                      'text-gray-500 dark:text-gray-400'
+                                    }`}>
+                                      {new Date(created.getTime() + SLA_THRESHOLD).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
 
                     {/* Timestamps */}
                     <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">

@@ -197,10 +197,13 @@
   - Botones de filtro por estado (all/open/closed)
 - [x] Lista de reportes - sort oldest/newest `~10K tokens | ~0.5h`
   - Sort por newest/oldest/updated/comments
-- [ ] SLA tracking `~40K tokens | ~3h`
+- [x] SLA tracking `~40K tokens | ~3h`
   - Tiempo desde NEW → Processing
   - Tiempo desde Processing → Closed
   - Tracking completo del ciclo de vida del reporte
+  - Métricas: tiempo promedio resolución, tasa cumplimiento, issues vencidos
+  - Indicadores por issue: met/breached/warning/on-track
+  - Barra de progreso visual con línea de tiempo
 
 ### Bug Reporter - Integraciones
 - [ ] **Integración con GitHub Issues:** `~45K tokens | ~3h`
