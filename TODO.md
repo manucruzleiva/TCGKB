@@ -165,8 +165,8 @@
 
 ### Autenticación / Usuario
 - [x] User data chips - reemplazar chip 'admin' por tags actuales (mod/dev/ambos)
-- [ ] Change email `~20K tokens | ~1.5h`
-  - Requiere input del email actual para mayor seguridad
+- [x] Change email `~20K tokens | ~1.5h`
+  - Requiere password actual para mayor seguridad (ya implementado)
 - [x] Login con username - permitir login con username además de correo
 - [x] Username único - validar que no existan duplicados al registrar o cambiar username (case-insensitive)
 
