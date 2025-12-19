@@ -828,6 +828,68 @@ Raichu x2
 1 Grove of the God-Willow
 ```
 
+### DeckImportModal Component
+
+**Component**: `frontend/src/components/decks/DeckImportModal.jsx`
+
+Modal for importing decks with real-time preview and auto-detection.
+
+#### Features
+| Feature | Description |
+|---------|-------------|
+| **Real-time Preview** | Parses deck as user types (500ms debounce) |
+| **TCG Detection** | Shows Pokemon or Riftbound badge |
+| **Format Detection** | Shows Standard, GLC, Expanded, Constructed |
+| **Input Format Detection** | Identifies Pokemon TCG Live, Pocket, or Riftbound format |
+| **Card Breakdown** | Visual bar showing Pokémon/Trainer/Energy distribution |
+| **Parse Warnings** | Shows lines that couldn't be parsed |
+| **Auto-Tagging** | Automatically adds detected format tag to deck |
+
+#### UI Flow
+```
+┌─────────────────────────────────────────────────────┐
+│  Importar Mazo                               [X]    │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  ┌───────────────────────────────────────────────┐  │
+│  │ Pokémon: 12                                   │  │
+│  │ 4 Pikachu ex SVI 057                          │  │
+│  │ ...                                           │  │
+│  └───────────────────────────────────────────────┘  │
+│                                                     │
+│  [Pokemon] [Standard] [Pokemon TCG Live] (60%)      │
+│                                                     │
+│  Vista previa: 60 cartas                            │
+│  ■■■■■■■■░░░░░░░░░░░░░░░░░░░░░░░░ Pokémon: 12      │
+│  ■■■■■■■■■■■■■■■■■■■■░░░░░░░░░░░░ Trainer: 36      │
+│  ■■■■■■░░░░░░░░░░░░░░░░░░░░░░░░░░ Energy: 12       │
+│                                                     │
+│  4 cartas únicas                                    │
+│                                                     │
+│  [Cancelar]                        [Importar Mazo]  │
+└─────────────────────────────────────────────────────┘
+```
+
+#### Integration
+```jsx
+import DeckImportModal from '../components/decks/DeckImportModal'
+
+<DeckImportModal
+  isOpen={showImportModal}
+  onClose={() => setShowImportModal(false)}
+  onImport={(importData) => {
+    // importData.cards - Array of parsed cards
+    // importData.tcg - "pokemon" | "riftbound"
+    // importData.format - "standard" | "glc" | etc.
+    // importData.breakdown - { pokemon, trainer, energy }
+    // importData.stats - { totalCards, uniqueCards }
+  }}
+/>
+```
+
+#### API Integration
+Uses `POST /api/decks/parse` endpoint for server-side parsing and detection.
+
 ### DeckBuilder Interactions
 
 | Action | Result |
