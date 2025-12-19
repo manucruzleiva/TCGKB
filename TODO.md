@@ -120,11 +120,11 @@
   - Sugerir cartas faltantes para completar decks
 
 ### Sistema de Fans de Artistas
-- [ ] **Modelo Artist:** `~25K tokens | ~2h`
+- [x] **Modelo Artist:** `~25K tokens | ~2h`
   - Nombre del artista
   - Contador de fans
   - Lista de usuarios fans
-- [ ] **UI en página de carta:** `~30K tokens | ~2h`
+- [x] **UI en página de carta:** `~30K tokens | ~2h`
   - Nombre del artista clickeable
   - Mostrar cantidad de fans del artista
   - Click para hacerse fan (toggle)
