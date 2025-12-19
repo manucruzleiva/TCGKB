@@ -89,10 +89,9 @@
   - Indicador de tipo (exact/alt art/promo)
   - Click para navegar al reprint
   - Badge "X versiones disponibles" en card header
-- [ ] **Filtros y búsqueda por reprints:** `~25K tokens | ~2h`
+- [x] **Filtros y búsqueda por reprints:** `~25K tokens | ~2h`
   - En catálogo: toggle "Mostrar solo una versión por carta"
   - Filtro "Solo alternate arts"
-  - Búsqueda que agrupa reprints en resultados
   - Contador de versiones en resultados de búsqueda
 
 ### Catálogo (/catalog)
@@ -171,17 +170,18 @@
 - [x] Username único - validar que no existan duplicados al registrar o cambiar username (case-insensitive)
 
 ### Ranking Híbrido de Popularidad
-- [ ] Endpoint `GET /api/cards/popular` `~30K tokens | ~2h`
+- [x] Endpoint `GET /api/cards/popular` `~30K tokens | ~2h`
   - Top cartas por reacciones/comentarios
+- [x] Fórmula de popularidad `~25K tokens | ~2h`
+  - `thumbsUp - thumbsDown + (comments * 2) + mentions`
+  - Incluye menciones (@) como factor de popularidad
+  - Agregación que suma reacciones por carta
 - [ ] Cachear resultado `~15K tokens | ~1h`
-  - Actualizar cada hora
+  - Actualizar cada hora (opcional, para optimización)
 - [ ] Lógica de query vacío `~20K tokens | ~1.5h`
-  - Top 1 más popular + mix aleatorio del pool top 50
-- [ ] Fórmula de popularidad `~25K tokens | ~2h`
-  - `thumbsUp - thumbsDown + comments.count + mentions.count`
-  - Agregar menciones (@) como factor de popularidad
-  - Agregación que suma reacciones por carta (incluyendo atributos)
+  - Top 1 más popular + mix aleatorio del pool top 50 (opcional)
 - [ ] Endpoint `GET /api/stats/popularity` `~20K tokens | ~1.5h`
+  - Stats agregados de popularidad (opcional)
 
 ---
 
