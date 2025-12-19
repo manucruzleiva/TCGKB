@@ -7,22 +7,9 @@ import { useDateFormat } from '../contexts/DateFormatContext'
 import api from '../services/api'
 import Spinner from '../components/common/Spinner'
 
-const STATUS_COLORS = {
-  new: { bg: 'bg-blue-100 dark:bg-blue-900', text: 'text-blue-800 dark:text-blue-200', chart: '#3b82f6' },
-  reviewing: { bg: 'bg-yellow-100 dark:bg-yellow-900', text: 'text-yellow-800 dark:text-yellow-200', chart: '#eab308' },
-  in_progress: { bg: 'bg-purple-100 dark:bg-purple-900', text: 'text-purple-800 dark:text-purple-200', chart: '#8b5cf6' },
-  resolved: { bg: 'bg-green-100 dark:bg-green-900', text: 'text-green-800 dark:text-green-200', chart: '#22c55e' },
-  wont_fix: { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-800 dark:text-gray-200', chart: '#6b7280' },
-  not_enough_data: { bg: 'bg-orange-100 dark:bg-orange-900', text: 'text-orange-800 dark:text-orange-200', chart: '#f97316' }
-}
-
-const STATUS_LABELS = {
-  new: { es: 'Nuevo', en: 'New' },
-  reviewing: { es: 'Revisando', en: 'Reviewing' },
-  in_progress: { es: 'En Progreso', en: 'In Progress' },
-  resolved: { es: 'Resuelto', en: 'Resolved' },
-  wont_fix: { es: 'No se arreglará', en: "Won't Fix" },
-  not_enough_data: { es: 'Faltan datos', en: 'Not Enough Data' }
+const STATE_COLORS = {
+  open: { bg: 'bg-green-100 dark:bg-green-900', text: 'text-green-800 dark:text-green-200', chart: '#22c55e' },
+  closed: { bg: 'bg-purple-100 dark:bg-purple-900', text: 'text-purple-800 dark:text-purple-200', chart: '#8b5cf6' }
 }
 
 const DevDashboard = () => {
@@ -32,20 +19,23 @@ const DevDashboard = () => {
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
-  const [bugReports, setBugReports] = useState([])
-  const [bugCounts, setBugCounts] = useState({})
+  const [issues, setIssues] = useState([])
+  const [counts, setCounts] = useState({ total: 0, open: 0, closed: 0 })
   const [timeSeries, setTimeSeries] = useState([])
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [selectedBug, setSelectedBug] = useState(null)
-  const [updating, setUpdating] = useState(null)
-  const [assignees, setAssignees] = useState([])
-  const [assigningBug, setAssigningBug] = useState(null)
+  const [stateFilter, setStateFilter] = useState('all')
+  const [selectedIssue, setSelectedIssue] = useState(null)
+  const [githubConfigured, setGithubConfigured] = useState(true)
+  const [repoInfo, setRepoInfo] = useState(null)
 
   // Health check state
   const [healthStatus, setHealthStatus] = useState({
-    api: { status: 'checking', message: '' },
-    database: { status: 'checking', message: '' }
+    database: { status: 'checking', message: '' },
+    environments: []
   })
+  const [endpointsHealth, setEndpointsHealth] = useState(null)
+  const [checkingEndpoints, setCheckingEndpoints] = useState(false)
+  const [sourcesHealth, setSourcesHealth] = useState(null)
+  const [checkingSources, setCheckingSources] = useState(false)
 
   // Cache management state
   const [cacheStats, setCacheStats] = useState(null)
@@ -60,7 +50,6 @@ const DevDashboard = () => {
       navigate('/login')
       return
     }
-    // Allow both admin and dev users
     if (user && !canAccessBugDashboard) {
       navigate('/')
       return
@@ -69,62 +58,85 @@ const DevDashboard = () => {
 
   useEffect(() => {
     if (isAuthenticated && canAccessBugDashboard) {
-      fetchBugReports()
+      checkGitHubConfig()
+      fetchIssues()
+      fetchIssueStats()
     }
-  }, [statusFilter, isAuthenticated, canAccessBugDashboard])
-
-  // Real-time polling - refresh every 30 seconds
-  useEffect(() => {
-    if (!isAuthenticated || !canAccessBugDashboard) return
-
-    const pollInterval = setInterval(() => {
-      // Silent fetch without setting loading state
-      const silentFetch = async () => {
-        try {
-          const response = await api.get(`/bugs?status=${statusFilter}`)
-          if (response.data.success) {
-            setBugReports(response.data.data.bugReports)
-            setBugCounts(response.data.data.counts || {})
-            setTimeSeries(response.data.data.timeSeries || [])
-          }
-        } catch (error) {
-          console.error('Polling error:', error)
-        }
-      }
-      silentFetch()
-    }, 30000) // 30 seconds
-
-    return () => clearInterval(pollInterval)
-  }, [statusFilter, isAuthenticated, canAccessBugDashboard])
+  }, [stateFilter, isAuthenticated, canAccessBugDashboard])
 
   // Health check on mount
   useEffect(() => {
     if (isAuthenticated && canAccessBugDashboard) {
       checkHealth()
+      fetchEndpoints()
       fetchCacheStats()
     }
   }, [isAuthenticated, canAccessBugDashboard])
 
+  const checkGitHubConfig = async () => {
+    try {
+      const response = await api.get('/github/config')
+      setGithubConfigured(response.data?.data?.configured || false)
+      setRepoInfo(response.data?.data?.repository || null)
+    } catch (error) {
+      console.error('Error checking GitHub config:', error)
+      setGithubConfigured(false)
+    }
+  }
+
   const checkHealth = async () => {
     try {
       const response = await api.get('/health')
-      setHealthStatus(prev => ({
-        ...prev,
-        api: {
-          status: 'healthy',
-          message: response.data.status === 'ok' ? 'API operational' : 'API issues detected'
-        },
+      setHealthStatus({
         database: {
-          status: response.data.hasMongoUri ? 'healthy' : 'error',
-          message: response.data.hasMongoUri ? 'Database connected' : 'Database not configured'
-        }
-      }))
+          status: response.data.database?.connected ? 'healthy' : 'error',
+          message: response.data.database?.message || (response.data.database?.connected ? 'Database connected' : 'Database not connected')
+        },
+        environments: response.data.environments || []
+      })
     } catch (error) {
       setHealthStatus(prev => ({
         ...prev,
-        api: { status: 'error', message: error.message || 'API unreachable' },
-        database: { status: 'unknown', message: 'Could not verify' }
+        database: { status: 'error', message: error.message || 'Could not verify' },
+        environments: []
       }))
+    }
+  }
+
+  // Fetch endpoints list on mount (without health check)
+  const fetchEndpoints = async () => {
+    try {
+      const response = await api.get('/health/endpoints')
+      setEndpointsHealth(response.data)
+    } catch (error) {
+      console.error('Error fetching endpoints:', error)
+    }
+  }
+
+  // Check endpoints health (runs actual health checks)
+  const checkEndpointsHealth = async () => {
+    setCheckingEndpoints(true)
+    try {
+      const response = await api.get('/health/endpoints?check=true')
+      setEndpointsHealth(response.data)
+    } catch (error) {
+      console.error('Error checking endpoints health:', error)
+      setEndpointsHealth(prev => ({ ...prev, healthCheck: { status: 'error', message: error.message } }))
+    } finally {
+      setCheckingEndpoints(false)
+    }
+  }
+
+  const checkSourcesHealth = async () => {
+    setCheckingSources(true)
+    try {
+      const response = await api.get('/health/sources')
+      setSourcesHealth(response.data)
+    } catch (error) {
+      console.error('Error checking sources health:', error)
+      setSourcesHealth({ status: 'error', message: error.message })
+    } finally {
+      setCheckingSources(false)
     }
   }
 
@@ -151,7 +163,6 @@ const DevDashboard = () => {
           message: response.data.message,
           data: response.data.data
         })
-        // Refresh cache stats
         fetchCacheStats()
       }
     } catch (error) {
@@ -165,19 +176,24 @@ const DevDashboard = () => {
     }
   }
 
-  const syncPokemonCards = async () => {
+  const syncPokemonCards = async (allSets = false, offset = 0) => {
     try {
       setSyncingPokemon(true)
-      setSyncResult(null)
-      const response = await api.post('/mod/cache/sync/pokemon')
+      if (offset === 0) setSyncResult(null) // Only clear on first batch
+      const params = new URLSearchParams()
+      if (allSets) params.append('allSets', 'true')
+      params.append('limit', '5') // 5 sets per batch to avoid timeout
+      params.append('offset', offset.toString())
+      const url = `/mod/cache/sync/pokemon?${params.toString()}`
+      const response = await api.post(url, {}, { timeout: 120000 }) // 2 min timeout
       if (response.data.success) {
         setSyncResult({
           success: true,
           type: 'pokemon',
           message: response.data.message,
-          data: response.data.data
+          data: response.data.data,
+          allSets // Remember the mode for continue button
         })
-        // Refresh cache stats
         fetchCacheStats()
       }
     } catch (error) {
@@ -209,90 +225,65 @@ const DevDashboard = () => {
     }
   }
 
-  // Fetch assignees for admin users
-  useEffect(() => {
-    if (isAuthenticated && isAdmin) {
-      fetchAssignees()
-    }
-  }, [isAuthenticated, isAdmin])
-
-  const fetchAssignees = async () => {
-    try {
-      const response = await api.get('/bugs/assignees')
-      if (response.data.success) {
-        setAssignees(response.data.data)
-      }
-    } catch (error) {
-      console.error('Error fetching assignees:', error)
-    }
-  }
-
-  const fetchBugReports = async () => {
+  const fetchIssues = async () => {
     try {
       setLoading(true)
-      const response = await api.get(`/bugs?status=${statusFilter}`)
+      const state = stateFilter === 'all' ? 'all' : stateFilter
+      const response = await api.get(`/github/issues?state=${state}&per_page=50`)
       if (response.data.success) {
-        setBugReports(response.data.data.bugReports)
-        setBugCounts(response.data.data.counts || {})
-        setTimeSeries(response.data.data.timeSeries || [])
+        setIssues(response.data.data.issues || [])
+        setCounts(response.data.data.counts || { total: 0, open: 0, closed: 0 })
       }
     } catch (error) {
-      console.error('Error fetching bug reports:', error)
+      console.error('Error fetching GitHub issues:', error)
+      setIssues([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleStatusChange = async (bugId, newStatus) => {
+  const fetchIssueStats = async () => {
     try {
-      setUpdating(bugId)
-      const response = await api.put(`/bugs/${bugId}`, { status: newStatus })
+      const response = await api.get('/github/stats')
       if (response.data.success) {
-        setBugReports(prev =>
-          prev.map(b => b._id === bugId ? { ...b, status: newStatus } : b)
-        )
-        // Update counts
-        fetchBugReports()
+        setCounts(response.data.data.counts || { total: 0, open: 0, closed: 0 })
+        setTimeSeries(response.data.data.timeSeries || [])
+        if (response.data.data.repository) {
+          setRepoInfo(response.data.data.repository)
+        }
       }
     } catch (error) {
-      console.error('Error updating bug status:', error)
-    } finally {
-      setUpdating(null)
+      console.error('Error fetching GitHub stats:', error)
     }
   }
 
-  const handleAssignmentChange = async (bugId, assigneeId) => {
+  const handleCloseIssue = async (issueNumber) => {
     try {
-      setAssigningBug(bugId)
-      const response = await api.put(`/bugs/${bugId}`, {
-        assignedTo: assigneeId || null
-      })
-      if (response.data.success) {
-        setBugReports(prev =>
-          prev.map(b => b._id === bugId ? {
-            ...b,
-            assignedTo: response.data.data.assignedTo
-          } : b)
-        )
-      }
+      await api.patch(`/github/issues/${issueNumber}`, { state: 'closed' })
+      fetchIssues()
+      fetchIssueStats()
     } catch (error) {
-      console.error('Error assigning bug:', error)
-    } finally {
-      setAssigningBug(null)
+      console.error('Error closing issue:', error)
+    }
+  }
+
+  const handleReopenIssue = async (issueNumber) => {
+    try {
+      await api.patch(`/github/issues/${issueNumber}`, { state: 'open' })
+      fetchIssues()
+      fetchIssueStats()
+    } catch (error) {
+      console.error('Error reopening issue:', error)
     }
   }
 
   // Prepare chart data
-  const chartData = Object.entries(bugCounts)
-    .filter(([status]) => status !== 'total' && status !== 'open' && status !== 'closed')
-    .map(([status, count]) => ({
-      name: STATUS_LABELS[status]?.[language] || status,
-      value: count,
-      color: STATUS_COLORS[status]?.chart || '#6b7280'
-    }))
-    .filter(d => d.value > 0)
+  const chartData = [
+    { name: language === 'es' ? 'Abiertos' : 'Open', value: counts.open, color: STATE_COLORS.open.chart },
+    { name: language === 'es' ? 'Cerrados' : 'Closed', value: counts.closed, color: STATE_COLORS.closed.chart }
+  ].filter(d => d.value > 0)
 
-  if (loading && bugReports.length === 0) {
+  if (loading && issues.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex justify-center">
@@ -320,7 +311,39 @@ const DevDashboard = () => {
             🛠️ {language === 'es' ? 'Dev Dashboard' : 'Dev Dashboard'}
           </h1>
         </div>
+        {repoInfo && (
+          <a
+            href={repoInfo.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg transition-colors text-sm"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            {language === 'es' ? 'Ver en GitHub' : 'View on GitHub'}
+          </a>
+        )}
       </div>
+
+      {/* GitHub Not Configured Warning */}
+      {!githubConfigured && (
+        <div className="bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg p-4 mb-8">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <h3 className="font-semibold text-yellow-800 dark:text-yellow-200">
+                {language === 'es' ? 'GitHub no configurado' : 'GitHub not configured'}
+              </h3>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                {language === 'es'
+                  ? 'Configura GITHUB_TOKEN, GITHUB_OWNER y GITHUB_REPO en las variables de entorno del backend.'
+                  : 'Configure GITHUB_TOKEN, GITHUB_OWNER and GITHUB_REPO in backend environment variables.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* System Health Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
@@ -335,25 +358,9 @@ const DevDashboard = () => {
             🔄 {language === 'es' ? 'Actualizar' : 'Refresh'}
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* API Status */}
-          <div className={`p-4 rounded-lg ${
-            healthStatus.api.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30' :
-            healthStatus.api.status === 'error' ? 'bg-red-100 dark:bg-red-900/30' :
-            'bg-yellow-100 dark:bg-yellow-900/30'
-          }`}>
-            <div className="flex items-center gap-2">
-              <span className={`w-3 h-3 rounded-full ${
-                healthStatus.api.status === 'healthy' ? 'bg-green-500' :
-                healthStatus.api.status === 'error' ? 'bg-red-500' :
-                'bg-yellow-500 animate-pulse'
-              }`}></span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">API</span>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {healthStatus.api.message || (language === 'es' ? 'Verificando...' : 'Checking...')}
-            </p>
-          </div>
+
+        {/* Environments Status */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           {/* Database Status */}
           <div className={`p-4 rounded-lg ${
             healthStatus.database.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30' :
@@ -366,12 +373,234 @@ const DevDashboard = () => {
                 healthStatus.database.status === 'error' ? 'bg-red-500' :
                 'bg-yellow-500 animate-pulse'
               }`}></span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">Database</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">🗄️ Database</span>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               {healthStatus.database.message || (language === 'es' ? 'Verificando...' : 'Checking...')}
             </p>
           </div>
+          {/* Production Environment */}
+          {healthStatus.environments?.map((env, idx) => (
+            <div key={idx} className={`p-4 rounded-lg ${
+              env.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30' :
+              env.status === 'error' ? 'bg-red-100 dark:bg-red-900/30' :
+              'bg-yellow-100 dark:bg-yellow-900/30'
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className={`w-3 h-3 rounded-full ${
+                  env.status === 'healthy' ? 'bg-green-500' :
+                  env.status === 'error' ? 'bg-red-500' :
+                  'bg-yellow-500 animate-pulse'
+                }`}></span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                  {env.name === 'Production' ? '🚀' : '🧪'} {env.name}
+                </span>
+              </div>
+              <a
+                href={env.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary-600 dark:text-primary-400 hover:underline block mt-1"
+              >
+                {env.url}
+              </a>
+              <div className="flex items-center justify-between mt-1">
+                <span className={`text-xs ${
+                  env.status === 'healthy' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {env.message}
+                </span>
+                {env.latency && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{env.latency}ms</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Data Sources Health Check */}
+        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {language === 'es' ? 'Fuentes de Datos Externas' : 'External Data Sources'}
+            </h3>
+            <button
+              onClick={checkSourcesHealth}
+              disabled={checkingSources}
+              className="text-xs text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1 disabled:opacity-50"
+            >
+              {checkingSources ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  {language === 'es' ? 'Verificando...' : 'Checking...'}
+                </>
+              ) : (
+                <>
+                  🔍 {language === 'es' ? 'Verificar Fuentes' : 'Check Sources'}
+                </>
+              )}
+            </button>
+          </div>
+
+          {sourcesHealth ? (
+            <div className="space-y-2">
+              <div className={`p-3 rounded-lg text-sm ${
+                sourcesHealth.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+                sourcesHealth.status === 'degraded' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
+                'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+              }`}>
+                {sourcesHealth.healthy}/{sourcesHealth.total} {language === 'es' ? 'fuentes saludables' : 'sources healthy'}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {sourcesHealth.sources?.map((source, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg ${
+                      source.status === 'healthy'
+                        ? 'bg-green-50 dark:bg-green-900/20'
+                        : 'bg-red-50 dark:bg-red-900/20'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${
+                          source.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
+                        }`}></span>
+                        <span className={`font-medium text-sm ${
+                          source.status === 'healthy' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
+                        }`}>{source.name}</span>
+                      </div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {source.latency}ms
+                      </span>
+                    </div>
+                    {source.url && (
+                      <a
+                        href={source.docsUrl || source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary-600 dark:text-primary-400 hover:underline block mt-1 truncate"
+                        title={source.url}
+                      >
+                        {source.url}
+                      </a>
+                    )}
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {source.type === 'database' ? '🗄️' : '🌐'} {source.type}
+                      </span>
+                      <span className={`text-xs ${
+                        source.status === 'healthy' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {source.message}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+              {language === 'es'
+                ? 'Haz clic en "Verificar Fuentes" para comprobar conectividad'
+                : 'Click "Check Sources" to verify connectivity'}
+            </p>
+          )}
+        </div>
+
+        {/* API Endpoints - Honeycomb View */}
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {language === 'es' ? 'Endpoints API' : 'API Endpoints'} ({endpointsHealth?.total || 0})
+            </h3>
+            <button
+              onClick={checkEndpointsHealth}
+              disabled={checkingEndpoints}
+              className="text-xs text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1 disabled:opacity-50"
+            >
+              {checkingEndpoints ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  {language === 'es' ? 'Verificando...' : 'Checking...'}
+                </>
+              ) : (
+                <>
+                  🔍 {language === 'es' ? 'Verificar Salud' : 'Check Health'}
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Health Check Result */}
+          {endpointsHealth?.healthCheck && (
+            <div className={`p-3 rounded-lg text-sm mb-3 ${
+              endpointsHealth.healthCheck.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+              endpointsHealth.healthCheck.status === 'degraded' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
+              'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+            }`}>
+              {endpointsHealth.healthCheck.healthy}/{endpointsHealth.healthCheck.checked} {language === 'es' ? 'categorías saludables' : 'categories healthy'}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {Object.entries(endpointsHealth.healthCheck.results || {}).map(([name, result]) => (
+                  <span key={name} className={`px-2 py-1 rounded text-xs ${
+                    result.status === 'healthy' ? 'bg-green-200 dark:bg-green-800' : 'bg-red-200 dark:bg-red-800'
+                  }`}>
+                    {result.status === 'healthy' ? '✓' : '✗'} {name} ({result.latency}ms)
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Honeycomb Endpoints Grid */}
+          {endpointsHealth?.categories ? (
+            <div className="space-y-3">
+              {Object.entries(endpointsHealth.categories).map(([category, endpoints]) => (
+                <div key={category}>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded">
+                      {category}
+                    </span>
+                    <span className="text-gray-400">({endpoints.length})</span>
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1">
+                    {endpoints.map((endpoint, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded text-xs ${
+                          endpoint.protected
+                            ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
+                            : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                        }`}
+                        title={`${endpoint.method} ${endpoint.path}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={`px-1 py-0.5 rounded text-[10px] font-mono ${
+                            endpoint.method === 'GET' ? 'bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200' :
+                            endpoint.method === 'POST' ? 'bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200' :
+                            endpoint.method === 'PUT' ? 'bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200' :
+                            endpoint.method === 'PATCH' ? 'bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200' :
+                            'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200'
+                          }`}>
+                            {endpoint.method}
+                          </span>
+                          {endpoint.protected && <span title="Protected">🔒</span>}
+                        </div>
+                        <p className="font-medium text-gray-700 dark:text-gray-300 truncate mt-1" title={endpoint.name}>
+                          {endpoint.name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+              {language === 'es' ? 'Cargando endpoints...' : 'Loading endpoints...'}
+            </p>
+          )}
         </div>
       </div>
 
@@ -390,10 +619,8 @@ const DevDashboard = () => {
             </button>
           </div>
 
-          {/* Cache Stats Grid */}
           {cacheStats && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {/* Pokemon Cache */}
               <div className="p-4 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-2xl">⚡</span>
@@ -412,7 +639,6 @@ const DevDashboard = () => {
                 )}
               </div>
 
-              {/* Riftbound Cache */}
               <div className="p-4 rounded-lg bg-purple-100 dark:bg-purple-900/30">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-2xl">🎮</span>
@@ -431,7 +657,6 @@ const DevDashboard = () => {
                 )}
               </div>
 
-              {/* Total Cache */}
               <div className="p-4 rounded-lg bg-gray-100 dark:bg-gray-700">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-2xl">📊</span>
@@ -447,35 +672,56 @@ const DevDashboard = () => {
             </div>
           )}
 
-          {/* Sync Actions */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               {language === 'es' ? 'Sincronización Manual' : 'Manual Sync'}
             </h3>
             <div className="flex flex-wrap gap-3">
-              {/* Pokemon Sync Button */}
-              <button
-                onClick={syncPokemonCards}
-                disabled={syncingPokemon || syncingRiftbound}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
-                  ${syncingPokemon || syncingRiftbound
-                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
-                    : 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                  }`}
-              >
-                {syncingPokemon ? (
-                  <>
-                    <Spinner size="sm" />
-                    {language === 'es' ? 'Sincronizando...' : 'Syncing...'}
-                  </>
-                ) : (
-                  <>
-                    ⚡ {language === 'es' ? 'Sync Pokémon' : 'Sync Pokémon'}
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => syncPokemonCards(false)}
+                  disabled={syncingPokemon || syncingRiftbound}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                    ${syncingPokemon || syncingRiftbound
+                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                      : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                    }`}
+                  title={language === 'es' ? 'Solo cartas Standard (Scarlet & Violet)' : 'Standard cards only (Scarlet & Violet)'}
+                >
+                  {syncingPokemon ? (
+                    <>
+                      <Spinner size="sm" />
+                      {language === 'es' ? 'Sincronizando...' : 'Syncing...'}
+                    </>
+                  ) : (
+                    <>
+                      ⚡ {language === 'es' ? 'Sync Standard' : 'Sync Standard'}
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => syncPokemonCards(true)}
+                  disabled={syncingPokemon || syncingRiftbound}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+                    ${syncingPokemon || syncingRiftbound
+                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                      : 'bg-orange-600 hover:bg-orange-700 text-white'
+                    }`}
+                  title={language === 'es' ? 'TODAS las cartas de Pokemon (puede tardar mucho)' : 'ALL Pokemon cards (may take a long time)'}
+                >
+                  {syncingPokemon ? (
+                    <>
+                      <Spinner size="sm" />
+                      {language === 'es' ? 'Sincronizando...' : 'Syncing...'}
+                    </>
+                  ) : (
+                    <>
+                      🌐 {language === 'es' ? 'Sync TODO' : 'Sync ALL'}
+                    </>
+                  )}
+                </button>
+              </div>
 
-              {/* Riftbound Sync Button */}
               <button
                 onClick={syncRiftboundCards}
                 disabled={syncingRiftbound || syncingPokemon}
@@ -497,7 +743,6 @@ const DevDashboard = () => {
                 )}
               </button>
 
-              {/* Verify Cache Button */}
               <button
                 onClick={verifyCacheIntegrity}
                 disabled={verifyingCache || syncingPokemon || syncingRiftbound}
@@ -520,7 +765,6 @@ const DevDashboard = () => {
               </button>
             </div>
 
-            {/* Sync Result */}
             {syncResult && (
               <div className={`mt-3 p-3 rounded-lg ${
                 syncResult.success
@@ -539,17 +783,51 @@ const DevDashboard = () => {
                   </p>
                 )}
                 {syncResult.data && syncResult.type === 'pokemon' && (
-                  <p className="text-xs mt-1">
-                    {language === 'es'
-                      ? `Sincronizadas: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Errores: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
-                      : `Synced: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Errors: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
-                    }
-                  </p>
+                  <div className="mt-1">
+                    <p className="text-xs">
+                      {language === 'es'
+                        ? `Modo: ${syncResult.data.mode === 'all' ? 'TODOS' : 'Standard'} | Sincronizadas: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Omitidas: ${syncResult.data.skipped || 0} | Errores: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
+                        : `Mode: ${syncResult.data.mode === 'all' ? 'ALL' : 'Standard'} | Synced: ${syncResult.data.synced} | Sets: ${syncResult.data.setsProcessed} | Skipped: ${syncResult.data.skipped || 0} | Errors: ${syncResult.data.errors} | Total Pokemon: ${syncResult.data.totalPokemon}`
+                      }
+                    </p>
+                    {syncResult.data.pagination && (
+                      <div className="mt-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div
+                              className="bg-green-500 h-2 rounded-full transition-all"
+                              style={{ width: `${Math.round(((syncResult.data.pagination.offset + syncResult.data.setsProcessed) / syncResult.data.pagination.totalSets) * 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs">
+                            {syncResult.data.pagination.offset + syncResult.data.setsProcessed}/{syncResult.data.pagination.totalSets} sets
+                          </span>
+                        </div>
+                        {syncResult.data.pagination.hasMore && (
+                          <button
+                            onClick={() => syncPokemonCards(syncResult.allSets, syncResult.data.pagination.nextOffset)}
+                            disabled={syncingPokemon}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors disabled:opacity-50 flex items-center gap-1"
+                          >
+                            {syncingPokemon ? (
+                              <>⏳ {language === 'es' ? 'Sincronizando...' : 'Syncing...'}</>
+                            ) : (
+                              <>▶️ {language === 'es' ? `Continuar (${syncResult.data.pagination.setsRemaining} sets restantes)` : `Continue (${syncResult.data.pagination.setsRemaining} sets remaining)`}</>
+                            )}
+                          </button>
+                        )}
+                        {!syncResult.data.pagination.hasMore && (
+                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                            ✅ {language === 'es' ? 'Sincronización completa!' : 'Sync complete!'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Verify Result */}
             {verifyResult && !verifyResult.error && (
               <div className="mt-3 p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
                 <p className="text-sm font-medium mb-2">
@@ -589,40 +867,43 @@ const DevDashboard = () => {
         </div>
       )}
 
-      {/* Bug Reports Section */}
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-        🐛 {language === 'es' ? 'Bug Reports' : 'Bug Reports'}
+      {/* GitHub Issues Section */}
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-2">
+        <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        {language === 'es' ? 'GitHub Issues' : 'GitHub Issues'}
       </h2>
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
           <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            {bugCounts.total || 0}
+            {counts.total || 0}
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400">
             {language === 'es' ? 'Total' : 'Total'}
           </div>
         </div>
-        <div className="bg-orange-100 dark:bg-orange-900/50 rounded-lg shadow-md p-5">
-          <div className="text-3xl font-bold text-orange-800 dark:text-orange-200">
-            {bugCounts.open || 0}
+        <div className="bg-green-100 dark:bg-green-900/50 rounded-lg shadow-md p-5">
+          <div className="text-3xl font-bold text-green-800 dark:text-green-200">
+            {counts.open || 0}
           </div>
-          <div className="text-sm text-orange-700 dark:text-orange-300">
+          <div className="text-sm text-green-700 dark:text-green-300">
             {language === 'es' ? 'Abiertos' : 'Open'}
           </div>
         </div>
-        <div className="bg-green-100 dark:bg-green-900/50 rounded-lg shadow-md p-5">
-          <div className="text-3xl font-bold text-green-800 dark:text-green-200">
-            {bugCounts.closed || 0}
+        <div className="bg-purple-100 dark:bg-purple-900/50 rounded-lg shadow-md p-5">
+          <div className="text-3xl font-bold text-purple-800 dark:text-purple-200">
+            {counts.closed || 0}
           </div>
-          <div className="text-sm text-green-700 dark:text-green-300">
+          <div className="text-sm text-purple-700 dark:text-purple-300">
             {language === 'es' ? 'Cerrados' : 'Closed'}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
           <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            {bugCounts.total ? Math.round((bugCounts.closed / bugCounts.total) * 100) : 0}%
+            {counts.total ? Math.round((counts.closed / counts.total) * 100) : 0}%
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400">
             {language === 'es' ? 'Resueltos' : 'Resolved'}
@@ -634,7 +915,7 @@ const DevDashboard = () => {
       {timeSeries.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {language === 'es' ? 'Bugs en los últimos 30 días' : 'Bugs over last 30 days'}
+            {language === 'es' ? 'Issues en los últimos 30 días' : 'Issues over last 30 days'}
           </h2>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={timeSeries}>
@@ -665,18 +946,18 @@ const DevDashboard = () => {
               <Line
                 type="monotone"
                 dataKey="created"
-                stroke="#3b82f6"
+                stroke="#22c55e"
                 strokeWidth={2}
-                dot={{ fill: '#3b82f6', strokeWidth: 2 }}
+                dot={{ fill: '#22c55e', strokeWidth: 2 }}
                 name={language === 'es' ? 'Creados' : 'Created'}
               />
               <Line
                 type="monotone"
-                dataKey="resolved"
-                stroke="#22c55e"
+                dataKey="closed"
+                stroke="#8b5cf6"
                 strokeWidth={2}
-                dot={{ fill: '#22c55e', strokeWidth: 2 }}
-                name={language === 'es' ? 'Resueltos' : 'Resolved'}
+                dot={{ fill: '#8b5cf6', strokeWidth: 2 }}
+                name={language === 'es' ? 'Cerrados' : 'Closed'}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -688,7 +969,7 @@ const DevDashboard = () => {
         {/* Pie Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {language === 'es' ? 'Por Estado' : 'By Status'}
+            {language === 'es' ? 'Por Estado' : 'By State'}
           </h2>
           {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
@@ -734,154 +1015,170 @@ const DevDashboard = () => {
         {/* Filter Buttons */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {language === 'es' ? 'Filtrar por Estado' : 'Filter by Status'}
+            {language === 'es' ? 'Filtrar por Estado' : 'Filter by State'}
           </h2>
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setStatusFilter('all')}
+              onClick={() => setStateFilter('all')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'all'
+                stateFilter === 'all'
                   ? 'bg-primary-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
               }`}
             >
-              {language === 'es' ? 'Todos' : 'All'} ({bugCounts.total || 0})
+              {language === 'es' ? 'Todos' : 'All'} ({counts.total || 0})
             </button>
             <button
-              onClick={() => setStatusFilter('open')}
+              onClick={() => setStateFilter('open')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'open'
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900'
-              }`}
-            >
-              {language === 'es' ? 'Abiertos' : 'Open'} ({bugCounts.open || 0})
-            </button>
-            <button
-              onClick={() => setStatusFilter('closed')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'closed'
+                stateFilter === 'open'
                   ? 'bg-green-600 text-white'
                   : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900'
               }`}
             >
-              {language === 'es' ? 'Cerrados' : 'Closed'} ({bugCounts.closed || 0})
+              {language === 'es' ? 'Abiertos' : 'Open'} ({counts.open || 0})
             </button>
-            {Object.entries(STATUS_LABELS).map(([status, labels]) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  statusFilter === status
-                    ? `${STATUS_COLORS[status].bg} ${STATUS_COLORS[status].text} ring-2 ring-offset-2 ring-primary-500`
-                    : `${STATUS_COLORS[status].bg} ${STATUS_COLORS[status].text} hover:opacity-80`
-                }`}
-              >
-                {labels[language]} ({bugCounts[status] || 0})
-              </button>
-            ))}
+            <button
+              onClick={() => setStateFilter('closed')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                stateFilter === 'closed'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900'
+              }`}
+            >
+              {language === 'es' ? 'Cerrados' : 'Closed'} ({counts.closed || 0})
+            </button>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => { fetchIssues(); fetchIssueStats() }}
+              className="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
+            >
+              🔄 {language === 'es' ? 'Actualizar Issues' : 'Refresh Issues'}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Bug Reports List */}
+      {/* GitHub Issues List */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            {language === 'es' ? 'Reportes' : 'Reports'} ({bugReports.length})
+            {language === 'es' ? 'Issues' : 'Issues'} ({issues.length})
           </h2>
         </div>
 
-        {bugReports.length === 0 ? (
+        {issues.length === 0 ? (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-            {language === 'es' ? 'No hay reportes de bugs' : 'No bug reports'}
+            {githubConfigured
+              ? (language === 'es' ? 'No hay issues de GitHub' : 'No GitHub issues')
+              : (language === 'es' ? 'GitHub no configurado' : 'GitHub not configured')}
           </div>
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {bugReports.map((bug) => (
+            {issues.map((issue) => (
               <div
-                key={bug._id}
+                key={issue.id}
                 className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
-                  selectedBug === bug._id ? 'bg-gray-50 dark:bg-gray-700/50' : ''
+                  selectedIssue === issue.id ? 'bg-gray-50 dark:bg-gray-700/50' : ''
                 }`}
               >
                 <div className="flex items-start gap-4">
                   <div className="flex-1 min-w-0">
-                    {/* Header Row with Title, Status, and Assignment */}
+                    {/* Header Row */}
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        #{issue.number}
+                      </span>
                       <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                        {bug.title}
+                        {issue.title}
                       </h3>
-                      {/* Quick Status Selector */}
-                      {isAdmin ? (
-                        <select
-                          value={bug.status}
-                          onChange={(e) => handleStatusChange(bug._id, e.target.value)}
-                          disabled={updating === bug._id}
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium border-0 cursor-pointer ${STATUS_COLORS[bug.status].bg} ${STATUS_COLORS[bug.status].text}`}
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATE_COLORS[issue.state].bg} ${STATE_COLORS[issue.state].text}`}>
+                        {issue.state === 'open'
+                          ? (language === 'es' ? 'Abierto' : 'Open')
+                          : (language === 'es' ? 'Cerrado' : 'Closed')}
+                      </span>
+                      {/* Labels */}
+                      {issue.labels?.map((label) => (
+                        <span
+                          key={label.name}
+                          className="px-2 py-0.5 rounded-full text-xs font-medium"
+                          style={{
+                            backgroundColor: `#${label.color}20`,
+                            color: `#${label.color}`,
+                            border: `1px solid #${label.color}40`
+                          }}
                         >
-                          {Object.entries(STATUS_LABELS).map(([status, labels]) => (
-                            <option key={status} value={status}>
-                              {labels[language]}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[bug.status].bg} ${STATUS_COLORS[bug.status].text}`}>
-                          {STATUS_LABELS[bug.status][language]}
+                          {label.name}
                         </span>
-                      )}
-                      {/* Quick Assignment Selector */}
-                      {isAdmin && assignees.length > 0 ? (
-                        <select
-                          value={bug.assignedTo?._id || ''}
-                          onChange={(e) => handleAssignmentChange(bug._id, e.target.value)}
-                          disabled={assigningBug === bug._id}
-                          className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 border-0 cursor-pointer"
-                        >
-                          <option value="">{language === 'es' ? '🎯 Sin asignar' : '🎯 Unassigned'}</option>
-                          {assignees.map((assignee) => (
-                            <option key={assignee._id} value={assignee._id}>
-                              🎯 {assignee.username}
-                            </option>
-                          ))}
-                        </select>
-                      ) : bug.assignedTo ? (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200">
-                          🎯 {bug.assignedTo.username}
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-                          {language === 'es' ? 'Sin asignar' : 'Unassigned'}
-                        </span>
-                      )}
+                      ))}
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
-                      {bug.description}
-                    </p>
+
+                    {/* Meta Info */}
                     <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                      <span>👤 {bug.userId?.username || 'Anonymous'}</span>
-                      <span>🕐 {timeAgo(bug.createdAt)}</span>
-                      {bug.pageUrl && (
-                        <a
-                          href={bug.pageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary-600 dark:text-primary-400 hover:underline truncate max-w-[200px]"
-                        >
-                          📍 {bug.pageUrl.replace(/^https?:\/\/[^/]+/, '')}
-                        </a>
+                      <span className="flex items-center gap-1">
+                        {issue.user?.avatar_url && (
+                          <img
+                            src={issue.user.avatar_url}
+                            alt={issue.user.login}
+                            className="w-4 h-4 rounded-full"
+                          />
+                        )}
+                        {issue.user?.login || 'Unknown'}
+                      </span>
+                      <span>🕐 {timeAgo(issue.created_at)}</span>
+                      {issue.comments > 0 && (
+                        <span>💬 {issue.comments}</span>
+                      )}
+                      {issue.assignees?.length > 0 && (
+                        <span className="flex items-center gap-1">
+                          🎯 {issue.assignees.map(a => a.login).join(', ')}
+                        </span>
                       )}
                     </div>
                   </div>
 
                   <div className="flex-shrink-0 flex items-center gap-2">
+                    {/* Open on GitHub */}
+                    <a
+                      href={issue.html_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      title={language === 'es' ? 'Ver en GitHub' : 'View on GitHub'}
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                      </svg>
+                    </a>
+
+                    {/* Close/Reopen Button - Admin only */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => issue.state === 'open'
+                          ? handleCloseIssue(issue.number)
+                          : handleReopenIssue(issue.number)
+                        }
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                          issue.state === 'open'
+                            ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900'
+                            : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900'
+                        }`}
+                      >
+                        {issue.state === 'open'
+                          ? (language === 'es' ? 'Cerrar' : 'Close')
+                          : (language === 'es' ? 'Reabrir' : 'Reopen')}
+                      </button>
+                    )}
+
+                    {/* Expand Button */}
                     <button
-                      onClick={() => setSelectedBug(selectedBug === bug._id ? null : bug._id)}
+                      onClick={() => setSelectedIssue(selectedIssue === issue.id ? null : issue.id)}
                       className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                       title={language === 'es' ? 'Ver detalles' : 'View details'}
                     >
-                      <svg className={`w-5 h-5 transition-transform ${selectedBug === bug._id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-5 h-5 transition-transform ${selectedIssue === issue.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
@@ -889,67 +1186,35 @@ const DevDashboard = () => {
                 </div>
 
                 {/* Expanded Details */}
-                {selectedBug === bug._id && (
+                {selectedIssue === issue.id && (
                   <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                    {bug.screenshot && (
+                    {issue.body && (
                       <div className="mb-4">
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          {language === 'es' ? 'Captura de pantalla:' : 'Screenshot:'}
+                          {language === 'es' ? 'Descripción:' : 'Description:'}
                         </p>
-                        <img
-                          src={bug.screenshot}
-                          alt="Bug screenshot"
-                          className="max-h-64 rounded-lg border border-gray-300 dark:border-gray-600"
-                        />
+                        <div className="prose prose-sm dark:prose-invert max-w-none p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                          <pre className="whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-400 font-sans">
+                            {issue.body}
+                          </pre>
+                        </div>
                       </div>
                     )}
 
-                    {/* Context Info */}
-                    <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        {language === 'es' ? 'Contexto:' : 'Context:'}
-                      </p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span>{bug.theme === 'dark' ? '🌙' : '☀️'}</span>
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {bug.theme === 'dark' ? 'Dark' : 'Light'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span>🌐</span>
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {bug.language === 'es' ? 'Español' : 'English'}
-                          </span>
-                        </div>
-                        {bug.screenSize && (
-                          <div className="flex items-center gap-2">
-                            <span>📐</span>
-                            <span className="text-gray-600 dark:text-gray-400">{bug.screenSize}</span>
-                          </div>
-                        )}
-                        {bug.pageUrl && (
-                          <div className="flex items-center gap-2">
-                            <span>📍</span>
-                            <span className="text-gray-600 dark:text-gray-400 truncate">
-                              {bug.pageUrl.replace(/^https?:\/\/[^/]+/, '')}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                    {/* Timestamps */}
+                    <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
+                      <span>
+                        {language === 'es' ? 'Creado:' : 'Created:'} {new Date(issue.created_at).toLocaleString(language === 'es' ? 'es-ES' : 'en-US')}
+                      </span>
+                      <span>
+                        {language === 'es' ? 'Actualizado:' : 'Updated:'} {new Date(issue.updated_at).toLocaleString(language === 'es' ? 'es-ES' : 'en-US')}
+                      </span>
+                      {issue.closed_at && (
+                        <span>
+                          {language === 'es' ? 'Cerrado:' : 'Closed:'} {new Date(issue.closed_at).toLocaleString(language === 'es' ? 'es-ES' : 'en-US')}
+                        </span>
+                      )}
                     </div>
-
-                    {bug.userAgent && (
-                      <div className="mb-4">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {language === 'es' ? 'Navegador:' : 'Browser:'}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono break-all">
-                          {bug.userAgent}
-                        </p>
-                      </div>
-                    )}
-
                   </div>
                 )}
               </div>

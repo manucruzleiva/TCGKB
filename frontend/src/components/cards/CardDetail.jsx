@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Spinner from '../common/Spinner'
 import CardReactions from './CardReactions'
 import ItemReactions from './ItemReactions'
@@ -6,6 +6,9 @@ import CommentList from '../comments/CommentList'
 import { getRotationInfo, formatDaysUntilRotation } from '../../config/rotation'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { useDateFormat } from '../../contexts/DateFormatContext'
+import { useAuth } from '../../contexts/AuthContext'
+import { collectionService } from '../../services/collectionService'
+import { artistsService } from '../../services/artistsService'
 
 // Type emoji mapping for Pokemon
 const TYPE_EMOJIS = {
@@ -47,9 +50,113 @@ const RARITY_COLORS = {
 }
 
 const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { formatDate } = useDateFormat()
+  const { isAuthenticated } = useAuth()
   const [currentArtIndex, setCurrentArtIndex] = useState(0)
+  const [collectionData, setCollectionData] = useState({ quantity: 0, playsetMax: 4, hasPlayset: false })
+  const [loadingCollection, setLoadingCollection] = useState(false)
+  const [artistData, setArtistData] = useState({ fanCount: 0, isFan: false })
+  const [loadingArtist, setLoadingArtist] = useState(false)
+
+  // Fetch collection status when card changes
+  useEffect(() => {
+    const fetchCollectionStatus = async () => {
+      if (!isAuthenticated || !card?.id) return
+
+      try {
+        setLoadingCollection(true)
+        const response = await collectionService.getCardOwnership(card.id)
+        if (response.success) {
+          setCollectionData(response.data)
+        }
+      } catch (error) {
+        console.error('Error fetching collection status:', error)
+      } finally {
+        setLoadingCollection(false)
+      }
+    }
+
+    fetchCollectionStatus()
+  }, [card?.id, isAuthenticated])
+
+  // Get the currently displayed card (handles reprint cycling)
+  const displayedCard = alternateArts.length > 0 ? alternateArts[currentArtIndex] : card
+  const currentArtist = displayedCard?.artist || card?.artist
+
+  // Fetch artist info when displayed card changes
+  useEffect(() => {
+    const fetchArtistInfo = async () => {
+      if (!currentArtist) {
+        setArtistData({ fanCount: 0, isFan: false })
+        return
+      }
+
+      try {
+        setLoadingArtist(true)
+        const response = await artistsService.getArtistInfo(currentArtist)
+        if (response.success) {
+          setArtistData({
+            fanCount: response.data.fanCount,
+            isFan: response.data.isFan
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching artist info:', error)
+        setArtistData({ fanCount: 0, isFan: false })
+      } finally {
+        setLoadingArtist(false)
+      }
+    }
+
+    fetchArtistInfo()
+  }, [currentArtist])
+
+  // Handle toggling fan status
+  const handleToggleFan = async () => {
+    if (!isAuthenticated || !currentArtist) return
+
+    try {
+      setLoadingArtist(true)
+      const response = await artistsService.toggleFan(currentArtist)
+      if (response.success) {
+        setArtistData({
+          fanCount: response.data.fanCount,
+          isFan: response.data.isFan
+        })
+      }
+    } catch (error) {
+      console.error('Error toggling fan status:', error)
+    } finally {
+      setLoadingArtist(false)
+    }
+  }
+
+  // Handle adding/removing from collection
+  const handleCollectionChange = async (delta) => {
+    if (!isAuthenticated || !card) return
+
+    const newQuantity = Math.max(0, collectionData.quantity + delta)
+    const tcgSystem = card.tcgSystem || 'pokemon'
+
+    try {
+      const response = await collectionService.setQuantity({
+        cardId: card.id,
+        quantity: newQuantity,
+        tcgSystem,
+        cardName: card.name,
+        cardImage: card.images?.small || card.images?.large,
+        cardSet: card.set?.name || card.set?.id,
+        cardRarity: card.rarity
+      })
+
+      if (response.success) {
+        setCollectionData(response.data)
+      }
+    } catch (error) {
+      console.error('Error updating collection:', error)
+    }
+  }
 
   if (!card) {
     return (
@@ -59,12 +166,12 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
     )
   }
 
-  // Get the current card (either from alternateArts or the original card)
-  const displayedCard = alternateArts.length > 0 ? alternateArts[currentArtIndex] : card
+  // displayedCard is already defined above (line 84) - use it for all version-specific data
   const imageUrl = displayedCard?.images?.large || displayedCard?.images?.small || card.images?.large || card.images?.small
-  const setCode = card.set?.ptcgoCode || card.set?.id || 'Unknown'
-  const setName = card.set?.name || 'Unknown Set'
-  const releaseDate = card.set?.releaseDate || ''
+  // Use displayedCard for version-specific info so it updates when cycling through reprints
+  const setCode = displayedCard?.set?.ptcgoCode || displayedCard?.set?.id || 'Unknown'
+  const setName = displayedCard?.set?.name || 'Unknown Set'
+  const releaseDate = displayedCard?.set?.releaseDate || ''
   const hasMultipleArts = alternateArts.length > 1
 
   const goToPrevArt = () => {
@@ -89,9 +196,9 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
   const isPokemonCard = card.tcgSystem === 'pokemon' || !card.tcgSystem
   const isRiftboundCard = card.tcgSystem === 'riftbound'
 
-  // Pokemon-specific calculations
+  // Pokemon-specific calculations - use displayedCard for version-specific info
   const legalFormatDate = isPokemonCard ? calculateLegalDate(releaseDate) : null
-  const rotationInfo = isPokemonCard && card.regulationMark ? getRotationInfo(card.regulationMark) : null
+  const rotationInfo = isPokemonCard && displayedCard?.regulationMark ? getRotationInfo(displayedCard.regulationMark) : null
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
@@ -145,37 +252,60 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
 
           </div>
 
-          {/* Alternate Arts Thumbnails */}
+          {/* Alternate Arts / Reprints Thumbnails */}
           {hasMultipleArts && (
             <div className="mt-4">
               <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t('card.alternateArts')} ({alternateArts.length})
+                {language === 'es' ? 'Otras Versiones' : 'Other Versions'} ({alternateArts.length})
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {alternateArts.map((art, idx) => (
-                  <button
-                    key={art.id}
-                    onClick={() => setCurrentArtIndex(idx)}
-                    className={`flex-shrink-0 w-16 h-22 rounded-md overflow-hidden border-2 transition-all ${
-                      idx === currentArtIndex
-                        ? 'border-primary-500 shadow-lg scale-105'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-primary-300'
-                    }`}
-                  >
-                    <img
-                      src={art.images?.small || art.images?.large}
-                      alt={`${art.name} - ${art.set?.name || ''}`}
-                      className="w-full h-full object-contain"
-                    />
-                  </button>
-                ))}
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {alternateArts.map((art, idx) => {
+                  // Determine version type based on rarity/set
+                  const isPromo = art.set?.id?.toLowerCase().includes('promo') || art.rarity?.toLowerCase().includes('promo')
+                  const isSpecialArt = art.rarity?.toLowerCase().includes('illustration') ||
+                                       art.rarity?.toLowerCase().includes('special') ||
+                                       art.rarity?.toLowerCase().includes('secret')
+                  const versionType = isPromo ? 'promo' : isSpecialArt ? 'special' : 'reprint'
+                  const versionColors = {
+                    promo: 'bg-yellow-500',
+                    special: 'bg-gradient-to-r from-pink-500 to-purple-500',
+                    reprint: 'bg-blue-500'
+                  }
+
+                  return (
+                    <button
+                      key={art.id}
+                      onClick={() => setCurrentArtIndex(idx)}
+                      className={`flex-shrink-0 relative rounded-md overflow-hidden border-2 transition-all ${
+                        idx === currentArtIndex
+                          ? 'border-primary-500 shadow-lg scale-105'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-primary-300'
+                      }`}
+                      title={`${art.set?.name || ''} ${art.rarity ? `(${art.rarity})` : ''}`}
+                    >
+                      <img
+                        src={art.images?.small || art.images?.large}
+                        alt={`${art.name} - ${art.set?.name || ''}`}
+                        className="w-16 h-22 object-contain"
+                      />
+                      {/* Version type indicator */}
+                      <div className={`absolute bottom-0 left-0 right-0 ${versionColors[versionType]} text-white text-[8px] font-bold text-center py-0.5 uppercase`}>
+                        {art.set?.ptcgoCode || art.set?.id?.substring(0, 4) || '???'}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
-              {/* Current art set info */}
-              {displayedCard && displayedCard.id !== card.id && (
-                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="font-medium">{displayedCard.set?.name}</span>
-                  {displayedCard.number && <span> • #{displayedCard.number}</span>}
-                  {displayedCard.rarity && <span> • {displayedCard.rarity}</span>}
+              {/* Current art set info with type indicator */}
+              {displayedCard && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{displayedCard.set?.name}</span>
+                  {displayedCard.number && <span className="text-gray-500 dark:text-gray-400">#{displayedCard.number}</span>}
+                  {displayedCard.rarity && (
+                    <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-[10px]">
+                      {displayedCard.rarity}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -186,13 +316,87 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
       {/* Card Info - Main Container */}
       <div>
         <div className="card mb-6">
-          {/* Card Header with Name and Card Reactions */}
+          {/* Card Header with Name, Versions Badge, and Card Reactions */}
           <div className="flex items-start justify-between gap-4 mb-4">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{card.name}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{card.name}</h1>
+              {/* Versions Badge */}
+              {hasMultipleArts && (
+                <span className="px-2 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold rounded-full whitespace-nowrap">
+                  {alternateArts.length} {language === 'es' ? 'versiones' : 'versions'}
+                </span>
+              )}
+            </div>
             <div className="flex-shrink-0">
               <CardReactions cardId={card.id} />
             </div>
           </div>
+
+          {/* Collection Counter */}
+          {isAuthenticated && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📦</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    {language === 'es' ? 'Mi Colección' : 'My Collection'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Quantity display with playset indicator */}
+                  <div className="text-center">
+                    <span className={`text-2xl font-bold ${collectionData.hasPlayset ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                      {collectionData.quantity}
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm"> / {collectionData.playsetMax}</span>
+                    {collectionData.hasPlayset && (
+                      <span className="ml-1 text-green-500" title={language === 'es' ? 'Playset completo' : 'Playset complete'}>✓</span>
+                    )}
+                  </div>
+
+                  {/* Counter buttons */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleCollectionChange(-1)}
+                      disabled={loadingCollection || collectionData.quantity === 0}
+                      className="w-8 h-8 flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title={language === 'es' ? 'Quitar una' : 'Remove one'}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleCollectionChange(1)}
+                      disabled={loadingCollection}
+                      className="w-8 h-8 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title={language === 'es' ? 'Agregar una' : 'Add one'}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {/* Playset progress bar */}
+              <div className="mt-3">
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${collectionData.hasPlayset ? 'bg-green-500' : 'bg-amber-500'}`}
+                    style={{ width: `${Math.min(100, (collectionData.quantity / collectionData.playsetMax) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
+                  {collectionData.hasPlayset
+                    ? (language === 'es' ? '¡Playset completo!' : 'Playset complete!')
+                    : (language === 'es'
+                      ? `${collectionData.playsetMax - collectionData.quantity} más para playset`
+                      : `${collectionData.playsetMax - collectionData.quantity} more for playset`)}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Card Data */}
           <div className="space-y-3 mb-6">
@@ -210,8 +414,8 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
               </div>
             )}
 
-            {/* Pokemon-specific: Regulation Mark with status */}
-            {isPokemonCard && card.regulationMark && (
+            {/* Pokemon-specific: Regulation Mark with status - version specific */}
+            {isPokemonCard && displayedCard.regulationMark && (
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.regulationMark')}:</span>
                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-bold rounded ${
@@ -221,7 +425,7 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
                     ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300'
                     : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
                 }`}>
-                  <span className="text-lg">{card.regulationMark}</span>
+                  <span className="text-lg">{displayedCard.regulationMark}</span>
                   {rotationInfo?.status === 'rotating-soon' && (
                     <span className="text-xs font-normal">⚠️</span>
                   )}
@@ -266,25 +470,26 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
               </div>
             )}
 
-            {card.supertype && (
+            {displayedCard.supertype && (
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.type')}:</span>
                 <span className="ml-2 text-gray-600 dark:text-gray-400">
-                  {card.supertype}
-                  {card.subtypes && card.subtypes.length > 0 && (
+                  {displayedCard.supertype}
+                  {displayedCard.subtypes && displayedCard.subtypes.length > 0 && (
                     <span className="ml-1 text-gray-500 dark:text-gray-500">
-                      ({card.subtypes.join(', ')})
+                      ({displayedCard.subtypes.join(', ')})
                     </span>
                   )}
                 </span>
               </div>
             )}
 
-            {card.types && card.types.length > 0 && (
+            {/* Use displayedCard for version-specific fields (changes when cycling reprints) */}
+            {displayedCard.types && displayedCard.types.length > 0 && (
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.types')}:</span>
                 <div className="inline-flex gap-2 ml-2">
-                  {card.types.map((type, idx) => (
+                  {displayedCard.types.map((type, idx) => (
                     <span
                       key={idx}
                       className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded flex items-center gap-1"
@@ -297,29 +502,33 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
               </div>
             )}
 
-            {card.hp && (
+            {displayedCard.hp && (
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-300">{t('card.hp')}:</span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">{card.hp}</span>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">{displayedCard.hp}</span>
               </div>
             )}
 
-            {/* Card Number */}
-            {card.number && (
+            {/* Card Number - version specific */}
+            {displayedCard.number && (
               <div>
-                <span className="font-semibold text-gray-700 dark:text-gray-300">Número:</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                  {language === 'es' ? 'Número' : 'Number'}:
+                </span>
                 <span className="ml-2 text-gray-600 dark:text-gray-400">
-                  {card.number}{card.set?.printedTotal ? ` / ${card.set.printedTotal}` : ''}
+                  {displayedCard.number}{displayedCard.set?.printedTotal ? ` / ${displayedCard.set.printedTotal}` : ''}
                 </span>
               </div>
             )}
 
-            {/* Rarity */}
-            {card.rarity && (
+            {/* Rarity - version specific */}
+            {displayedCard.rarity && (
               <div>
-                <span className="font-semibold text-gray-700 dark:text-gray-300">Rareza:</span>
-                <span className={`ml-2 px-2 py-0.5 rounded text-sm ${isRiftboundCard ? (RARITY_COLORS[card.rarity] || 'text-gray-600 dark:text-gray-400') : 'text-gray-600 dark:text-gray-400'}`}>
-                  {card.rarity}
+                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                  {language === 'es' ? 'Rareza' : 'Rarity'}:
+                </span>
+                <span className={`ml-2 px-2 py-0.5 rounded text-sm ${isRiftboundCard ? (RARITY_COLORS[displayedCard.rarity] || 'text-gray-600 dark:text-gray-400') : 'text-gray-600 dark:text-gray-400'}`}>
+                  {displayedCard.rarity}
                 </span>
               </div>
             )}
@@ -383,11 +592,50 @@ const CardDetail = ({ card, stats, cardId, alternateArts = [] }) => {
               </div>
             )}
 
-            {/* Artist */}
-            {card.artist && (
-              <div>
-                <span className="font-semibold text-gray-700 dark:text-gray-300">Artist:</span>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">{card.artist}</span>
+            {/* Artist with Fan System - uses currentArtist which updates with reprint selection */}
+            {currentArtist && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    {language === 'es' ? 'Artista' : 'Artist'}:
+                  </span>
+                  <span className="ml-2 text-gray-600 dark:text-gray-400">{currentArtist}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Fan count */}
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {loadingArtist ? '...' : artistData.fanCount} {artistData.fanCount === 1 ? 'fan' : 'fans'}
+                  </span>
+                  {/* Fan toggle button */}
+                  {isAuthenticated && (
+                    <button
+                      onClick={handleToggleFan}
+                      disabled={loadingArtist}
+                      className={`p-1.5 rounded-full transition-all duration-200 ${
+                        artistData.isFan
+                          ? 'bg-pink-100 dark:bg-pink-900/50 text-pink-500 hover:bg-pink-200 dark:hover:bg-pink-800'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-pink-400'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      title={artistData.isFan
+                        ? (language === 'es' ? 'Dejar de ser fan' : 'Unfollow artist')
+                        : (language === 'es' ? 'Hacerme fan' : 'Become a fan')}
+                    >
+                      <svg
+                        className={`w-5 h-5 ${artistData.isFan ? 'fill-current' : ''}`}
+                        fill={artistData.isFan ? 'currentColor' : 'none'}
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

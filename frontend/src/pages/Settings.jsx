@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useDateFormat } from '../contexts/DateFormatContext'
@@ -7,18 +7,38 @@ import api from '../services/api'
 
 // Default Pokemon avatars from PokeAPI sprites
 const DEFAULT_AVATARS = [
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png', // Pikachu
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png',  // Bulbasaur
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png',  // Charmander
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png',  // Squirtle
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/133.png', // Eevee
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png', // Mewtwo
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png', // Mew
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/39.png',  // Jigglypuff
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/143.png', // Snorlax
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png',   // Charizard
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/94.png',  // Gengar
-  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/131.png', // Lapras
+  { id: 25, name: 'Pikachu', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png' },
+  { id: 1, name: 'Bulbasaur', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png' },
+  { id: 4, name: 'Charmander', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png' },
+  { id: 7, name: 'Squirtle', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png' },
+  { id: 133, name: 'Eevee', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/133.png' },
+  { id: 150, name: 'Mewtwo', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png' },
+  { id: 151, name: 'Mew', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png' },
+  { id: 39, name: 'Jigglypuff', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/39.png' },
+  { id: 143, name: 'Snorlax', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/143.png' },
+  { id: 6, name: 'Charizard', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png' },
+  { id: 94, name: 'Gengar', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/94.png' },
+  { id: 131, name: 'Lapras', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/131.png' },
+]
+
+// Background gradient options
+const BACKGROUND_GRADIENTS = [
+  { id: 'primary', gradient: 'from-primary-400 to-primary-600', name: 'Primary' },
+  { id: 'red', gradient: 'from-red-400 to-red-600', name: 'Fire' },
+  { id: 'blue', gradient: 'from-blue-400 to-blue-600', name: 'Water' },
+  { id: 'green', gradient: 'from-green-400 to-green-600', name: 'Grass' },
+  { id: 'yellow', gradient: 'from-yellow-400 to-yellow-600', name: 'Electric' },
+  { id: 'purple', gradient: 'from-purple-400 to-purple-600', name: 'Psychic' },
+  { id: 'pink', gradient: 'from-pink-400 to-pink-600', name: 'Fairy' },
+  { id: 'gray', gradient: 'from-gray-400 to-gray-600', name: 'Steel' },
+  { id: 'orange', gradient: 'from-orange-400 to-orange-600', name: 'Fighting' },
+  { id: 'teal', gradient: 'from-teal-400 to-teal-600', name: 'Ice' },
+  { id: 'indigo', gradient: 'from-indigo-400 to-indigo-600', name: 'Ghost' },
+  { id: 'amber', gradient: 'from-amber-400 to-amber-600', name: 'Ground' },
+  { id: 'rainbow', gradient: 'from-red-500 via-yellow-500 to-blue-500', name: 'Rainbow' },
+  { id: 'sunset', gradient: 'from-orange-400 via-pink-500 to-purple-600', name: 'Sunset' },
+  { id: 'ocean', gradient: 'from-cyan-400 via-blue-500 to-indigo-600', name: 'Ocean' },
+  { id: 'forest', gradient: 'from-green-400 via-emerald-500 to-teal-600', name: 'Forest' },
 ]
 
 const Settings = () => {
@@ -29,8 +49,14 @@ const Settings = () => {
   const [message, setMessage] = useState(null)
 
   // Profile settings
-  const [selectedAvatar, setSelectedAvatar] = useState(user?.avatar || DEFAULT_AVATARS[0])
+  const [selectedAvatar, setSelectedAvatar] = useState(user?.avatar || DEFAULT_AVATARS[0].url)
+  const [selectedBackground, setSelectedBackground] = useState(user?.avatarBackground || BACKGROUND_GRADIENTS[0].gradient)
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
+  const [avatarTab, setAvatarTab] = useState('pokemon') // 'pokemon' | 'background'
+  const [pokemonSearch, setPokemonSearch] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchTimeoutRef = useRef(null)
 
   // Date format
   const [selectedDateFormat, setSelectedDateFormat] = useState(dateFormat)
@@ -56,7 +82,57 @@ const Settings = () => {
     if (user?.avatar) {
       setSelectedAvatar(user.avatar)
     }
-  }, [user?.avatar])
+    if (user?.avatarBackground) {
+      setSelectedBackground(user.avatarBackground)
+    }
+  }, [user?.avatar, user?.avatarBackground])
+
+  // Pokemon search with debounce
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (pokemonSearch.trim().length < 2) {
+      setSearchResults([])
+      return
+    }
+
+    setSearchLoading(true)
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        // Search Pokemon by name using PokeAPI
+        const response = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=1500`)
+        const data = await response.json()
+
+        const searchLower = pokemonSearch.toLowerCase()
+        const matches = data.results
+          .filter(p => p.name.includes(searchLower))
+          .slice(0, 20)
+          .map(p => {
+            const id = p.url.split('/').filter(Boolean).pop()
+            return {
+              id: parseInt(id),
+              name: p.name.charAt(0).toUpperCase() + p.name.slice(1).replace(/-/g, ' '),
+              url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`
+            }
+          })
+
+        setSearchResults(matches)
+      } catch (error) {
+        console.error('Error searching Pokemon:', error)
+        setSearchResults([])
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 300)
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [pokemonSearch])
 
   // Obfuscate email: show first 2 chars, then ***, then @ domain first char and ***
   const obfuscateEmail = (email) => {
@@ -73,15 +149,20 @@ const Settings = () => {
     setSaving(true)
     setMessage(null)
     try {
-      const response = await api.put('/auth/avatar', { avatar: selectedAvatar })
+      const response = await api.put('/auth/avatar', {
+        avatar: selectedAvatar,
+        avatarBackground: selectedBackground
+      })
       if (response.data.success && updateUser) {
-        updateUser({ ...user, avatar: selectedAvatar })
+        updateUser({ ...user, avatar: selectedAvatar, avatarBackground: selectedBackground })
       }
       setMessage({
         type: 'success',
         text: language === 'es' ? 'Avatar actualizado' : 'Avatar updated'
       })
       setShowAvatarPicker(false)
+      setPokemonSearch('')
+      setSearchResults([])
     } catch (error) {
       console.error('Error saving avatar:', error)
       setMessage({
@@ -197,7 +278,7 @@ const Settings = () => {
           <div className="relative">
             <div
               onClick={() => setShowAvatarPicker(!showAvatarPicker)}
-              className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center cursor-pointer hover:ring-4 hover:ring-primary-300 transition-all overflow-hidden"
+              className={`w-24 h-24 rounded-full bg-gradient-to-br ${selectedBackground} flex items-center justify-center cursor-pointer hover:ring-4 hover:ring-primary-300 transition-all overflow-hidden`}
             >
               {selectedAvatar ? (
                 <img src={selectedAvatar} alt="Avatar" className="w-full h-full object-cover" />
@@ -238,29 +319,154 @@ const Settings = () => {
         {/* Avatar Picker */}
         {showAvatarPicker && (
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-              {language === 'es' ? 'Elige un avatar' : 'Choose an avatar'}
-            </h3>
-            <div className="grid grid-cols-6 gap-3 mb-4">
-              {DEFAULT_AVATARS.map((avatar, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedAvatar(avatar)}
-                  className={`w-12 h-12 rounded-full overflow-hidden border-2 transition-all ${
-                    selectedAvatar === avatar
-                      ? 'border-primary-500 ring-2 ring-primary-300'
-                      : 'border-gray-200 dark:border-gray-600 hover:border-primary-400'
-                  }`}
-                >
-                  <img src={avatar} alt={`Avatar ${index + 1}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
+            {/* Tabs */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setAvatarTab('pokemon')}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                  avatarTab === 'pokemon'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {language === 'es' ? 'Pokemon' : 'Pokemon'}
+              </button>
+              <button
+                onClick={() => setAvatarTab('background')}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                  avatarTab === 'background'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {language === 'es' ? 'Fondo' : 'Background'}
+              </button>
             </div>
+
+            {/* Pokemon Tab */}
+            {avatarTab === 'pokemon' && (
+              <div>
+                {/* Search */}
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    value={pokemonSearch}
+                    onChange={(e) => setPokemonSearch(e.target.value)}
+                    placeholder={language === 'es' ? 'Buscar Pokemon...' : 'Search Pokemon...'}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+
+                {/* Search Results */}
+                {searchLoading && (
+                  <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                    {language === 'es' ? 'Buscando...' : 'Searching...'}
+                  </div>
+                )}
+
+                {searchResults.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                      {language === 'es' ? 'Resultados' : 'Results'}
+                    </h4>
+                    <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto">
+                      {searchResults.map((pokemon) => (
+                        <button
+                          key={pokemon.id}
+                          onClick={() => setSelectedAvatar(pokemon.url)}
+                          className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+                            selectedAvatar === pokemon.url
+                              ? 'bg-primary-100 dark:bg-primary-900/50 ring-2 ring-primary-500'
+                              : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
+                          }`}
+                          title={pokemon.name}
+                        >
+                          <img src={pokemon.url} alt={pokemon.name} className="w-10 h-10" />
+                          <span className="text-xs text-gray-600 dark:text-gray-300 truncate w-full text-center">
+                            {pokemon.name.length > 8 ? pokemon.name.slice(0, 8) + '...' : pokemon.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Default Avatars */}
+                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                  {language === 'es' ? 'Pokemon Populares' : 'Popular Pokemon'}
+                </h4>
+                <div className="grid grid-cols-6 gap-3 mb-4">
+                  {DEFAULT_AVATARS.map((avatar) => (
+                    <button
+                      key={avatar.id}
+                      onClick={() => setSelectedAvatar(avatar.url)}
+                      className={`w-12 h-12 rounded-full overflow-hidden border-2 transition-all ${
+                        selectedAvatar === avatar.url
+                          ? 'border-primary-500 ring-2 ring-primary-300'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-primary-400'
+                      }`}
+                      title={avatar.name}
+                    >
+                      <img src={avatar.url} alt={avatar.name} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Background Tab */}
+            {avatarTab === 'background' && (
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                  {language === 'es' ? 'Elige un fondo' : 'Choose a background'}
+                </h4>
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  {BACKGROUND_GRADIENTS.map((bg) => (
+                    <button
+                      key={bg.id}
+                      onClick={() => setSelectedBackground(bg.gradient)}
+                      className={`relative h-16 rounded-lg bg-gradient-to-br ${bg.gradient} transition-all ${
+                        selectedBackground === bg.gradient
+                          ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-800'
+                          : 'hover:opacity-80'
+                      }`}
+                      title={bg.name}
+                    >
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs text-white font-medium drop-shadow-lg">
+                        {bg.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Preview */}
+                <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg mb-4">
+                  <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${selectedBackground} flex items-center justify-center overflow-hidden`}>
+                    {selectedAvatar ? (
+                      <img src={selectedAvatar} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl font-bold text-white">
+                        {user?.username?.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {language === 'es' ? 'Vista previa' : 'Preview'}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {language === 'es' ? 'Asi se vera tu avatar' : 'This is how your avatar will look'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button onClick={handleSaveAvatar} disabled={saving} variant="primary" className="flex-1">
                 {saving ? '...' : (language === 'es' ? 'Guardar Avatar' : 'Save Avatar')}
               </Button>
-              <Button onClick={() => setShowAvatarPicker(false)} variant="secondary">
+              <Button onClick={() => { setShowAvatarPicker(false); setPokemonSearch(''); setSearchResults([]) }} variant="secondary">
                 {language === 'es' ? 'Cancelar' : 'Cancel'}
               </Button>
             </div>
