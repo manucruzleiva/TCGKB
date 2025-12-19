@@ -1,5 +1,6 @@
 import ReputationConfig from '../models/ReputationConfig.js'
 import ReputationLedger from '../models/ReputationLedger.js'
+import ConfigChangeHistory from '../models/ConfigChangeHistory.js'
 import reputationService from '../services/reputation.service.js'
 import log from '../utils/logger.js'
 
@@ -118,13 +119,47 @@ export const updateConfig = async (req, res) => {
   try {
     const { weights, decay } = req.body
 
+    // Get current config for history tracking
+    const previousConfig = await ReputationConfig.getConfig()
+    const previousValues = {
+      weights: { ...previousConfig.weights.toObject() },
+      decay: { ...previousConfig.decay.toObject() }
+    }
+
     const updates = {}
     if (weights) updates.weights = weights
     if (decay) updates.decay = decay
 
     const config = await ReputationConfig.updateConfig(updates, req.user._id)
 
-    log.info(MODULE, `Reputation config updated by ${req.user.username}`)
+    // Build summary of changes
+    const changedFields = []
+    if (weights) {
+      Object.keys(weights).forEach(key => {
+        if (previousValues.weights[key] !== weights[key]) {
+          changedFields.push(`${key}: ${previousValues.weights[key]} → ${weights[key]}`)
+        }
+      })
+    }
+    if (decay) {
+      Object.keys(decay).forEach(key => {
+        if (previousValues.decay[key] !== decay[key]) {
+          changedFields.push(`${key} decay: ${previousValues.decay[key]}d → ${decay[key]}d`)
+        }
+      })
+    }
+
+    // Log change to history
+    const changeType = weights && decay ? 'weights_updated' : (weights ? 'weights_updated' : 'decay_updated')
+    await ConfigChangeHistory.logChange({
+      changedBy: req.user._id,
+      changeType,
+      previousValues,
+      newValues: { weights: config.weights, decay: config.decay },
+      summary: changedFields.length > 0 ? changedFields.join(', ') : 'No changes detected'
+    })
+
+    log.info(MODULE, `Reputation config updated by ${req.user.username}: ${changedFields.join(', ')}`)
 
     res.status(200).json({
       success: true,
@@ -253,13 +288,31 @@ export const adminAdjustPoints = async (req, res) => {
  */
 export const recalculateAll = async (req, res) => {
   try {
+    const startTime = Date.now()
+
     const result = await reputationService.recalculateAllReputations()
 
-    log.info(MODULE, `All reputations recalculated by ${req.user.username}: ${result.updated} users`)
+    const executionTimeMs = Date.now() - startTime
+
+    // Log recalculation to history
+    await ConfigChangeHistory.logChange({
+      changedBy: req.user._id,
+      changeType: 'full_recalculation',
+      summary: `Recalculated ${result.updated} users in ${executionTimeMs}ms`,
+      recalculationStats: {
+        usersAffected: result.updated,
+        executionTimeMs
+      }
+    })
+
+    log.info(MODULE, `All reputations recalculated by ${req.user.username}: ${result.updated} users in ${executionTimeMs}ms`)
 
     res.status(200).json({
       success: true,
-      data: result,
+      data: {
+        ...result,
+        executionTimeMs
+      },
       message: `Recalculated reputation for ${result.updated} users`
     })
   } catch (error) {
@@ -290,6 +343,28 @@ export const processExpired = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to process expired points'
+    })
+  }
+}
+
+/**
+ * Get config change history (admin only)
+ */
+export const getConfigHistory = async (req, res) => {
+  try {
+    const { limit = 20 } = req.query
+
+    const history = await ConfigChangeHistory.getRecentHistory(parseInt(limit))
+
+    res.status(200).json({
+      success: true,
+      data: history
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get config history failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get config history'
     })
   }
 }

@@ -28,14 +28,18 @@ const ReputationConfig = () => {
   const { language } = useLanguage()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [recalculating, setRecalculating] = useState(false)
   const [config, setConfig] = useState(null)
   const [editedConfig, setEditedConfig] = useState(null)
   const [hasChanges, setHasChanges] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
+  const [history, setHistory] = useState([])
+  const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => {
     fetchConfig()
+    fetchHistory()
   }, [])
 
   const fetchConfig = async () => {
@@ -51,6 +55,44 @@ const ReputationConfig = () => {
       setError(err.response?.data?.message || 'Failed to load config')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchHistory = async () => {
+    try {
+      const response = await api.get('/reputation/config/history?limit=10')
+      if (response.data.success) {
+        setHistory(response.data.data)
+      }
+    } catch (err) {
+      console.error('Failed to load history:', err)
+    }
+  }
+
+  const handleRecalculate = async () => {
+    if (!window.confirm(
+      language === 'es'
+        ? '¿Recalcular la reputación de todos los usuarios? Esto puede tomar unos segundos.'
+        : 'Recalculate reputation for all users? This may take a few seconds.'
+    )) return
+
+    try {
+      setRecalculating(true)
+      setError(null)
+      const response = await api.post('/reputation/recalculate')
+      if (response.data.success) {
+        setSuccess(
+          language === 'es'
+            ? `Recalculado para ${response.data.data.updated} usuarios en ${response.data.data.executionTimeMs}ms`
+            : `Recalculated for ${response.data.data.updated} users in ${response.data.data.executionTimeMs}ms`
+        )
+        setTimeout(() => setSuccess(null), 5000)
+        fetchHistory() // Refresh history
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to recalculate')
+    } finally {
+      setRecalculating(false)
     }
   }
 
@@ -85,6 +127,7 @@ const ReputationConfig = () => {
         setHasChanges(false)
         setSuccess(language === 'es' ? 'Configuración guardada' : 'Configuration saved')
         setTimeout(() => setSuccess(null), 3000)
+        fetchHistory() // Refresh history
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save config')
@@ -194,6 +237,17 @@ const ReputationConfig = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            onClick={handleRecalculate}
+            disabled={recalculating || hasChanges}
+            variant="secondary"
+            className="text-sm"
+            title={hasChanges ? (language === 'es' ? 'Guarda los cambios primero' : 'Save changes first') : ''}
+          >
+            {recalculating
+              ? (language === 'es' ? 'Recalculando...' : 'Recalculating...')
+              : (language === 'es' ? 'Recalcular Todo' : 'Recalculate All')}
+          </Button>
           {hasChanges && (
             <Button onClick={handleReset} variant="secondary" className="text-sm">
               {language === 'es' ? 'Descartar' : 'Discard'}
@@ -345,6 +399,68 @@ const ReputationConfig = () => {
             <span className="text-gray-600 dark:text-gray-400">Legend: 1000+</span>
           </div>
         </div>
+      </div>
+
+      {/* Config Change History */}
+      <div className="mt-6">
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+        >
+          <span>{showHistory ? '▼' : '▶'}</span>
+          <h4 className="font-semibold">
+            {language === 'es' ? 'Historial de Cambios' : 'Change History'}
+            {history.length > 0 && ` (${history.length})`}
+          </h4>
+        </button>
+
+        {showHistory && history.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {history.map((entry, index) => (
+              <div
+                key={entry._id || index}
+                className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      entry.changeType === 'full_recalculation'
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                        : entry.changeType === 'weights_updated'
+                        ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
+                        : 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300'
+                    }`}>
+                      {entry.changeType === 'full_recalculation'
+                        ? (language === 'es' ? 'Recálculo' : 'Recalculation')
+                        : entry.changeType === 'weights_updated'
+                        ? (language === 'es' ? 'Pesos' : 'Weights')
+                        : (language === 'es' ? 'Decay' : 'Decay')}
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'es' ? 'por' : 'by'} {entry.changedBy?.username || 'Unknown'}
+                    </span>
+                  </div>
+                  <span className="text-gray-500 dark:text-gray-400 text-xs">
+                    {new Date(entry.createdAt).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-gray-700 dark:text-gray-300">{entry.summary}</p>
+                {entry.recalculationStats?.usersAffected > 0 && (
+                  <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
+                    {entry.recalculationStats.usersAffected} {language === 'es' ? 'usuarios' : 'users'} |{' '}
+                    {entry.recalculationStats.executionTimeMs}ms
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showHistory && history.length === 0 && (
+          <p className="mt-3 text-gray-500 dark:text-gray-400 text-sm italic">
+            {language === 'es' ? 'No hay historial de cambios' : 'No change history'}
+          </p>
+        )}
       </div>
     </div>
   )

@@ -248,7 +248,7 @@
   - Tabla de acciones con peso editable (ej: comentario=5pts, mención=2pts)
   - Decay configurable por tipo de acción (ej: comentario=60días, reacción=30días)
   - Preview de impacto antes de aplicar cambios
-- [ ] **Aplicación Reactiva de Pesos:** `~55K tokens | ~4h`
+- [x] **Aplicación Reactiva de Pesos:** `~55K tokens | ~4h`
   - Al cambiar pesos, recalcular puntos de todos los usuarios
   - Job en background para recálculo masivo
   - Notificación a usuarios si su reputación cambia significativamente

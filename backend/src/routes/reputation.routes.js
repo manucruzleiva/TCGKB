@@ -9,7 +9,8 @@ import {
   getUserLedger,
   adminAdjustPoints,
   recalculateAll,
-  processExpired
+  processExpired,
+  getConfigHistory
 } from '../controllers/reputation.controller.js'
 import { protect, adminOnly, adminOrDevOnly } from '../middleware/auth.middleware.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
@@ -27,6 +28,7 @@ router.get('/user/:userId', protect, getUserReputation)
 // Admin/Dev routes
 router.get('/config', protect, adminOrDevOnly, getConfig)
 router.put('/config', protect, adminOnly, updateConfig)
+router.get('/config/history', protect, adminOrDevOnly, getConfigHistory)
 router.get('/ledger/:userId', protect, adminOrDevOnly, getUserLedger)
 router.post('/adjust', protect, adminOnly, adminAdjustPoints)
 router.post('/recalculate', protect, adminOnly, recalculateAll)
