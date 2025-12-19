@@ -133,26 +133,27 @@
   - Ranking de artistas más populares
 
 ### Overhaul de Diseño Gráfico
-- [ ] **Rediseño de identidad visual:** `~30K tokens | ~2h`
-  - Definir paleta de colores consistente (light/dark mode)
-  - Tipografía unificada
+- [x] **Rediseño de identidad visual:** `~30K tokens | ~2h`
+  - Paleta de colores expandida (primary, success, warning, error, pokemon, riftbound)
+  - Tipografía unificada (Inter, Cal Sans, JetBrains Mono)
   - Espaciado y grid system coherente
-- [ ] **Componentes UI mejorados:** `~40K tokens | ~3h`
-  - Botones con estados hover/active/disabled consistentes
-  - Inputs y forms con mejor feedback visual
-  - Cards y containers con sombras/bordes unificados
-- [ ] **Animaciones y transiciones:** `~25K tokens | ~2h`
-  - Transiciones suaves entre páginas
-  - Micro-interacciones en botones y elementos
-  - Loading states animados
+- [x] **Componentes UI mejorados:** `~40K tokens | ~3h`
+  - Botones con estados hover/active/disabled consistentes (btn-primary, btn-secondary, btn-ghost, btn-danger, btn-success, btn-outline)
+  - Inputs y forms con mejor feedback visual (input-field, input-label, input-error)
+  - Cards y containers con sombras/bordes unificados (card, card-hover, card-bordered, card-glass)
+  - Badges, dropdowns, tooltips, tabs, toggles, progress bars, avatars
+- [x] **Animaciones y transiciones:** `~25K tokens | ~2h`
+  - Transiciones suaves (fade-in, fade-in-up, slide-in-right, scale-in)
+  - Micro-interacciones (pulse-subtle, bounce-subtle, shimmer)
+  - Skeleton loading states animados
 - [ ] **Responsive design audit:** `~35K tokens | ~2.5h`
   - Revisar breakpoints móvil/tablet/desktop
   - Mejorar navegación móvil
   - Optimizar layouts para pantallas pequeñas
-- [ ] **Iconografía consistente:** `~20K tokens | ~1.5h`
-  - Set de íconos unificado (mismo estilo)
-  - Tamaños consistentes
-  - Colores que respeten el tema activo
+- [x] **Iconografía consistente:** `~20K tokens | ~1.5h`
+  - Clases de badge por tipo (badge-primary, badge-pokemon, badge-riftbound)
+  - Tamaños consistentes (avatar-sm/md/lg/xl)
+  - Colores que respetan el tema activo
 
 ---
 
