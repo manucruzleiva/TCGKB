@@ -242,6 +242,95 @@ Professor's Research x2
 
 *Votos anónimos permitidos (fingerprint-based como reactions)
 
+#### Manejo de Reprints (CRÍTICO para validación)
+
+En Pokemon TCG, cartas con el **mismo nombre pero de diferentes sets** cuentan como la misma carta para el límite de copias.
+
+**Ejemplo**:
+```
+2 Professor's Research SVI 189
+2 Professor's Research PAL 172
+= 4 copias de "Professor's Research" (válido)
+
+3 Professor's Research SVI 189
+2 Professor's Research PAL 172
+= 5 copias de "Professor's Research" (INVÁLIDO - excede límite de 4)
+```
+
+**Implementación**:
+```javascript
+function validateCopyLimits(deck, format) {
+  const maxCopies = format === 'glc' ? 1 : 4
+  const errors = []
+
+  // Agrupar cartas por NOMBRE (ignorando set/número)
+  const cardsByName = {}
+  deck.cards.forEach(card => {
+    const baseName = normalizeCardName(card.name)
+    if (!cardsByName[baseName]) {
+      cardsByName[baseName] = { total: 0, cards: [] }
+    }
+    cardsByName[baseName].total += card.quantity
+    cardsByName[baseName].cards.push(card)
+  })
+
+  // Validar límites
+  Object.entries(cardsByName).forEach(([name, data]) => {
+    // Excepción: Basic Energy no tiene límite
+    const isBasicEnergy = data.cards[0].subtypes?.includes('Basic') &&
+                          data.cards[0].supertype === 'Energy'
+
+    if (!isBasicEnergy && data.total > maxCopies) {
+      errors.push({
+        code: 'EXCEEDS_COPY_LIMIT',
+        message: `${name}: ${data.total}/${maxCopies} copias`,
+        cards: data.cards.map(c => c.cardId)
+      })
+    }
+  })
+
+  return errors
+}
+
+function normalizeCardName(name) {
+  // Normalizar variantes como "Professor's Research (Professor Oak)"
+  // a solo "Professor's Research" para conteo correcto
+  return name.replace(/\s*\([^)]+\)\s*$/, '').trim()
+}
+```
+
+**UI/UX para Reprints**:
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Tu Deck                                                    │
+│  ─────────────────────────────────────────────────────────  │
+│                                                              │
+│  Professor's Research                         [4/4] ✓       │
+│    ├─ SVI 189 x2                                            │
+│    └─ PAL 172 x2                                            │
+│                                                              │
+│  Boss's Orders                                [5/4] ⚠️      │
+│    ├─ PAL 172 x3                                            │
+│    └─ BRS 132 x2  ← Problema: excede límite                 │
+└─────────────────────────────────────────────────────────────┘
+
+Comportamiento:
+- Agrupar visualmente reprints del mismo nombre
+- Mostrar contador total vs límite
+- Marcar en amarillo si excede
+- Permitir guardar pero indicar que es inválido
+```
+
+**Casos especiales Pokemon TCG**:
+| Caso | Regla |
+|------|-------|
+| Professor's Research (Oak) vs (Turo) | **Mismo nombre base** → cuentan juntos |
+| Pikachu vs Pikachu ex | **Nombres diferentes** → se cuentan separado |
+| Boss's Orders (Cyrus) vs (Ghetsis) | **Mismo nombre base** → cuentan juntos |
+| Basic Energy (cualquier set) | **Sin límite** |
+
+---
+
 #### Validaciones por Formato (en tiempo real)
 
 ```javascript
@@ -545,6 +634,12 @@ function generateRiftboundAutoTags(deck) {
 - [ ] Tags se generan y actualizan en vivo
 - [ ] Indicador visual claro de estado (verde/amarillo)
 
+### Reprints
+- [ ] Cartas con mismo nombre de diferentes sets se agrupan visualmente
+- [ ] Contador muestra total de copias vs límite (ej: "4/4")
+- [ ] Validación cuenta reprints juntos para límite de copias
+- [ ] Nombres con variantes (ej: "Professor's Research (Oak)") se normalizan
+
 ### Comunidad
 - [ ] Tab "Comunidad" muestra solo decks públicos
 - [ ] Decks ajenos abren en modo read-only
@@ -587,6 +682,7 @@ function generateRiftboundAutoTags(deck) {
 | 1 | Crear endpoint POST /api/decks/parse con detección de TCG/formato | Alta | 4h |
 | 2 | Implementar DeckImportModal con preview y detección automática | Alta | 5h |
 | 3 | Añadir validación Pokemon Standard (60 cards, 4 copies, ACE SPEC, Radiant) | Alta | 3h |
+| 3b | Implementar agrupación de reprints por nombre para validación de copias | Alta | 3h |
 | 4 | Añadir validación Pokemon GLC (singleton, single type, no rule box) | Alta | 3h |
 | 5 | Añadir validación Riftbound (40+1+3+12, domain restriction) | Alta | 3h |
 | 6 | Implementar detección de formato en tiempo real | Alta | 3h |
@@ -605,7 +701,7 @@ function generateRiftboundAutoTags(deck) {
 | 19 | Añadir i18n para todas las nuevas strings | Media | 2h |
 | 20 | Tests E2E para import flow y validaciones | Baja | 4h |
 
-**Total estimado**: ~58 horas de desarrollo
+**Total estimado**: ~61 horas de desarrollo
 
 ---
 

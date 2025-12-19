@@ -134,6 +134,8 @@ TCGKB/
 - **Deck comments** and sharing
 - **Collection tracking** with quantities
 
+See [Deck Manager V2 Technical Spec](#deck-manager-v2) for detailed implementation.
+
 ### Admin Tools
 - **KPI Dashboard** with platform analytics
 - **Moderation queue** for comments
@@ -614,6 +616,203 @@ Sections:
 | `Support.jsx` | DONE | Support page in `/pages` |
 | `App.jsx` | MODIFY | Remove SupportButton, keep route |
 | `SupportButton.jsx` | DELETE | Not needed - footer link is sufficient |
+
+---
+
+## Deck Manager V2
+
+Enhanced deck management system with import, validation, and community features.
+
+### TCG Format Rules
+
+#### Pokemon TCG - Standard Format (2025)
+
+**Regulation Marks**: Cards must have regulation mark **G**, **H**, or **I** to be legal.
+
+| Regulation | Status | Sets |
+|------------|--------|------|
+| F | ❌ Rotated out (April 2025) | Sword & Shield era |
+| G | ✅ Legal | Scarlet & Violet base onwards |
+| H | ✅ Legal | Paldea Evolved onwards |
+| I | ✅ Legal | Shrouded Fable onwards |
+
+**Deck Rules**:
+| Rule | Value |
+|------|-------|
+| Total cards | Exactly 60 |
+| Max copies per card | 4 (except Basic Energy) |
+| Min Basic Pokémon | At least 1 |
+| Max ACE SPEC | 1 per deck |
+| Max Radiant Pokémon | 1 per deck |
+
+**Reprints Rule**: Old versions of cards without regulation marks can still be used if a legal reprint exists. Example: Rare Candy from Sun & Moon is legal because Rare Candy SVI has regulation mark G.
+
+**Sources**: [Pokemon.com 2025 Rotation](https://www.pokemon.com/us/pokemon-news/2025-pokemon-tcg-standard-format-rotation-announcement), [JustInBasil Rotation Guide](https://www.justinbasil.com/rotation/g-on/introduction)
+
+#### Pokemon TCG - Gym Leader Challenge (GLC)
+
+| Rule | Value |
+|------|-------|
+| Total cards | Exactly 60 |
+| Max copies per card | **1 (Singleton)** |
+| Basic Energy | Unlimited |
+| Pokémon type | **Single type only** |
+| Rule Box Pokémon | **BANNED** (ex, V, VSTAR, VMAX, Radiant) |
+| ACE SPEC | **BANNED** |
+| Card pool | Expanded (Black & White onwards) |
+
+**Special Rules**:
+- Professor Juniper / Sycamore / Research: only 1 of the 3
+- Boss's Orders / Lysandre: only 1 of the 2
+- Dual-type Pokémon allowed if one type matches deck
+
+**Sources**: [GLC Official Rules](https://gymleaderchallenge.com/rules), [GLC FAQ](https://gymleaderchallenge.com/faq)
+
+#### Riftbound TCG - Constructed
+
+| Component | Quantity |
+|-----------|----------|
+| Main Deck | Exactly 40 cards |
+| Legend | Exactly 1 |
+| Battlefields | Exactly 3 |
+| Runes | Exactly 12 |
+| Max copies | 3 per card |
+| Sideboard | 0 or 8 cards |
+
+**Domain Restriction**: Only cards from Legend's 2 domains allowed.
+
+**Domains**: Fury, Calm, Mind, Body, Order, Chaos
+
+**Note**: Riftbound currently has no rotation - all cards are legal.
+
+**Sources**: [Riftbound Core Rules](https://riftbound.gg/core-rules/), [Riot Riftbound Guide](https://riftbound.leagueoflegends.com/en-us/news/rules-and-releases/gameplay-guide-core-rules/)
+
+### Reprints Handling
+
+Cards with the **same name from different sets** count together for copy limits.
+
+```
+2 Professor's Research SVI 189
+2 Professor's Research PAL 172
+= 4 copies of "Professor's Research" ✓ Valid
+
+3 Professor's Research SVI 189
+2 Professor's Research PAL 172
+= 5 copies of "Professor's Research" ⚠️ Invalid
+```
+
+**Name Normalization**:
+- "Professor's Research (Professor Oak)" → "Professor's Research"
+- "Boss's Orders (Cyrus)" → "Boss's Orders"
+
+**Exceptions**:
+- `Pikachu` ≠ `Pikachu ex` (different cards)
+- Basic Energy has no copy limit
+
+### Import Formats
+
+#### Pokemon TCG Live
+```
+Pokémon: 12
+4 Pikachu ex SVI 057
+4 Raichu SVI 058
+
+Trainer: 36
+4 Professor's Research SVI 189
+
+Energy: 12
+8 Electric Energy SVE 004
+```
+
+#### Pokemon TCG Pocket
+```
+Pikachu ex x2
+Raichu x2
+```
+
+#### Riftbound (tcg-arena.fr style)
+```
+1 Leona, Determined
+3 Clockwork Keeper
+6 Order Rune
+1 Grove of the God-Willow
+```
+
+### DeckBuilder Interactions
+
+| Action | Result |
+|--------|--------|
+| Left Click | Add 1 copy |
+| Right Click | Remove 1 copy |
+| Ctrl + Click | Set exact quantity |
+| Drag & Drop | Add card to deck |
+
+### Auto-Detection
+
+**Format Detection** (real-time):
+- Detects Standard, GLC, Expanded based on cards
+- Updates automatically as user edits deck
+
+**Auto-Tagging** (real-time):
+- Pokemon: Energy types, Pokémon types, mechanics (ex, V, etc.)
+- Riftbound: Domains, Champion name
+
+### Visual Filters
+
+Toggle icons to show/hide card types:
+- **Active**: Full color icon
+- **Inactive**: Grayscale icon
+
+Pokemon filters: Fire, Water, Grass, Electric, Psychic, Fighting, Dark, Steel, Dragon, Colorless
+
+Riftbound filters: Fury, Calm, Mind, Body, Order, Chaos
+
+### Community Features
+
+| Feature | Description |
+|---------|-------------|
+| **My Decks / Community tabs** | Browse personal or public decks |
+| **Voting** | 👍/👎 only (no emoji reactions) |
+| **Read-only mode** | View others' decks without editing |
+| **Comments** | Discuss decks |
+| **"El Primero" badge** | First deck with unique hash |
+
+**No limit** on public decks per user.
+
+### Asset Repositories
+
+| Type | Repository | License |
+|------|------------|---------|
+| Pokemon Type Icons | [duiker101/pokemon-type-svg-icons](https://github.com/duiker101/pokemon-type-svg-icons) | MIT |
+| Pokemon Assets | [waydelyle/pokemon-assets](https://github.com/waydelyle/pokemon-assets) | MIT |
+| Riftbound Card Data | [OwenMelbz Gist](https://gist.github.com/OwenMelbz/e04dadf641cc9b81cb882b4612343112) | - |
+| Riftbound Official | [Riot Developer Portal](https://developer.riotgames.com/docs/riftbound) | API Key |
+
+### Validation Indicators
+
+Deck validation is shown **inline** (no popups):
+- ✅ Green: Valid deck
+- ⚠️ Yellow: Issues (deck can still be saved)
+
+```
+┌────────────────────────────────────────────┐
+│  Deck: My Pikachu Deck        [52/60] ⚠️   │
+│  Format: [Standard]                        │
+│  ⚠️ Missing 8 cards                        │
+│  ⚠️ Needs at least 1 Basic Pokémon         │
+│  Tags: [Electric] [ex]                     │
+└────────────────────────────────────────────┘
+```
+
+### API Endpoints (New)
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/decks/parse` | Parse deck string, detect TCG/format | No |
+| GET | `/api/decks/community` | List public decks | No |
+| POST | `/api/decks/:id/vote` | Vote 👍/👎 | No* |
+
+*Anonymous votes allowed (fingerprint-based)
 
 ---
 
