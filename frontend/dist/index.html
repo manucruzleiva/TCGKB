@@ -20,10 +20,38 @@
     <link rel="manifest" href="/manifest.json" />
 
     <title>TCG KB</title>
-    <script type="module" crossorigin src="/assets/index-x8DLl_Jl.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Byv1AWwY.css">
+
+    <!-- Staging favicon script - makes favicon grayscale for staging environment -->
+    <script>
+      (function() {
+        const isStaging = window.location.hostname === 'staging.tcgkb.app';
+        if (isStaging) {
+          // Update title to indicate staging
+          document.title = '[STAGING] TCG KB';
+
+          // Convert favicon to grayscale for staging
+          const favicon = document.querySelector('link[rel="icon"]');
+          if (favicon) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function() {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.filter = 'grayscale(100%)';
+              ctx.drawImage(img, 0, 0);
+              favicon.href = canvas.toDataURL('image/png');
+            };
+            img.src = favicon.href;
+          }
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-Ci5p3OvO.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D1u2eT68.css">
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"></div>
   </body>
 </html>

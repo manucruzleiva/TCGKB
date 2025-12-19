@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Real-time comment updates using WebSocket
 - Real-time relative time updates for comments (auto-refresh)
 - Admin dashboard analytics improvements
+- **Support Page**: New `/support` page with GitHub Sponsors integration
+- **Footer Support Link**: Heart icon link to support page in footer (replaces floating button)
+- **Support Tiers**: Display of Supporter, Champion, and Hero tier benefits
+- **Monthly Costs Transparency**: Visual breakdown of platform running costs
 
 ---
 
