@@ -130,7 +130,48 @@ export const en = {
     home: {
       title: 'TCG Knowledge Base',
       subtitle: 'Search, explore and comment on your favorite trading card games'
+    },
+    roadmap: {
+      title: 'Roadmap',
+      backToHome: 'Back to home',
+      subtitle: 'Planned features and development progress',
+      viewOnGithub: 'View on GitHub',
+      overallProgress: 'Overall Progress',
+      completed: 'completed',
+      pending: 'pending',
+      inProgress: 'In Progress',
+      planned: 'Planned',
+      backlog: 'Backlog',
+      done: 'Done',
+      showCompleted: 'Show completed',
+      item: 'item',
+      items: 'items',
+      error: 'Error loading roadmap',
+      autoUpdated: 'The roadmap is automatically updated from',
+      emptyMessage: 'Items must be added to the GitHub Project to appear here.',
+      fewItemsMessage: 'Only showing items from the GitHub Project board.'
     }
+  },
+
+  // Deck Import
+  deckImport: {
+    title: 'Import Deck',
+    instructions: 'Paste your deck list. Pokemon TCG Live, Pokemon Pocket, and Riftbound formats are supported.',
+    placeholder: 'Pokémon: 12\n4 Pikachu ex SVI 057\n4 Raichu SVI 058\n\nTrainer: 36\n4 Professor\'s Research SVI 189\n\nEnergy: 12\n8 Electric Energy SVE 004',
+    parseError: 'Error parsing deck',
+    importError: 'Error importing deck',
+    importing: 'Importing...',
+    importButton: 'Import Deck',
+    preview: 'Preview',
+    cards: 'cards',
+    uniqueCards: 'unique cards',
+    pokemon: 'Pokémon',
+    trainer: 'Trainer',
+    energy: 'Energy',
+    unknown: 'Unknown',
+    confidence: 'confidence',
+    parseWarnings: 'Parse warnings',
+    more: 'more'
   },
 
   // Support / Monetization

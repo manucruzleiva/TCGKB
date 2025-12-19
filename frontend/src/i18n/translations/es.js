@@ -133,6 +133,27 @@ export const es = {
     yearsAgo: 'hace unos años'
   },
 
+  // Deck Import
+  deckImport: {
+    title: 'Importar Mazo',
+    instructions: 'Pega tu lista de mazo. Formatos Pokemon TCG Live, Pokemon Pocket y Riftbound son soportados.',
+    placeholder: 'Pokémon: 12\n4 Pikachu ex SVI 057\n4 Raichu SVI 058\n\nTrainer: 36\n4 Professor\'s Research SVI 189\n\nEnergy: 12\n8 Electric Energy SVE 004',
+    parseError: 'Error al analizar el mazo',
+    importError: 'Error al importar el mazo',
+    importing: 'Importando...',
+    importButton: 'Importar Mazo',
+    preview: 'Vista previa',
+    cards: 'cartas',
+    uniqueCards: 'cartas únicas',
+    pokemon: 'Pokémon',
+    trainer: 'Entrenador',
+    energy: 'Energía',
+    unknown: 'Desconocido',
+    confidence: 'confianza',
+    parseWarnings: 'Advertencias de análisis',
+    more: 'más'
+  },
+
   // Support / Monetization
   support: {
     footerLink: 'Apoyar',

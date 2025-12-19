@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { deckService } from '../services/deckService'
 import { cardService } from '../services/cardService'
 import Spinner from '../components/common/Spinner'
+import DeckImportModal from '../components/decks/DeckImportModal'
 
 // Tag display labels
 const TAG_LABELS = {
@@ -88,11 +89,8 @@ const DeckBuilder = () => {
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
 
-  // Import/Export modal
+  // Import modal
   const [showImportModal, setShowImportModal] = useState(false)
-  const [importText, setImportText] = useState('')
-  const [importError, setImportError] = useState(null)
-  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -222,72 +220,22 @@ const DeckBuilder = () => {
     setTags(prev => prev.filter(t => t !== tag))
   }
 
-  const handleImport = async () => {
-    try {
-      setImportError(null)
-      setImporting(true)
-      const parsedCards = deckService.parseTCGLiveFormat(importText)
+  // Handle import from DeckImportModal
+  const handleImport = (importData) => {
+    // Map parsed cards to deck cards format
+    const importedCards = importData.cards.map(card => ({
+      cardId: card.cardId,
+      name: card.name,
+      quantity: card.quantity,
+      supertype: card.supertype || 'Unknown',
+      imageSmall: null // Images will be loaded when viewing
+    }))
 
-      if (parsedCards.length === 0) {
-        setImportError(language === 'es' ? 'No se encontraron cartas válidas' : 'No valid cards found')
-        setImporting(false)
-        return
-      }
+    setCards(importedCards)
 
-      // Get unique card IDs
-      const uniqueIds = [...new Set(parsedCards.map(c => c.cardId))]
-
-      // Fetch all cards in one batch request (much faster than sequential)
-      const response = await cardService.getCardsByIds(uniqueIds)
-
-      if (!response.success) {
-        setImportError(language === 'es' ? 'Error al obtener cartas' : 'Error fetching cards')
-        setImporting(false)
-        return
-      }
-
-      const { cards: cardDataMap, notFound } = response.data
-
-      // Enrich parsed cards with fetched data
-      const enrichedCards = parsedCards.map(card => {
-        const cardData = cardDataMap[card.cardId]
-        if (cardData) {
-          return {
-            cardId: card.cardId,
-            name: cardData.name,
-            quantity: card.quantity,
-            supertype: cardData.supertype || 'Unknown',
-            imageSmall: cardData.images?.small || null
-          }
-        }
-        // Card not found, use minimal info
-        return {
-          cardId: card.cardId,
-          name: card.name || card.cardId,
-          quantity: card.quantity,
-          supertype: 'Unknown',
-          imageSmall: null
-        }
-      })
-
-      // Debug: log card data and supertypes
-      console.log('Import debug - cardDataMap:', cardDataMap)
-      console.log('Import debug - enrichedCards:', enrichedCards)
-      console.log('Import debug - supertypes:', enrichedCards.map(c => ({ name: c.name, supertype: c.supertype })))
-
-      // Warn about not found cards
-      if (notFound.length > 0) {
-        console.warn('Cards not found:', notFound)
-      }
-
-      setCards(enrichedCards)
-      setShowImportModal(false)
-      setImportText('')
-    } catch (error) {
-      console.error('Import error:', error)
-      setImportError(language === 'es' ? 'Error al importar' : 'Import error')
-    } finally {
-      setImporting(false)
+    // Auto-add format tag if detected
+    if (importData.format && !tags.includes(importData.format)) {
+      setTags(prev => [...prev.filter(t => !['standard', 'expanded', 'glc', 'constructed'].includes(t)), importData.format])
     }
   }
 
@@ -722,56 +670,11 @@ const DeckBuilder = () => {
       </div>
 
       {/* Import Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-              {language === 'es' ? 'Importar Mazo' : 'Import Deck'}
-            </h2>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mb-4 space-y-2">
-              <p>
-                {language === 'es'
-                  ? 'Pega tu lista de mazo. Formatos soportados:'
-                  : 'Paste your deck list. Supported formats:'}
-              </p>
-              <ul className="list-disc list-inside text-xs space-y-1 pl-2">
-                <li><code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">4 Pikachu SV1 25</code> - {language === 'es' ? 'Nombre + Set + Número' : 'Name + Set + Number'}</li>
-                <li><code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">4 sv1-25</code> - {language === 'es' ? 'Solo ID de carta' : 'Card ID only'}</li>
-                <li><code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">4 Pikachu sv1-25</code> - {language === 'es' ? 'Nombre + ID' : 'Name + ID'}</li>
-              </ul>
-            </div>
-            <textarea
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              rows={10}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-sm"
-              placeholder={`4 Pikachu ex SV1 57\n2 Raichu SV1 58\n4 Professor's Research SV1 189\n8 Lightning Energy SV1 257`}
-            />
-            {importError && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-2">{importError}</p>
-            )}
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => { setShowImportModal(false); setImportText(''); setImportError(null) }}
-                disabled={importing}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
-              >
-                {language === 'es' ? 'Cancelar' : 'Cancel'}
-              </button>
-              <button
-                onClick={handleImport}
-                disabled={!importText.trim() || importing}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
-              >
-                {importing && <Spinner size="sm" />}
-                {importing
-                  ? (language === 'es' ? 'Importando...' : 'Importing...')
-                  : (language === 'es' ? 'Importar' : 'Import')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeckImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={handleImport}
+      />
     </div>
   )
 }
