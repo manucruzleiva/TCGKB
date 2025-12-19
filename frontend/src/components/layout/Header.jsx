@@ -19,7 +19,9 @@ const Header = () => {
   const [mostCommented, setMostCommented] = useState([])
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMainMenu, setShowMainMenu] = useState(false)
+  const [showMobileSearch, setShowMobileSearch] = useState(false)
   const searchRef = useRef(null)
+  const mobileSearchRef = useRef(null)
   const searchTimeoutRef = useRef(null)
   const userMenuRef = useRef(null)
   const mainMenuRef = useRef(null)
@@ -44,6 +46,12 @@ const Header = () => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setShowDropdown(false)
+      }
+      if (mobileSearchRef.current && !mobileSearchRef.current.contains(event.target)) {
+        // Don't close if clicking the search trigger button
+        if (!event.target.closest('[data-mobile-search-trigger]')) {
+          setShowMobileSearch(false)
+        }
       }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false)
@@ -130,11 +138,12 @@ const Header = () => {
     setSearchResults([])
     setShowUserMenu(false)
     setShowMainMenu(false)
+    setShowMobileSearch(false)
   }, [location])
 
   return (
-    <header className="bg-white dark:bg-gray-800 shadow-md transition-colors">
-      <div className="container mx-auto px-4 py-4">
+    <header className="bg-white dark:bg-gray-800 shadow-md transition-colors relative">
+      <div className="container mx-auto px-4 py-3 sm:py-4">
         <div className="flex items-center justify-between gap-4">
           {/* Hamburger Menu */}
           <div ref={mainMenuRef} className="relative shrink-0">
@@ -287,7 +296,19 @@ const Header = () => {
             )}
           </div>
 
-          <nav className="flex items-center gap-3 shrink-0">
+          <nav className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Mobile Search Trigger */}
+            <button
+              data-mobile-search-trigger
+              onClick={() => setShowMobileSearch(!showMobileSearch)}
+              className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label={language === 'es' ? 'Buscar' : 'Search'}
+            >
+              <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+
             <ThemeSwitcher />
             <LanguageSwitcher />
 
@@ -402,6 +423,91 @@ const Header = () => {
             </div>
           </nav>
         </div>
+
+        {/* Mobile Search Overlay */}
+        {showMobileSearch && (
+          <div
+            ref={mobileSearchRef}
+            className="md:hidden absolute left-0 right-0 top-full bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-[9999] animate-fade-in-down"
+          >
+            <div className="container mx-auto px-4 py-3">
+              <form onSubmit={handleHeaderSearch}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={headerSearchTerm}
+                    onChange={(e) => setHeaderSearchTerm(e.target.value)}
+                    onFocus={handleSearchFocus}
+                    placeholder={t('search.placeholder')}
+                    className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent transition-colors"
+                    autoComplete="off"
+                    autoFocus
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    {isSearching && (
+                      <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowMobileSearch(false)}
+                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600"
+                    >
+                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Mobile Search Results */}
+              {showDropdown && searchResults.length > 0 && (
+                <div className="mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg max-h-[60vh] overflow-y-auto">
+                  {searchResults.map((card) => (
+                    <button
+                      key={card.id}
+                      onClick={() => handleCardSelect(card.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                    >
+                      {card.images?.small && (
+                        <img
+                          src={card.images.small}
+                          alt={card.name}
+                          className="w-12 h-16 object-cover rounded"
+                        />
+                      )}
+                      <div className="flex-1 text-left min-w-0">
+                        <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                          {card.name}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {card.set?.name} • {card.number}
+                        </div>
+                      </div>
+                      {card.tcgSystem && (
+                        <span className="text-xs px-2 py-1 rounded bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 shrink-0">
+                          {card.tcgSystem}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* No results message */}
+              {showDropdown && searchResults.length === 0 && !isSearching && headerSearchTerm.length >= 2 && (
+                <div className="mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                    {t('search.noResults') || 'No results found'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   )

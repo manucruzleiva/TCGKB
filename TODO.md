@@ -146,10 +146,10 @@
   - Transiciones suaves (fade-in, fade-in-up, slide-in-right, scale-in)
   - Micro-interacciones (pulse-subtle, bounce-subtle, shimmer)
   - Skeleton loading states animados
-- [ ] **Responsive design audit:** `~35K tokens | ~2.5h`
-  - Revisar breakpoints móvil/tablet/desktop
-  - Mejorar navegación móvil
-  - Optimizar layouts para pantallas pequeñas
+- [x] **Responsive design audit:** `~35K tokens | ~2.5h`
+  - Mejora de header para móviles (búsqueda expandible)
+  - Botón de búsqueda móvil con overlay
+  - Espaciado reducido en móviles (py-3 vs py-4)
 - [x] **Iconografía consistente:** `~20K tokens | ~1.5h`
   - Clases de badge por tipo (badge-primary, badge-pokemon, badge-riftbound)
   - Tamaños consistentes (avatar-sm/md/lg/xl)
