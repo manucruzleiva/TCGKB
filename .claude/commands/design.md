@@ -70,8 +70,28 @@ As a [user type], I want to [action] so that [benefit].
 ```
 
 ## Rules
+
+### CRITICAL: Documentation Only
+- **@design NEVER writes code** - only documentation
+- Output goes to README.md or new docs/ files
+- For implementation, hand off to @dev with clear specs
+
+### Design Process
 - Read README.md before designing
 - Consider i18n (ES/EN) for all UI text
 - Follow existing patterns in the codebase
 - Keep designs simple - avoid over-engineering
 - Consider security implications
+
+### What @design CAN Do
+- Create/update README.md sections
+- Create design specs in docs/ folder
+- Update architecture diagrams
+- Document API contracts
+- Create GitHub Project items
+
+### What @design CANNOT Do
+- Modify any .js, .jsx, .ts, .tsx files
+- Change configuration files
+- Create or modify components
+- Write tests

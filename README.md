@@ -141,6 +141,84 @@ TCGKB/
 - **Cache management** and manual sync
 - **Bug report system** with GitHub integration
 
+### Bug Report System
+
+The platform includes a floating bug report button that allows users to submit issues directly to GitHub.
+
+**Component**: `frontend/src/components/common/BugReportButton.jsx`
+
+#### Features
+| Feature | Description |
+|---------|-------------|
+| **Floating Button** | Red circular button fixed at bottom-right (z-index: 40) |
+| **Auto Screenshot** | Captures page via `html2canvas` when modal opens |
+| **GitHub Integration** | Creates issue via `POST /api/github/issues` |
+| **Auto-Classification** | Debounced API call analyzes title/description for priority |
+| **Duplicate Detection** | Compares against existing issues, shows potential matches |
+| **Context Capture** | Includes theme, URL, screen size, user agent |
+| **i18n Support** | Full Spanish/English translations |
+
+#### Flow
+```
+User clicks bug button
+        │
+        ▼
+┌───────────────────┐
+│  Hide button      │
+│  Capture screenshot│
+│  Show modal       │
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐
+│  User fills form  │──▶ Debounced classify API (800ms)
+│  Title + Desc     │◀── Shows priority suggestion
+└─────────┬─────────┘◀── Shows duplicate warnings
+          │
+          ▼
+┌───────────────────┐
+│  Submit           │
+│  POST /github/issues│
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐
+│  Success screen   │──▶ Link to GitHub issue
+│  Auto-close 5s    │
+└───────────────────┘
+```
+
+#### API Integration
+
+**Classify** (`POST /api/github/classify`):
+```json
+{
+  "title": "Button not working",
+  "description": "When I click...",
+  "pageUrl": "/card/xyz"
+}
+// Returns: priority suggestion + potential duplicates
+```
+
+**Create Issue** (`POST /api/github/issues`):
+```json
+{
+  "title": "Button not working",
+  "description": "When I click...",
+  "screenshot": "data:image/jpeg;base64,...",
+  "pageUrl": "/card/xyz",
+  "userAgent": "Mozilla/5.0...",
+  "theme": "dark",
+  "language": "en",
+  "screenSize": "1920x1080"
+}
+// Creates GitHub issue with all context
+```
+
+#### Visibility
+- Button visible for **all users** (authenticated and anonymous)
+- Anonymous users can report bugs (creates issue without user attribution)
+
 ---
 
 ## Data Models

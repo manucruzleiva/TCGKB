@@ -178,14 +178,9 @@ const BugReportButton = () => {
     }
   }
 
-  // Only show for authenticated users
-  if (!isAuthenticated) {
-    return null
-  }
-
   return (
     <>
-      {/* Floating Bug Report Button - Only for logged-in users */}
+      {/* Floating Bug Report Button - Visible for all users */}
       <button
         ref={buttonRef}
         data-bug-button
