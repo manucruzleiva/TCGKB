@@ -180,8 +180,9 @@
   - `thumbsUp - thumbsDown + (comments * 2) + mentions`
   - Incluye menciones (@) como factor de popularidad
   - Agregación que suma reacciones por carta
-- [ ] Cachear resultado `~15K tokens | ~1h`
-  - Actualizar cada hora (opcional, para optimización)
+- [x] Cachear resultado `~15K tokens | ~1h`
+  - Actualizar cada hora (1 hour TTL con popularityCache)
+  - Cache invalidation automática al agregar/modificar reacciones o comentarios
 - [ ] Lógica de query vacío `~20K tokens | ~1.5h`
   - Top 1 más popular + mix aleatorio del pool top 50 (opcional)
 - [ ] Endpoint `GET /api/stats/popularity` `~20K tokens | ~1.5h`

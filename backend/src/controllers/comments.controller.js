@@ -3,6 +3,7 @@ import Reaction from '../models/Reaction.js'
 import User from '../models/User.js'
 import { getIO } from '../config/socket.js'
 import reputationService from '../services/reputation.service.js'
+import { invalidatePopularityCache } from './cards.controller.js'
 
 /**
  * Get comments for a card
@@ -316,6 +317,11 @@ export const createComment = async (req, res) => {
       console.error('Socket emit error:', socketError)
     }
 
+    // Invalidate popularity cache if this is a card comment
+    if (commentTargetType === 'card' && cardId) {
+      invalidatePopularityCache()
+    }
+
     res.status(201).json({
       success: true,
       data: { comment }
@@ -470,6 +476,11 @@ export const moderateComment = async (req, res) => {
       console.error('Socket emit error:', socketError)
     }
 
+    // Invalidate popularity cache if this is a card comment (moderated comments are excluded)
+    if (comment.targetType === 'card' && comment.cardId) {
+      invalidatePopularityCache()
+    }
+
     res.status(200).json({
       success: true,
       data: { comment }
@@ -529,6 +540,11 @@ export const deleteComment = async (req, res) => {
       })
     } catch (socketError) {
       console.error('Socket emit error:', socketError)
+    }
+
+    // Invalidate popularity cache if this was a card comment
+    if (comment.targetType === 'card' && comment.cardId) {
+      invalidatePopularityCache()
     }
 
     res.status(200).json({

@@ -5,6 +5,7 @@ import Deck from '../models/Deck.js'
 import { generateFingerprint } from '../utils/fingerprint.js'
 import { getIO } from '../config/socket.js'
 import reputationService from '../services/reputation.service.js'
+import { invalidatePopularityCache } from './cards.controller.js'
 
 // Allowed emojis
 const ALLOWED_EMOJIS = ['👍', '👎']
@@ -314,6 +315,11 @@ export const addReaction = async (req, res) => {
       console.error('Socket emit error:', socketError)
     }
 
+    // Invalidate popularity cache if this is a card reaction
+    if (targetType === 'card') {
+      invalidatePopularityCache()
+    }
+
     res.status(201).json({
       success: true,
       data: {
@@ -410,6 +416,11 @@ export const removeReaction = async (req, res) => {
       })
     } catch (socketError) {
       console.error('Socket emit error:', socketError)
+    }
+
+    // Invalidate popularity cache if this is a card reaction
+    if (targetType === 'card') {
+      invalidatePopularityCache()
     }
 
     res.status(200).json({

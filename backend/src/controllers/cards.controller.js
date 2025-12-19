@@ -4,6 +4,7 @@ import Comment from '../models/Comment.js'
 import CardCache from '../models/CardCache.js'
 import Reprint from '../models/Reprint.js'
 import log from '../utils/logger.js'
+import { popularityCache } from '../utils/memoryCache.js'
 
 const MODULE = 'CardsController'
 
@@ -301,85 +302,115 @@ export const getCardsByIds = async (req, res) => {
 }
 
 /**
- * Get most commented cards
+ * Invalidate the popularity cache (call when reactions/comments change)
  */
+export function invalidatePopularityCache() {
+  popularityCache.set('popular', 'scores', null, 1) // Set with 1ms TTL to expire immediately
+  log.info(MODULE, 'Popularity cache invalidated')
+}
+
+/**
+ * Compute popularity scores from aggregations (expensive operation)
+ * Cached for 1 hour to avoid repeated DB queries
+ */
+async function computePopularityScores() {
+  const startTime = Date.now()
+
+  // Step 1: Get thumbs up reactions per card
+  const thumbsUpAgg = await Reaction.aggregate([
+    { $match: { targetType: 'card', emoji: '👍' } },
+    { $group: { _id: '$targetId', thumbsUp: { $sum: 1 } } }
+  ])
+  const thumbsUpMap = new Map(thumbsUpAgg.map(r => [r._id, r.thumbsUp]))
+
+  // Step 2: Get thumbs down reactions per card
+  const thumbsDownAgg = await Reaction.aggregate([
+    { $match: { targetType: 'card', emoji: '👎' } },
+    { $group: { _id: '$targetId', thumbsDown: { $sum: 1 } } }
+  ])
+  const thumbsDownMap = new Map(thumbsDownAgg.map(r => [r._id, r.thumbsDown]))
+
+  // Step 3: Get comment counts per card
+  const commentsAgg = await Comment.aggregate([
+    { $match: { isModerated: false } },
+    { $group: { _id: '$cardId', comments: { $sum: 1 } } }
+  ])
+  const commentsMap = new Map(commentsAgg.map(r => [r._id, r.comments]))
+
+  // Step 4: Count mentions (@ mentions in comments that reference cards)
+  const mentionsAgg = await Comment.aggregate([
+    { $match: { isModerated: false, 'mentions.type': 'card' } },
+    { $unwind: '$mentions' },
+    { $match: { 'mentions.type': 'card' } },
+    { $group: { _id: '$mentions.id', mentionCount: { $sum: 1 } } }
+  ])
+  const mentionsMap = new Map(mentionsAgg.map(r => [r._id, r.mentionCount]))
+
+  // Step 5: Combine all cards that have any engagement
+  const allCardIds = new Set([
+    ...thumbsUpMap.keys(),
+    ...thumbsDownMap.keys(),
+    ...commentsMap.keys(),
+    ...mentionsMap.keys()
+  ])
+
+  // Step 6: Calculate popularity score for each card
+  const cardScores = []
+  for (const cardId of allCardIds) {
+    const thumbsUp = thumbsUpMap.get(cardId) || 0
+    const thumbsDown = thumbsDownMap.get(cardId) || 0
+    const comments = commentsMap.get(cardId) || 0
+    const mentions = mentionsMap.get(cardId) || 0
+
+    // Popularity formula: thumbsUp - thumbsDown + (comments * 2) + mentions
+    const score = thumbsUp - thumbsDown + (comments * 2) + mentions
+
+    if (score > 0) {
+      cardScores.push({
+        cardId,
+        score,
+        thumbsUp,
+        thumbsDown,
+        comments,
+        mentions
+      })
+    }
+  }
+
+  // Sort by score
+  cardScores.sort((a, b) => b.score - a.score)
+
+  log.perf(MODULE, `Computed popularity scores for ${cardScores.length} cards`, Date.now() - startTime)
+
+  return cardScores
+}
+
 /**
  * Get popular cards based on hybrid score
  * Formula: thumbsUp - thumbsDown + (comments * 2) + mentions
+ * Results are cached for 1 hour
  */
 export const getPopularCards = async (req, res) => {
   try {
     const { limit = 20, page = 1, tcgSystem } = req.query
     const skip = (parseInt(page) - 1) * parseInt(limit)
 
-    // Step 1: Get thumbs up reactions per card
-    const thumbsUpAgg = await Reaction.aggregate([
-      { $match: { targetType: 'card', emoji: '👍' } },
-      { $group: { _id: '$targetId', thumbsUp: { $sum: 1 } } }
-    ])
-    const thumbsUpMap = new Map(thumbsUpAgg.map(r => [r._id, r.thumbsUp]))
+    // Check cache first (key: 'scores' for the computed scores)
+    let cardScores = popularityCache.get('popular', 'scores')
 
-    // Step 2: Get thumbs down reactions per card
-    const thumbsDownAgg = await Reaction.aggregate([
-      { $match: { targetType: 'card', emoji: '👎' } },
-      { $group: { _id: '$targetId', thumbsDown: { $sum: 1 } } }
-    ])
-    const thumbsDownMap = new Map(thumbsDownAgg.map(r => [r._id, r.thumbsDown]))
-
-    // Step 3: Get comment counts per card
-    const commentsAgg = await Comment.aggregate([
-      { $match: { isModerated: false } },
-      { $group: { _id: '$cardId', comments: { $sum: 1 } } }
-    ])
-    const commentsMap = new Map(commentsAgg.map(r => [r._id, r.comments]))
-
-    // Step 4: Count mentions (@ mentions in comments that reference cards)
-    const mentionsAgg = await Comment.aggregate([
-      { $match: { isModerated: false, 'mentions.type': 'card' } },
-      { $unwind: '$mentions' },
-      { $match: { 'mentions.type': 'card' } },
-      { $group: { _id: '$mentions.id', mentionCount: { $sum: 1 } } }
-    ])
-    const mentionsMap = new Map(mentionsAgg.map(r => [r._id, r.mentionCount]))
-
-    // Step 5: Combine all cards that have any engagement
-    const allCardIds = new Set([
-      ...thumbsUpMap.keys(),
-      ...thumbsDownMap.keys(),
-      ...commentsMap.keys(),
-      ...mentionsMap.keys()
-    ])
-
-    // Step 6: Calculate popularity score for each card
-    const cardScores = []
-    for (const cardId of allCardIds) {
-      const thumbsUp = thumbsUpMap.get(cardId) || 0
-      const thumbsDown = thumbsDownMap.get(cardId) || 0
-      const comments = commentsMap.get(cardId) || 0
-      const mentions = mentionsMap.get(cardId) || 0
-
-      // Popularity formula: thumbsUp - thumbsDown + (comments * 2) + mentions
-      const score = thumbsUp - thumbsDown + (comments * 2) + mentions
-
-      if (score > 0) {
-        cardScores.push({
-          cardId,
-          score,
-          thumbsUp,
-          thumbsDown,
-          comments,
-          mentions
-        })
-      }
+    if (!cardScores) {
+      // Cache miss - compute scores
+      log.info(MODULE, 'Popularity cache miss, computing scores...')
+      cardScores = await computePopularityScores()
+      popularityCache.set('popular', 'scores', cardScores)
+    } else {
+      log.info(MODULE, 'Popularity cache hit')
     }
-
-    // Sort by score
-    cardScores.sort((a, b) => b.score - a.score)
 
     // Paginate
     const paginatedScores = cardScores.slice(skip, skip + parseInt(limit))
 
-    // Fetch card details
+    // Fetch card details (these are individually cached by unifiedTCGService)
     const popularCards = await Promise.all(
       paginatedScores.map(async ({ cardId, score, thumbsUp, thumbsDown, comments, mentions }) => {
         try {
@@ -411,6 +442,9 @@ export const getPopularCards = async (req, res) => {
 
     const validCards = popularCards.filter(c => c !== null)
 
+    // Include cache stats in response for debugging
+    const cacheStats = popularityCache.stats()
+
     res.status(200).json({
       success: true,
       data: {
@@ -420,7 +454,9 @@ export const getPopularCards = async (req, res) => {
           limit: parseInt(limit),
           total: cardScores.length,
           pages: Math.ceil(cardScores.length / parseInt(limit))
-        }
+        },
+        cached: true,
+        cacheHitRate: cacheStats.hitRate
       }
     })
   } catch (error) {
