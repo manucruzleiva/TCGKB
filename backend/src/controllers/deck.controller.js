@@ -3,7 +3,7 @@ import Collection from '../models/Collection.js'
 import log from '../utils/logger.js'
 import reputationService from '../services/reputation.service.js'
 import { generateDeckHash, findExactDuplicate, findSimilarDecks } from '../utils/deckHash.js'
-import { parseDeckString } from '../utils/deckParser.js'
+import { parseDeckString } from '../services/deckParser.service.js'
 import { validateDeck } from '../utils/deckValidator.js'
 
 const MODULE = 'DeckController'
@@ -854,11 +854,13 @@ export const getDuplicateGroups = async (req, res) => {
  * Parse a deck string and detect TCG/format
  * POST /api/decks/parse
  *
- * Body: { deckString: "...", validate: true }
+ * Body: { deckString: "...", format: "standard"|"glc"|"expanded", validate: true }
  *
  * Returns:
  * - tcg: "pokemon" | "riftbound"
  * - format: "standard" | "expanded" | "glc" | "constructed" | etc.
+ * - autoDetectedFormat: the format that was auto-detected
+ * - isFormatOverride: true if format was manually overridden
  * - cards: parsed cards with cardId, name, quantity
  * - breakdown: card type breakdown
  * - errors: any parsing errors
@@ -866,7 +868,7 @@ export const getDuplicateGroups = async (req, res) => {
  */
 export const parseDeck = async (req, res) => {
   try {
-    const { deckString, validate = true } = req.body
+    const { deckString, format = null, validate = true } = req.body
 
     if (!deckString) {
       return res.status(400).json({
@@ -875,7 +877,8 @@ export const parseDeck = async (req, res) => {
       })
     }
 
-    const result = parseDeckString(deckString)
+    // Parse with optional format override
+    const result = parseDeckString(deckString, format)
 
     if (!result.success) {
       return res.status(400).json({
@@ -885,26 +888,26 @@ export const parseDeck = async (req, res) => {
       })
     }
 
-    // Run validation if requested
-    let validation = null
-    if (validate && result.cards.length > 0) {
-      validation = validateDeck(result.cards, result.tcg, result.format)
-    }
+    // Use the validation from the parser (already includes format-specific rules)
+    const validation = result.validation
 
-    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}, Valid=${validation?.isValid ?? 'N/A'}`)
+    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}`)
 
     res.status(200).json({
       success: true,
       data: {
         tcg: result.tcg,
         format: result.format,
+        autoDetectedFormat: result.autoDetectedFormat,
+        isFormatOverride: result.isFormatOverride,
         formatConfidence: result.formatConfidence,
-        formatReason: result.formatReason,
+        formatReasons: result.formatReasons,
         inputFormat: result.inputFormat,
         cards: result.cards,
+        reprintGroups: result.reprintGroups,
         breakdown: result.breakdown,
         stats: result.stats,
-        errors: result.errors,
+        warnings: result.warnings,
         validation
       }
     })

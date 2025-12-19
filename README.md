@@ -863,12 +863,31 @@ Modal for importing decks with real-time preview, auto-detection, and **validati
 | **Real-time Preview** | Parses deck as user types (500ms debounce) |
 | **Real-time Validation** | Validates deck structure against format rules (see [Card Enrichment](#card-enrichment-real-time-validation)) |
 | **TCG Detection** | Shows Pokemon or Riftbound badge |
-| **Format Detection** | Shows Standard, GLC, Expanded, Constructed |
+| **Format Detection** | Auto-detects Standard, GLC, Expanded, Constructed |
+| **Format Override** | Dropdown to manually override detected format |
 | **Input Format Detection** | Identifies Pokemon TCG Live, Pocket, or Riftbound format |
 | **Card Breakdown** | Visual bar showing Pokémon/Trainer/Energy distribution |
+| **Copy Limits** | Collapsible section showing reprint grouping ([see above](#reprint-grouping-ui)) |
 | **Parse Warnings** | Shows lines that couldn't be parsed |
 | **Validation Errors** | Shows deck rule violations inline (not popup) |
 | **Auto-Tagging** | Automatically adds detected format tag to deck |
+
+#### Real-time Format Detection
+
+The format is auto-detected based on deck composition:
+
+| Condition | Detected Format |
+|-----------|----------------|
+| Singleton deck, no Rule Box Pokemon | GLC |
+| Contains Expanded-era sets | Expanded |
+| Default for 60-card Pokemon deck | Standard |
+| Contains Riftbound keywords | Constructed |
+
+**Manual Override**: Users can select a different format from the dropdown. When overridden:
+- Shows "Manual" badge next to format selector
+- Validation rules update immediately (e.g., copy limits change from 4 to 1 for GLC)
+- Confidence indicator is hidden
+- `isFormatOverride: true` is included in parse result
 
 #### Complete Data Flow
 
@@ -1106,6 +1125,7 @@ Parses a deck string, auto-detects TCG/format, and validates against format rule
 ```json
 {
   "deckString": "Pokémon: 12\n4 Pikachu ex SVI 057\n...",
+  "format": null,
   "validate": true
 }
 ```
@@ -1113,6 +1133,7 @@ Parses a deck string, auto-detects TCG/format, and validates against format rule
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `deckString` | String | required | The deck text to parse |
+| `format` | String | `null` | Manual format override (`standard`, `glc`, `expanded`, `constructed`) |
 | `validate` | Boolean | `true` | Run format validation |
 
 **Response:**
@@ -1122,8 +1143,10 @@ Parses a deck string, auto-detects TCG/format, and validates against format rule
   "data": {
     "tcg": "pokemon",
     "format": "standard",
-    "formatConfidence": 60,
-    "formatReason": "Default format (60 cards with standard structure)",
+    "autoDetectedFormat": "standard",
+    "isFormatOverride": false,
+    "formatConfidence": 70,
+    "formatReasons": ["Standard rotation sets"],
     "inputFormat": "pokemon-tcg-live",
     "cards": [
       {

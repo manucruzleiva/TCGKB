@@ -16,8 +16,9 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
   const [parseError, setParseError] = useState(null)
   const [importing, setImporting] = useState(false)
   const [showReprintGroups, setShowReprintGroups] = useState(false)
+  const [selectedFormat, setSelectedFormat] = useState(null) // null = auto-detect
 
-  // Debounced parse effect
+  // Debounced parse effect - re-parses when deck text or selected format changes
   useEffect(() => {
     if (!deckText.trim()) {
       setParseResult(null)
@@ -29,7 +30,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
       try {
         setParsing(true)
         setParseError(null)
-        const response = await deckService.parseDeck(deckText)
+        const response = await deckService.parseDeck(deckText, selectedFormat)
 
         if (response.success) {
           setParseResult(response.data)
@@ -46,7 +47,12 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [deckText, t])
+  }, [deckText, selectedFormat, t])
+
+  // Handle format change
+  const handleFormatChange = (newFormat) => {
+    setSelectedFormat(newFormat === 'auto' ? null : newFormat)
+  }
 
   const handleImport = async () => {
     if (!parseResult || parseResult.cards.length === 0) return
@@ -72,7 +78,20 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
     setDeckText('')
     setParseResult(null)
     setParseError(null)
+    setSelectedFormat(null)
     onClose()
+  }
+
+  // Available formats based on TCG
+  const getAvailableFormats = (tcg) => {
+    if (tcg === 'riftbound') {
+      return [{ value: 'constructed', label: 'Constructed' }]
+    }
+    return [
+      { value: 'standard', label: language === 'es' ? 'Estándar' : 'Standard' },
+      { value: 'expanded', label: language === 'es' ? 'Expandido' : 'Expanded' },
+      { value: 'glc', label: 'GLC' }
+    ]
   }
 
   const tcgLabels = { pokemon: 'Pokemon', riftbound: 'Riftbound' }
@@ -134,18 +153,51 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
           {/* Preview */}
           {parseResult && (
             <div className="space-y-4">
-              {/* Detection badges */}
+              {/* Detection badges with format selector */}
               <div className="flex flex-wrap items-center gap-2">
+                {/* TCG Badge */}
                 <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full text-sm font-medium">
                   {tcgLabels[parseResult.tcg] || parseResult.tcg}
                 </span>
-                <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 rounded-full text-sm font-medium">
-                  {formatLabels[parseResult.format]?.[language] || parseResult.format}
-                </span>
+
+                {/* Format Selector */}
+                <div className="relative inline-flex items-center">
+                  <select
+                    value={selectedFormat || 'auto'}
+                    onChange={(e) => handleFormatChange(e.target.value)}
+                    className="appearance-none pl-3 pr-8 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 rounded-full text-sm font-medium border-0 cursor-pointer focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  >
+                    <option value="auto">
+                      {parseResult.autoDetectedFormat
+                        ? `${formatLabels[parseResult.autoDetectedFormat]?.[language] || parseResult.autoDetectedFormat} (${t('deckImport.autoDetected')})`
+                        : t('deckImport.autoDetect')
+                      }
+                    </option>
+                    {getAvailableFormats(parseResult.tcg).map(fmt => (
+                      <option key={fmt.value} value={fmt.value}>
+                        {fmt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <svg className="absolute right-2 w-4 h-4 text-purple-600 dark:text-purple-300 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+
+                {/* Override indicator */}
+                {parseResult.isFormatOverride && (
+                  <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded text-xs">
+                    {t('deckImport.manualOverride')}
+                  </span>
+                )}
+
+                {/* Input format badge */}
                 <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs">
                   {inputFormatLabels[parseResult.inputFormat] || parseResult.inputFormat}
                 </span>
-                {parseResult.formatConfidence && (
+
+                {/* Confidence indicator (only when auto-detected) */}
+                {!parseResult.isFormatOverride && parseResult.formatConfidence && (
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     ({parseResult.formatConfidence}% {t('deckImport.confidence')})
                   </span>

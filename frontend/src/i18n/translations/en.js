@@ -174,7 +174,10 @@ export const en = {
     more: 'more',
     reprintGroups: 'Copy limits',
     exceedLimit: 'exceed limit',
-    unlimitedCopies: 'Basic Energy - unlimited copies'
+    unlimitedCopies: 'Basic Energy - unlimited copies',
+    autoDetect: 'Auto-detect',
+    autoDetected: 'auto',
+    manualOverride: 'Manual'
   },
 
   // Deck Validation

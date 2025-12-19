@@ -488,9 +488,144 @@ function calculateBreakdown(cards, tcg) {
 }
 
 /**
- * Main entry point - parse a deck string
+ * Validate deck against a specific format
+ * @param {Array} cards - Parsed cards array
+ * @param {string} format - Format to validate against (standard, glc, expanded, constructed)
+ * @param {string} tcg - TCG type (pokemon, riftbound)
  */
-export function parseDeckString(input) {
+function validateForFormat(cards, format, tcg) {
+  if (tcg === 'riftbound') {
+    return detectRiftboundFormat(cards, [])
+  }
+
+  // Pokemon format validation
+  const result = {
+    detected: format,
+    confidence: 'manual',
+    reasons: ['Manually selected format'],
+    validation: {
+      isValid: false,
+      errors: [],
+      warnings: [],
+      summary: {}
+    }
+  }
+
+  const totalCards = cards.reduce((sum, card) => sum + card.quantity, 0)
+  const copyLimit = format === 'glc' ? 1 : 4
+
+  // Card count validation
+  if (totalCards !== 60) {
+    result.validation.errors.push({
+      type: 'card_count',
+      message: `Deck has ${totalCards} cards, needs exactly 60`,
+      current: totalCards,
+      expected: 60
+    })
+  }
+
+  // Group by normalized name and check copy limits
+  const nameGroups = new Map()
+  for (const card of cards) {
+    const normalized = normalizeCardName(card.name)
+    nameGroups.set(normalized, (nameGroups.get(normalized) || 0) + card.quantity)
+  }
+
+  for (const [name, count] of nameGroups) {
+    if (isBasicEnergy(name)) continue
+
+    if (count > copyLimit) {
+      result.validation.errors.push({
+        type: 'copy_limit',
+        message: `${name}: ${count} copies (max ${copyLimit})`,
+        cardName: name,
+        current: count,
+        limit: copyLimit
+      })
+    }
+  }
+
+  // Check for Rule Box Pokemon (for GLC)
+  if (format === 'glc') {
+    const ruleBoxCards = cards.filter(card =>
+      /\b(V|VMAX|VSTAR|ex|Radiant)\b/i.test(card.name)
+    )
+    if (ruleBoxCards.length > 0) {
+      result.validation.errors.push({
+        type: 'rule_box_banned',
+        message: 'Rule Box Pokemon (ex, V, VSTAR, VMAX, Radiant) not allowed in GLC',
+        cards: ruleBoxCards.map(c => c.name)
+      })
+    }
+
+    // Check for ACE SPEC (banned in GLC)
+    const aceSpecs = cards.filter(card => /ACE SPEC/i.test(card.raw || card.name))
+    if (aceSpecs.length > 0) {
+      result.validation.errors.push({
+        type: 'ace_spec_banned',
+        message: 'ACE SPEC cards not allowed in GLC'
+      })
+    }
+  } else {
+    // Standard/Expanded rules
+    const aceSpecs = cards.filter(card => /ACE SPEC/i.test(card.raw || card.name))
+    const aceSpecCount = aceSpecs.reduce((sum, card) => sum + card.quantity, 0)
+    if (aceSpecCount > 1) {
+      result.validation.errors.push({
+        type: 'ace_spec_limit',
+        message: `${aceSpecCount} ACE SPEC cards (max 1)`,
+        current: aceSpecCount,
+        limit: 1
+      })
+    }
+
+    const radiants = cards.filter(card => /Radiant/i.test(card.name))
+    const radiantCount = radiants.reduce((sum, card) => sum + card.quantity, 0)
+    if (radiantCount > 1) {
+      result.validation.errors.push({
+        type: 'radiant_limit',
+        message: `${radiantCount} Radiant Pokemon (max 1)`,
+        current: radiantCount,
+        limit: 1
+      })
+    }
+  }
+
+  // Check for Basic Pokemon
+  const basicPokemon = cards.filter(card =>
+    card.supertype === 'Pokemon' && !/\b(ex|V|VMAX|VSTAR|Stage|BREAK)\b/i.test(card.name)
+  )
+  const basicCount = basicPokemon.reduce((sum, card) => sum + card.quantity, 0)
+
+  if (basicCount === 0) {
+    result.validation.errors.push({
+      type: 'no_basic',
+      message: 'Deck needs at least 1 Basic Pokemon'
+    })
+  }
+
+  // Summary stats
+  const aceSpecs = cards.filter(card => /ACE SPEC/i.test(card.raw || card.name))
+  const radiants = cards.filter(card => /Radiant/i.test(card.name))
+
+  result.validation.summary = {
+    totalCards,
+    basicPokemon: basicCount,
+    aceSpecs: aceSpecs.reduce((sum, card) => sum + card.quantity, 0),
+    radiants: radiants.reduce((sum, card) => sum + card.quantity, 0)
+  }
+
+  result.validation.isValid = result.validation.errors.length === 0
+
+  return result
+}
+
+/**
+ * Main entry point - parse a deck string
+ * @param {string} input - The deck string to parse
+ * @param {string} overrideFormat - Optional format override (standard, glc, expanded, constructed)
+ */
+export function parseDeckString(input, overrideFormat = null) {
   const startTime = Date.now()
 
   if (!input || typeof input !== 'string') {
@@ -505,22 +640,38 @@ export function parseDeckString(input) {
   const tcg = detectTCG(trimmed)
   log.info(MODULE, `Detected TCG: ${tcg}`)
 
-  let parseResult, formatResult
+  let parseResult, formatResult, detectedFormat
 
   if (tcg === 'riftbound') {
     parseResult = parseRiftbound(trimmed)
     formatResult = detectRiftboundFormat(parseResult.cards, parseResult.detectedDomains || [])
+    detectedFormat = formatResult.detected
   } else {
     const inputFormat = detectInputFormat(trimmed)
     parseResult = inputFormat === 'pokemon-tcg-pocket'
       ? parsePokemonPocket(trimmed)
       : parsePokemonTCGLive(trimmed)
-    formatResult = detectPokemonFormat(parseResult.cards)
+
+    // Auto-detect format first
+    const autoDetect = detectPokemonFormat(parseResult.cards)
+    detectedFormat = autoDetect.detected
+
+    // If override provided, re-validate with that format
+    if (overrideFormat && overrideFormat !== autoDetect.detected) {
+      log.info(MODULE, `Format override: ${autoDetect.detected} -> ${overrideFormat}`)
+      formatResult = validateForFormat(parseResult.cards, overrideFormat, tcg)
+      formatResult.autoDetected = autoDetect.detected
+      formatResult.isOverride = true
+    } else {
+      formatResult = autoDetect
+      formatResult.autoDetected = autoDetect.detected
+      formatResult.isOverride = false
+    }
   }
 
-  // Generate reprint groups for validation display
-  const detectedFormat = formatResult.detected || 'standard'
-  const reprintGroups = groupReprintsByName(parseResult.cards, detectedFormat)
+  // Generate reprint groups for validation display (use active format, not detected)
+  const activeFormat = overrideFormat || detectedFormat || 'standard'
+  const reprintGroups = groupReprintsByName(parseResult.cards, activeFormat)
 
   log.perf(MODULE, 'parseDeckString', Date.now() - startTime)
 
@@ -528,9 +679,12 @@ export function parseDeckString(input) {
     success: true,
     tcg,
     inputFormat: tcg === 'pokemon' ? detectInputFormat(trimmed) : 'riftbound',
-    format: formatResult.detected,
-    formatConfidence: formatResult.confidence === 'high' ? 90 :
-                      formatResult.confidence === 'medium' ? 70 : 50,
+    format: overrideFormat || formatResult.detected,
+    autoDetectedFormat: formatResult.autoDetected || formatResult.detected,
+    isFormatOverride: formatResult.isOverride || false,
+    formatConfidence: formatResult.isOverride ? 100 :
+                      (formatResult.confidence === 'high' ? 90 :
+                       formatResult.confidence === 'medium' ? 70 : 50),
     formatReasons: formatResult.reasons,
     validation: formatResult.validation,
     cards: parseResult.cards,
