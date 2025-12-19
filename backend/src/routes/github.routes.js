@@ -8,7 +8,8 @@ import {
   checkConfig,
   getCommits,
   getChangelog,
-  classifyBugReport
+  classifyBugReport,
+  getProjectItems
 } from '../controllers/github.controller.js'
 import { protect, optionalAuth } from '../middleware/auth.middleware.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
@@ -20,6 +21,9 @@ router.get('/config', checkConfig)
 
 // Get changelog - public endpoint for showing what's new
 router.get('/changelog', generalLimiter, getChangelog)
+
+// Get project items - public endpoint for roadmap
+router.get('/project', generalLimiter, getProjectItems)
 
 // Get commits from a branch (public - for changelog page)
 router.get('/commits', generalLimiter, getCommits)

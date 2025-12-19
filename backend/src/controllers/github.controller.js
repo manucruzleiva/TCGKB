@@ -896,6 +896,216 @@ export const getChangelog = async (req, res) => {
 }
 
 /**
+ * Get GitHub Project items for roadmap
+ * Uses GraphQL API to fetch project items with custom fields
+ */
+export const getProjectItems = async (req, res) => {
+  try {
+    if (!GITHUB_TOKEN) {
+      return res.status(500).json({
+        success: false,
+        message: 'GitHub integration not configured'
+      })
+    }
+
+    const PROJECT_NUMBER = process.env.GITHUB_PROJECT_NUMBER || 2
+
+    // GraphQL query to get project items
+    const query = `
+      query($owner: String!, $projectNumber: Int!) {
+        user(login: $owner) {
+          projectV2(number: $projectNumber) {
+            id
+            title
+            items(first: 100) {
+              nodes {
+                id
+                content {
+                  ... on Issue {
+                    id
+                    number
+                    title
+                    body
+                    state
+                    labels(first: 10) {
+                      nodes {
+                        name
+                        color
+                      }
+                    }
+                    createdAt
+                    updatedAt
+                    closedAt
+                    url
+                  }
+                  ... on DraftIssue {
+                    title
+                    body
+                  }
+                }
+                fieldValues(first: 10) {
+                  nodes {
+                    ... on ProjectV2ItemFieldTextValue {
+                      text
+                      field { ... on ProjectV2Field { name } }
+                    }
+                    ... on ProjectV2ItemFieldNumberValue {
+                      number
+                      field { ... on ProjectV2Field { name } }
+                    }
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                      field { ... on ProjectV2SingleSelectField { name } }
+                    }
+                    ... on ProjectV2ItemFieldDateValue {
+                      date
+                      field { ... on ProjectV2Field { name } }
+                    }
+                  }
+                }
+              }
+            }
+            fields(first: 20) {
+              nodes {
+                ... on ProjectV2Field {
+                  id
+                  name
+                }
+                ... on ProjectV2SingleSelectField {
+                  id
+                  name
+                  options {
+                    id
+                    name
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const response = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GITHUB_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        query,
+        variables: {
+          owner: GITHUB_OWNER,
+          projectNumber: parseInt(PROJECT_NUMBER)
+        }
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.text()
+      log.error(MODULE, `GitHub GraphQL error: ${response.status}`, errorData)
+      return res.status(response.status).json({
+        success: false,
+        message: 'Failed to fetch project items'
+      })
+    }
+
+    const data = await response.json()
+
+    if (data.errors) {
+      log.error(MODULE, 'GitHub GraphQL errors', data.errors)
+      return res.status(400).json({
+        success: false,
+        message: data.errors[0]?.message || 'GraphQL error'
+      })
+    }
+
+    const project = data.data?.user?.projectV2
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      })
+    }
+
+    // Process items into roadmap format
+    const items = project.items.nodes.map(item => {
+      const content = item.content || {}
+      const fieldValues = {}
+
+      // Extract field values
+      item.fieldValues?.nodes?.forEach(fv => {
+        const fieldName = fv.field?.name
+        if (fieldName) {
+          fieldValues[fieldName] = fv.text || fv.number || fv.name || fv.date
+        }
+      })
+
+      return {
+        id: item.id,
+        type: content.number ? 'issue' : 'draft',
+        issueNumber: content.number || null,
+        title: content.title || 'Untitled',
+        body: content.body || '',
+        state: content.state || 'OPEN',
+        labels: content.labels?.nodes || [],
+        url: content.url || null,
+        createdAt: content.createdAt,
+        updatedAt: content.updatedAt,
+        closedAt: content.closedAt,
+        // Custom fields
+        status: fieldValues['Status'] || 'Backlog',
+        priority: fieldValues['Priority'] || null,
+        type: fieldValues['Type'] || null,
+        cost: fieldValues['Cost'] || null,
+        targetRelease: fieldValues['Target Release'] || null
+      }
+    })
+
+    // Group by status for roadmap view
+    const byStatus = {
+      backlog: items.filter(i => i.status === 'Backlog' || !i.status),
+      planned: items.filter(i => i.status === 'Planned'),
+      inProgress: items.filter(i => i.status === 'In Progress'),
+      done: items.filter(i => i.status === 'Done' || i.state === 'CLOSED')
+    }
+
+    // Calculate stats
+    const stats = {
+      total: items.length,
+      completed: byStatus.done.length,
+      inProgress: byStatus.inProgress.length,
+      planned: byStatus.planned.length,
+      backlog: byStatus.backlog.length,
+      progress: items.length > 0
+        ? Math.round((byStatus.done.length / items.length) * 100)
+        : 0
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        project: {
+          id: project.id,
+          title: project.title
+        },
+        items,
+        byStatus,
+        stats,
+        fields: project.fields.nodes
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get project items failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch project items'
+    })
+  }
+}
+
+/**
  * Get bug classification suggestions before submitting
  * Analyzes title and description to suggest priority, labels, and detect duplicates
  */
