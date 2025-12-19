@@ -52,27 +52,24 @@ Use these slash commands in Claude Code to activate specialized roles:
 | Command | Role | Use For |
 |---------|------|---------|
 | `/design [feature]` | Product Designer | Create technical specs for new features |
-| `/dev [task]` | Developer | Implement features or fix bugs |
+| `/dev [task]` | Developer | Implement features, fix bugs, update docs, and code quality |
 | `/qa [feature]` | QA Engineer | Write and run Playwright tests |
-| `/docs [subject]` | Technical Writer | Update changelog and documentation |
-| `/clean [scope]` | Housekeeper | Code cleanup and refactoring |
+| `/discuss [topic]` | Team Facilitator | Discuss decisions with all agents |
 
 ### Recommended Workflow
 ```
 /design "feature description"  → Create spec
-/dev "implement feature X"     → Write code
+/dev "implement feature X"     → Write code + update README.md
 /qa "test feature X"           → Write tests
-/docs "document feature X"     → Update docs
-/clean "cleanup feature X"     → Code quality
+/discuss "should we use X?"    → Team discussion
 ```
 
 ### Command Files
 Located in `.claude/commands/`:
 - `design.md` - Product design prompts
-- `dev.md` - Development rules and patterns
+- `dev.md` - Development rules, patterns, and documentation
 - `qa.md` - Testing patterns with Playwright
-- `docs.md` - Documentation standards
-- `clean.md` - Safe cleanup guidelines
+- `discuss.md` - Team discussion facilitator
 
 ---
 

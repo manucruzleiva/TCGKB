@@ -7,9 +7,22 @@ Implement the following feature or fix:
 
 ## Before You Start
 
-1. **Read CLAUDE.md** for development rules
-2. **Read README.md** for architecture context
-3. **Explore related files** before writing new code
+1. **Check pending tasks** - Run `gh project item-list 2 --owner manucruzleiva --format json` to see pending items
+2. **Read CLAUDE.md** for development rules
+3. **Read README.md** for architecture context
+4. **Explore related files** before writing new code
+
+### GitHub Project
+**Project URL**: https://github.com/users/manucruzleiva/projects/2
+
+If no specific task is provided, check the GitHub Project for pending items:
+```bash
+# List all project items
+gh project item-list 2 --owner manucruzleiva --format json
+
+# Or view in browser
+gh project view 2 --owner manucruzleiva --web
+```
 
 ## Development Rules (CRITICAL)
 
@@ -93,3 +106,48 @@ type: description
 - `docs:` - Documentation
 - `test:` - Tests
 - `chore:` - Maintenance
+
+## After Completion (MANDATORY)
+
+Once the implementation is complete and **before commit**:
+
+### 1. Update README.md Documentation
+
+**Scope**: ONLY modify `README.md` - no CHANGELOG, no code comments, no JSDoc.
+
+**When to update**:
+- ✅ New API endpoints → Add to API Endpoints table
+- ✅ New components or features → Document usage
+- ✅ Architecture changes → Update relevant section
+- ✅ New configuration → Document setup
+
+**API Endpoint Format**:
+```markdown
+### [Section Name]
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/endpoint` | What it does |
+```
+
+**Component/Feature Format**:
+```markdown
+### ComponentName
+
+**Component**: `path/to/Component.jsx`
+
+Brief description of what it does.
+
+#### Features
+| Feature | Description |
+|---------|-------------|
+| Feature 1 | What it does |
+
+#### Usage
+\`\`\`jsx
+<ComponentName prop={value} />
+\`\`\`
+```
+
+### 2. Commit the Changes
+
+After documentation is updated, commit with appropriate message type.

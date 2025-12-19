@@ -1,141 +1,66 @@
-You are now facilitating a **team discussion** between all TCGKB agents.
+You are now facilitating a **team discussion** between TCGKB agents.
 
 ## Topic
 **$ARGUMENTS**
 
 ## Instructions
 
-Present a structured discussion between ALL team perspectives:
+### Participant Selection
+Parse the arguments to determine which agents to include:
+
+- If arguments contain **@mentions** (e.g., `@dev @qa should we use Redis?`):
+  - Only include the mentioned agents in the discussion
+  - Extract the topic by removing the @mentions
+
+- If **no @mentions** are specified:
+  - Include ALL agents in the discussion
 
 ### The Team
 
 | Agent | Role | Focus |
 |-------|------|-------|
 | **@design** | Product Designer | UX, user value, business goals |
-| **@dev** | Developer | Implementation, complexity, performance |
+| **@dev** | Developer | Implementation, complexity, performance, code quality |
 | **@qa** | QA Engineer | Testing, edge cases, reliability |
 | **@sec** | Security Engineer | Vulnerabilities, compliance, data protection |
-| **@docs** | Technical Writer | Documentation, clarity, maintainability |
-| **@clean** | Housekeeper | Code quality, consistency, tech debt |
+
+### Examples
+- `/discuss @dev @sec should we store API keys in env vars?` → Only @dev and @sec participate
+- `/discuss @design @dev new dashboard layout` → Only @design and @dev participate
+- `/discuss should we add dark mode?` → ALL agents participate
 
 ## Output Format
 
 ```markdown
 # Team Discussion: [Topic]
 
+**Participants**: [@agent1, @agent2, ...] (or "Full Team" if all)
+
 ---
 
-## @design (Product Designer)
-**Priority**: User experience and business value
+## @agent (Role)
+**Priority**: [What this agent prioritizes]
 
 ### Position
-[Designer's perspective on the topic]
+[Agent's perspective on the topic]
 
 ### Key Concerns
-- [UX consideration 1]
-- [UX consideration 2]
+- [Concern 1]
+- [Concern 2]
 
 ### Recommendation
-[What @design suggests]
+[What this agent suggests]
 
 ---
 
-## @dev (Developer)
-**Priority**: Technical feasibility and maintainability
-
-### Position
-[Developer's perspective on the topic]
-
-### Technical Analysis
-- Complexity: [low/medium/high]
-- Estimated effort: [hours/days]
-- Dependencies: [what's needed]
-
-### Concerns
-- [Technical concern 1]
-- [Technical concern 2]
-
-### Recommendation
-[What @dev suggests]
-
----
-
-## @qa (QA Engineer)
-**Priority**: Quality and reliability
-
-### Position
-[QA's perspective on the topic]
-
-### Testing Considerations
-- [ ] Test scenario 1
-- [ ] Test scenario 2
-- [ ] Edge case to consider
-
-### Risk Assessment
-- What could break: [list]
-- Regression risk: [low/medium/high]
-
-### Recommendation
-[What @qa suggests]
-
----
-
-## @sec (Security Engineer)
-**Priority**: Security and compliance
-
-### Position
-[Security engineer's perspective]
-
-### Security Implications
-- Authentication impact: [yes/no - details]
-- Data exposure risk: [low/medium/high]
-- Attack vectors: [list if any]
-
-### Requirements
-- [ ] Security requirement 1
-- [ ] Security requirement 2
-
-### Recommendation
-[What @sec suggests]
-
----
-
-## @docs (Technical Writer)
-**Priority**: Documentation and clarity
-
-### Position
-[Tech writer's perspective]
-
-### Documentation Needs
-- [ ] README update needed: [yes/no]
-- [ ] API docs update: [yes/no]
-- [ ] User-facing docs: [yes/no]
-
-### Recommendation
-[What @docs suggests]
-
----
-
-## @clean (Housekeeper)
-**Priority**: Code quality and consistency
-
-### Position
-[Housekeeper's perspective]
-
-### Code Quality Concerns
-- Pattern consistency: [notes]
-- Tech debt impact: [notes]
-- Refactoring needs: [notes]
-
-### Recommendation
-[What @clean suggests]
+[Repeat for each participating agent]
 
 ---
 
 # Consensus Summary
 
 ## Points of Agreement
-All agents agree on:
+All participants agree on:
 - [Agreement 1]
 - [Agreement 2]
 
@@ -143,23 +68,15 @@ All agents agree on:
 
 | Topic | Pro | Con | Agents |
 |-------|-----|-----|--------|
-| [Issue 1] | [argument] | [counter] | @design vs @dev |
-| [Issue 2] | [argument] | [counter] | @sec vs @dev |
+| [Issue 1] | [argument] | [counter] | @agent1 vs @agent2 |
 
 ---
 
 # Final Vote
 
-Each agent casts their vote on proceeding with the proposed topic/feature.
-
 | Agent | Vote | Confidence | Reasoning |
 |-------|------|------------|-----------|
-| @design | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
-| @dev | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
-| @qa | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
-| @sec | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
-| @docs | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
-| @clean | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
+| @agent | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
 
 ### Vote Legend
 - ✅ **Approve** - Proceed as proposed
@@ -185,23 +102,10 @@ Result: [APPROVED / REJECTED / NEEDS DISCUSSION]
 ### Recommended Approach
 [Balanced recommendation considering all perspectives]
 
-### Priority Order
-1. [Most important consideration]
-2. [Second priority]
-3. [Third priority]
-
-### Risks to Accept
-- [Risk that team agrees to accept with mitigation]
-
 ### Action Items
 | Agent | Action | Priority |
 |-------|--------|----------|
-| @design | [task] | [P0/P1/P2] |
-| @dev | [task] | [P0/P1/P2] |
-| @qa | [task] | [P0/P1/P2] |
-| @sec | [task] | [P0/P1/P2] |
-| @docs | [task] | [P0/P1/P2] |
-| @clean | [task] | [P0/P1/P2] |
+| @agent | [task] | [P0/P1/P2] |
 
 ### Decision Needed From Human
 - [ ] [Specific question requiring human decision]
@@ -215,7 +119,7 @@ Result: [APPROVED / REJECTED / NEEDS DISCUSSION]
 - After discussion, human decides which path to take
 
 ### Balance & Realism
-- Present ALL sides fairly
+- Present ALL participating sides fairly
 - Allow healthy disagreement
 - Acknowledge trade-offs honestly
 - Not everyone has to agree
@@ -230,7 +134,5 @@ Result: [APPROVED / REJECTED / NEEDS DISCUSSION]
 | @design vs @dev | UX perfection vs implementation cost |
 | @dev vs @sec | Speed vs security overhead |
 | @qa vs @dev | Test coverage vs delivery speed |
-| @clean vs @dev | Refactoring vs feature delivery |
-| @docs vs all | Documentation time vs shipping |
 
 These tensions are HEALTHY - surface them, don't hide them.
