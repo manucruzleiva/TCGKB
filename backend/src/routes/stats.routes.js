@@ -21,7 +21,7 @@ router.get('/roadmap', generalLimiter, getRoadmap)
 router.get('/roadmap/sections', generalLimiter, getRoadmapSections)
 
 // Add item to roadmap (dev/admin only)
-router.post('/roadmap', protect, requireDev, generalLimiter, addRoadmapItem)
+router.post('/roadmap', protect, adminOrDevOnly, generalLimiter, addRoadmapItem)
 
 // Get relationship map data (cards with connections via mentions)
 router.get('/relationship-map', generalLimiter, getRelationshipMap)

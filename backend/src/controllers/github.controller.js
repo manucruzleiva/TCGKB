@@ -1,5 +1,6 @@
 import log from '../utils/logger.js'
 import BugReport from '../models/BugReport.js'
+import { classifyBug, suggestPriority, suggestLabels, findPotentialDuplicates } from '../utils/bugClassifier.js'
 
 const MODULE = 'GitHubController'
 
@@ -61,11 +62,30 @@ export const createIssue = async (req, res) => {
 
     body += `---\n*Submitted via TCGKB Bug Reporter*`
 
-    // Create the issue via GitHub API with labels
+    // Auto-classify the bug
+    const classification = await classifyBug(title, description, pageUrl)
+    const autoLabels = suggestLabels(pageUrl, title, description)
+
+    // Add classification info to body
+    body += `\n\n---\n### Auto-Classification\n`
+    body += `**Suggested Priority:** ${classification.priority.priority} (confidence: ${Math.round(classification.priority.confidence * 100)}%)`
+    if (classification.priority.matchedKeyword) {
+      body += ` - matched: "${classification.priority.matchedKeyword}"`
+    }
+    body += `\n**Auto Labels:** ${autoLabels.join(', ')}\n`
+
+    if (classification.hasPotentialDuplicates) {
+      body += `\n**Potential Duplicates:**\n`
+      classification.potentialDuplicates.forEach(dup => {
+        body += `- #${dup.githubIssueNumber || 'N/A'}: ${dup.title} (${dup.similarity}% similar)\n`
+      })
+    }
+
+    // Create the issue via GitHub API with auto-generated labels
     const issueData = {
       title: `[Bug] ${title}`,
       body,
-      labels: ['bug', 'from-app']
+      labels: autoLabels
     }
 
     const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues`, {
@@ -97,7 +117,7 @@ export const createIssue = async (req, res) => {
 
     log.info(MODULE, `GitHub issue created: #${issue.number} - ${title}`)
 
-    // Save bug report to database with GitHub issue reference
+    // Save bug report to database with GitHub issue reference and auto-classification
     try {
       await BugReport.create({
         title: title.trim(),
@@ -110,12 +130,12 @@ export const createIssue = async (req, res) => {
         screenSize: screenSize || '',
         userId: req.user?._id || null,
         status: 'new',
-        priority: 'medium',
+        priority: classification.priority.priority, // Use auto-suggested priority
         githubIssueNumber: issue.number,
         githubIssueUrl: issue.html_url,
         githubIssueState: issue.state
       })
-      log.info(MODULE, `Bug report saved to database with GitHub issue #${issue.number}`)
+      log.info(MODULE, `Bug report saved to database with GitHub issue #${issue.number}, auto-priority: ${classification.priority.priority}`)
     } catch (dbError) {
       // Log but don't fail - GitHub issue was created successfully
       log.error(MODULE, 'Failed to save bug report to database', dbError)
@@ -836,6 +856,46 @@ export const getChangelog = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch changelog'
+    })
+  }
+}
+
+/**
+ * Get bug classification suggestions before submitting
+ * Analyzes title and description to suggest priority, labels, and detect duplicates
+ */
+export const classifyBugReport = async (req, res) => {
+  try {
+    const { title, description, pageUrl } = req.body
+
+    if (!title || !description) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and description are required'
+      })
+    }
+
+    // Get full classification
+    const classification = await classifyBug(title, description, pageUrl || '')
+
+    res.status(200).json({
+      success: true,
+      data: {
+        priority: {
+          suggested: classification.priority.priority,
+          confidence: classification.priority.confidence,
+          matchedKeyword: classification.priority.matchedKeyword
+        },
+        labels: classification.labels,
+        potentialDuplicates: classification.potentialDuplicates,
+        hasPotentialDuplicates: classification.hasPotentialDuplicates
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Classify bug report failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to classify bug report'
     })
   }
 }

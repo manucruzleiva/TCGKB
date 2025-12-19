@@ -223,7 +223,7 @@
   - Elegir prioridad (P1/P2/P3) y sección
   - Commit automático al archivo TODO.md
   - Webhook o GitHub Action para push
-- [ ] **Auto-clasificación de bugs:** `~30K tokens | ~2h`
+- [x] **Auto-clasificación de bugs:** `~30K tokens | ~2h`
   - Analizar descripción del bug con heurísticas
   - Sugerir prioridad automáticamente
   - Detectar duplicados potenciales

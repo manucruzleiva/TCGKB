@@ -7,7 +7,8 @@ import {
   updateIssueState,
   checkConfig,
   getCommits,
-  getChangelog
+  getChangelog,
+  classifyBugReport
 } from '../controllers/github.controller.js'
 import { protect, optionalAuth } from '../middleware/auth.middleware.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
@@ -22,6 +23,9 @@ router.get('/changelog', generalLimiter, getChangelog)
 
 // Get commits from a branch (public - for changelog page)
 router.get('/commits', generalLimiter, getCommits)
+
+// Classify bug report before submission (get suggestions for priority, labels, duplicates)
+router.post('/classify', optionalAuth, generalLimiter, classifyBugReport)
 
 // Create issue (protected - any authenticated user can report bugs)
 router.post('/issues', protect, generalLimiter, createIssue)
