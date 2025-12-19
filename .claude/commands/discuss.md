@@ -146,6 +146,40 @@ All agents agree on:
 | [Issue 1] | [argument] | [counter] | @design vs @dev |
 | [Issue 2] | [argument] | [counter] | @sec vs @dev |
 
+---
+
+# Final Vote
+
+Each agent casts their vote on proceeding with the proposed topic/feature.
+
+| Agent | Vote | Confidence | Reasoning |
+|-------|------|------------|-----------|
+| @design | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
+| @dev | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
+| @qa | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
+| @sec | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
+| @docs | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
+| @clean | ✅ / ❌ / 🤔 | [high/medium/low] | [1-line reason] |
+
+### Vote Legend
+- ✅ **Approve** - Proceed as proposed
+- ❌ **Reject** - Do not proceed / needs major changes
+- 🤔 **Conditional** - Approve only if certain conditions are met
+
+### Vote Summary
+```
+Approve:     [X] agents
+Reject:      [X] agents
+Conditional: [X] agents
+─────────────────────────
+Result: [APPROVED / REJECTED / NEEDS DISCUSSION]
+```
+
+### Blocking Concerns
+[If any agent voted ❌ or 🤔, list the conditions that must be addressed]
+
+---
+
 ## Final Recommendation
 
 ### Recommended Approach
