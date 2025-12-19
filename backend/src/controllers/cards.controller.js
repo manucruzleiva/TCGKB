@@ -2,7 +2,9 @@ import unifiedTCGService from '../services/unifiedTCG.service.js'
 import Reaction from '../models/Reaction.js'
 import Comment from '../models/Comment.js'
 import CardCache from '../models/CardCache.js'
+import Reprint from '../models/Reprint.js'
 import log from '../utils/logger.js'
+import { popularityCache } from '../utils/memoryCache.js'
 
 const MODULE = 'CardsController'
 
@@ -300,8 +302,273 @@ export const getCardsByIds = async (req, res) => {
 }
 
 /**
- * Get most commented cards
+ * Invalidate the popularity cache (call when reactions/comments change)
  */
+export function invalidatePopularityCache() {
+  popularityCache.set('popular', 'scores', null, 1) // Set with 1ms TTL to expire immediately
+  log.info(MODULE, 'Popularity cache invalidated')
+}
+
+/**
+ * Compute popularity scores from aggregations (expensive operation)
+ * Cached for 1 hour to avoid repeated DB queries
+ */
+async function computePopularityScores() {
+  const startTime = Date.now()
+
+  // Step 1: Get thumbs up reactions per card
+  const thumbsUpAgg = await Reaction.aggregate([
+    { $match: { targetType: 'card', emoji: '👍' } },
+    { $group: { _id: '$targetId', thumbsUp: { $sum: 1 } } }
+  ])
+  const thumbsUpMap = new Map(thumbsUpAgg.map(r => [r._id, r.thumbsUp]))
+
+  // Step 2: Get thumbs down reactions per card
+  const thumbsDownAgg = await Reaction.aggregate([
+    { $match: { targetType: 'card', emoji: '👎' } },
+    { $group: { _id: '$targetId', thumbsDown: { $sum: 1 } } }
+  ])
+  const thumbsDownMap = new Map(thumbsDownAgg.map(r => [r._id, r.thumbsDown]))
+
+  // Step 3: Get comment counts per card
+  const commentsAgg = await Comment.aggregate([
+    { $match: { isModerated: false } },
+    { $group: { _id: '$cardId', comments: { $sum: 1 } } }
+  ])
+  const commentsMap = new Map(commentsAgg.map(r => [r._id, r.comments]))
+
+  // Step 4: Count mentions (@ mentions in comments that reference cards)
+  const mentionsAgg = await Comment.aggregate([
+    { $match: { isModerated: false, 'mentions.type': 'card' } },
+    { $unwind: '$mentions' },
+    { $match: { 'mentions.type': 'card' } },
+    { $group: { _id: '$mentions.id', mentionCount: { $sum: 1 } } }
+  ])
+  const mentionsMap = new Map(mentionsAgg.map(r => [r._id, r.mentionCount]))
+
+  // Step 5: Combine all cards that have any engagement
+  const allCardIds = new Set([
+    ...thumbsUpMap.keys(),
+    ...thumbsDownMap.keys(),
+    ...commentsMap.keys(),
+    ...mentionsMap.keys()
+  ])
+
+  // Step 6: Calculate popularity score for each card
+  const cardScores = []
+  for (const cardId of allCardIds) {
+    const thumbsUp = thumbsUpMap.get(cardId) || 0
+    const thumbsDown = thumbsDownMap.get(cardId) || 0
+    const comments = commentsMap.get(cardId) || 0
+    const mentions = mentionsMap.get(cardId) || 0
+
+    // Popularity formula: thumbsUp - thumbsDown + (comments * 2) + mentions
+    const score = thumbsUp - thumbsDown + (comments * 2) + mentions
+
+    if (score > 0) {
+      cardScores.push({
+        cardId,
+        score,
+        thumbsUp,
+        thumbsDown,
+        comments,
+        mentions
+      })
+    }
+  }
+
+  // Sort by score
+  cardScores.sort((a, b) => b.score - a.score)
+
+  log.perf(MODULE, `Computed popularity scores for ${cardScores.length} cards`, Date.now() - startTime)
+
+  return cardScores
+}
+
+/**
+ * Get popular cards based on hybrid score
+ * Formula: thumbsUp - thumbsDown + (comments * 2) + mentions
+ * Results are cached for 1 hour
+ */
+export const getPopularCards = async (req, res) => {
+  try {
+    const { limit = 20, page = 1, tcgSystem } = req.query
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+
+    // Check cache first (key: 'scores' for the computed scores)
+    let cardScores = popularityCache.get('popular', 'scores')
+
+    if (!cardScores) {
+      // Cache miss - compute scores
+      log.info(MODULE, 'Popularity cache miss, computing scores...')
+      cardScores = await computePopularityScores()
+      popularityCache.set('popular', 'scores', cardScores)
+    } else {
+      log.info(MODULE, 'Popularity cache hit')
+    }
+
+    // Paginate
+    const paginatedScores = cardScores.slice(skip, skip + parseInt(limit))
+
+    // Fetch card details (these are individually cached by unifiedTCGService)
+    const popularCards = await Promise.all(
+      paginatedScores.map(async ({ cardId, score, thumbsUp, thumbsDown, comments, mentions }) => {
+        try {
+          const card = await unifiedTCGService.getCardById(cardId)
+          if (tcgSystem && card.tcgSystem !== tcgSystem) {
+            return null
+          }
+          return {
+            id: card.id,
+            name: card.name,
+            images: card.images,
+            set: card.set,
+            number: card.number,
+            tcgSystem: card.tcgSystem || 'pokemon',
+            rarity: card.rarity,
+            popularity: {
+              score,
+              thumbsUp,
+              thumbsDown,
+              comments,
+              mentions
+            }
+          }
+        } catch (error) {
+          return null
+        }
+      })
+    )
+
+    const validCards = popularCards.filter(c => c !== null)
+
+    // Include cache stats in response for debugging
+    const cacheStats = popularityCache.stats()
+
+    res.status(200).json({
+      success: true,
+      data: {
+        cards: validCards,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: cardScores.length,
+          pages: Math.ceil(cardScores.length / parseInt(limit))
+        },
+        cached: true,
+        cacheHitRate: cacheStats.hitRate
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get popular cards failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+/**
+ * Get featured cards for empty search queries
+ * Returns: Top 1 most popular + random mix from top 50
+ * Used when user hasn't entered a specific search term
+ */
+export const getFeaturedCards = async (req, res) => {
+  try {
+    const { limit = 12, tcgSystem } = req.query
+    const requestedLimit = Math.min(parseInt(limit), 20)
+
+    // Get cached popularity scores
+    let cardScores = popularityCache.get('popular', 'scores')
+
+    if (!cardScores) {
+      log.info(MODULE, 'Featured cards: cache miss, computing scores...')
+      cardScores = await computePopularityScores()
+      popularityCache.set('popular', 'scores', cardScores)
+    }
+
+    // Get top 50 pool
+    const top50 = cardScores.slice(0, 50)
+
+    if (top50.length === 0) {
+      // No popular cards yet, return empty
+      return res.status(200).json({
+        success: true,
+        data: {
+          cards: [],
+          featured: null,
+          message: 'No popular cards available yet'
+        }
+      })
+    }
+
+    // Top 1 is guaranteed (the most popular)
+    const topCard = top50[0]
+
+    // Random selection from remaining top 50 (excluding top 1)
+    const remainingPool = top50.slice(1)
+    const shuffled = remainingPool.sort(() => Math.random() - 0.5)
+    const randomSelection = shuffled.slice(0, requestedLimit - 1)
+
+    // Combine: top 1 + random selection
+    const selectedScores = [topCard, ...randomSelection]
+
+    // Fetch card details
+    const featuredCards = await Promise.all(
+      selectedScores.map(async ({ cardId, score, thumbsUp, thumbsDown, comments, mentions }) => {
+        try {
+          const card = await unifiedTCGService.getCardById(cardId)
+          if (tcgSystem && card.tcgSystem !== tcgSystem) {
+            return null
+          }
+          return {
+            id: card.id,
+            name: card.name,
+            images: card.images,
+            set: card.set,
+            number: card.number,
+            tcgSystem: card.tcgSystem || 'pokemon',
+            rarity: card.rarity,
+            popularity: {
+              score,
+              thumbsUp,
+              thumbsDown,
+              comments,
+              mentions
+            }
+          }
+        } catch (error) {
+          return null
+        }
+      })
+    )
+
+    const validCards = featuredCards.filter(c => c !== null)
+
+    // Separate featured (top 1) from random mix
+    const featured = validCards.length > 0 ? validCards[0] : null
+    const randomMix = validCards.slice(1)
+
+    log.info(MODULE, `Featured cards: 1 top + ${randomMix.length} random from top 50`)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        featured,
+        randomMix,
+        cards: validCards, // All cards combined for convenience
+        poolSize: top50.length
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get featured cards failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
 export const getMostCommentedCards = async (req, res) => {
   try {
     const { limit = 10 } = req.query
@@ -371,11 +638,15 @@ export const getCatalog = async (req, res) => {
       page = 1,
       pageSize = 24,
       sortBy = 'name',
-      sortOrder = 'asc'
+      sortOrder = 'asc',
+      uniqueByName = 'false', // Show only one version per card
+      alternateArtsOnly = 'false' // Show only alternate arts
     } = req.query
 
     const skip = (parseInt(page) - 1) * parseInt(pageSize)
     const limit = Math.min(parseInt(pageSize), 48) // Max 48 per page
+    const showUniqueOnly = uniqueByName === 'true'
+    const showAlternateArtsOnly = alternateArtsOnly === 'true'
 
     // Build MongoDB query - card data is stored in 'data' field
     const query = {}
@@ -412,15 +683,97 @@ export const getCatalog = async (req, res) => {
     }
     sort[sortField] = sortOrder === 'desc' ? -1 : 1
 
-    // Get total count and cards
-    const [total, cachedCards] = await Promise.all([
-      CardCache.countDocuments(query),
-      CardCache.find(query)
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-    ])
+    let total, cachedCards
+
+    if (showAlternateArtsOnly) {
+      // Filter to show only cards that are alternate arts in reprint groups
+      const altArtReprints = await Reprint.find({
+        'variants.reprintType': { $in: ['alternate_art', 'special_art'] },
+        ...(tcgSystem && { tcgSystem })
+      }).lean()
+
+      const altArtCardIds = new Set()
+      altArtReprints.forEach(group => {
+        group.variants.forEach(v => {
+          if (['alternate_art', 'special_art'].includes(v.reprintType)) {
+            altArtCardIds.add(v.cardId)
+          }
+        })
+      })
+
+      query.cardId = { $in: Array.from(altArtCardIds) }
+
+      ;[total, cachedCards] = await Promise.all([
+        CardCache.countDocuments(query),
+        CardCache.find(query)
+          .sort(sort)
+          .skip(skip)
+          .limit(limit)
+          .lean()
+      ])
+    } else if (showUniqueOnly) {
+      // Show only canonical cards (one per reprint group)
+      // First, get all reprint groups to know which cards to exclude
+      const reprintGroups = await Reprint.find(
+        tcgSystem ? { tcgSystem } : {}
+      ).lean()
+
+      // Build a set of non-canonical card IDs to exclude
+      const nonCanonicalIds = new Set()
+      const canonicalIds = new Set()
+      reprintGroups.forEach(group => {
+        canonicalIds.add(group.canonicalCardId)
+        group.variants.forEach(v => {
+          if (v.cardId !== group.canonicalCardId) {
+            nonCanonicalIds.add(v.cardId)
+          }
+        })
+      })
+
+      // Exclude non-canonical cards
+      if (nonCanonicalIds.size > 0) {
+        query.cardId = { $nin: Array.from(nonCanonicalIds) }
+      }
+
+      ;[total, cachedCards] = await Promise.all([
+        CardCache.countDocuments(query),
+        CardCache.find(query)
+          .sort(sort)
+          .skip(skip)
+          .limit(limit)
+          .lean()
+      ])
+    } else {
+      // Normal query
+      ;[total, cachedCards] = await Promise.all([
+        CardCache.countDocuments(query),
+        CardCache.find(query)
+          .sort(sort)
+          .skip(skip)
+          .limit(limit)
+          .lean()
+      ])
+    }
+
+    // Get variant counts for all returned cards
+    const cardIds = cachedCards.map(c => c.cardId)
+    const reprintInfo = await Reprint.find({
+      $or: [
+        { canonicalCardId: { $in: cardIds } },
+        { 'variants.cardId': { $in: cardIds } }
+      ]
+    }).lean()
+
+    // Build a map of cardId -> variant count
+    const variantCountMap = new Map()
+    reprintInfo.forEach(group => {
+      const count = group.variantCount || group.variants.length + 1
+      // All cards in this group share the same count
+      variantCountMap.set(group.canonicalCardId, count)
+      group.variants.forEach(v => {
+        variantCountMap.set(v.cardId, count)
+      })
+    })
 
     // Transform cached cards to expected format
     const cards = cachedCards.map(c => ({
@@ -432,7 +785,8 @@ export const getCatalog = async (req, res) => {
       number: c.data?.number,
       rarity: c.data?.rarity,
       tcgSystem: c.tcgSystem,
-      regulationMark: c.data?.regulationMark
+      regulationMark: c.data?.regulationMark,
+      variantCount: variantCountMap.get(c.cardId) || 1
     }))
 
     const totalPages = Math.ceil(total / limit)

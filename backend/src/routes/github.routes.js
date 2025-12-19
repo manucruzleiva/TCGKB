@@ -5,7 +5,11 @@ import {
   getIssueStats,
   addComment,
   updateIssueState,
-  checkConfig
+  checkConfig,
+  getCommits,
+  getChangelog,
+  classifyBugReport,
+  getProjectItems
 } from '../controllers/github.controller.js'
 import { protect, optionalAuth } from '../middleware/auth.middleware.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
@@ -15,8 +19,20 @@ const router = express.Router()
 // Check if GitHub integration is configured (public)
 router.get('/config', checkConfig)
 
-// Create issue (protected - any authenticated user can report bugs)
-router.post('/issues', protect, generalLimiter, createIssue)
+// Get changelog - public endpoint for showing what's new
+router.get('/changelog', generalLimiter, getChangelog)
+
+// Get project items - public endpoint for roadmap
+router.get('/project', generalLimiter, getProjectItems)
+
+// Get commits from a branch (public - for changelog page)
+router.get('/commits', generalLimiter, getCommits)
+
+// Classify bug report before submission (get suggestions for priority, labels, duplicates)
+router.post('/classify', optionalAuth, generalLimiter, classifyBugReport)
+
+// Create issue (public - anyone can report bugs, auth optional for attribution)
+router.post('/issues', optionalAuth, generalLimiter, createIssue)
 
 // Get issues (protected - for dashboard)
 router.get('/issues', protect, getIssues)

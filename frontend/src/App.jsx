@@ -5,6 +5,7 @@ import { LanguageProvider } from './contexts/LanguageContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { DateFormatProvider } from './contexts/DateFormatContext'
 import Header from './components/layout/Header'
+import Footer from './components/layout/Footer'
 import Home from './pages/Home'
 import CardDetails from './pages/CardDetails'
 import Login from './pages/Login'
@@ -20,6 +21,9 @@ import DevDashboard from './pages/BugReports'
 import DeckList from './pages/DeckList'
 import DeckBuilder from './pages/DeckBuilder'
 import DeckDetail from './pages/DeckDetail'
+import Artists from './pages/Artists'
+import ArtistDetail from './pages/ArtistDetail'
+import Support from './pages/Support'
 import BugReportButton from './components/common/BugReportButton'
 
 function App() {
@@ -47,13 +51,17 @@ function App() {
                       <Route path="/roadmap" element={<Roadmap />} />
                       <Route path="/relationship-map" element={<RelationshipMap />} />
                       <Route path="/catalog" element={<Catalog />} />
+                      <Route path="/artists" element={<Artists />} />
+                      <Route path="/artist/:artistName" element={<ArtistDetail />} />
                       <Route path="/decks" element={<DeckList />} />
                       <Route path="/decks/new" element={<DeckBuilder />} />
                       <Route path="/decks/:deckId" element={<DeckDetail />} />
                       <Route path="/decks/:deckId/edit" element={<DeckBuilder />} />
+                      <Route path="/support" element={<Support />} />
                     </Routes>
                   </main>
                   <BugReportButton />
+                  <Footer />
                 </div>
               </Router>
             </SocketProvider>

@@ -76,6 +76,23 @@ const deckSchema = new mongoose.Schema({
   copies: {
     type: Number,
     default: 0
+  },
+  // Unique hash of the deck composition for duplicate detection
+  compositionHash: {
+    type: String,
+    index: true,
+    default: null
+  },
+  // Flag indicating if this deck is a known duplicate/copy
+  isOriginal: {
+    type: Boolean,
+    default: true
+  },
+  // Reference to the original deck if this is a copy
+  copiedFrom: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Deck',
+    default: null
   }
 }, {
   timestamps: true

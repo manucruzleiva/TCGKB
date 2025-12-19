@@ -31,6 +31,8 @@ const Catalog = () => {
   const page = parseInt(searchParams.get('page') || '1')
   const sortBy = searchParams.get('sortBy') || 'name'
   const sortOrder = searchParams.get('sortOrder') || 'asc'
+  const uniqueByName = searchParams.get('uniqueByName') === 'true'
+  const alternateArtsOnly = searchParams.get('alternateArtsOnly') === 'true'
 
   // Fetch filters on mount
   useEffect(() => {
@@ -40,7 +42,7 @@ const Catalog = () => {
   // Fetch cards when filters change
   useEffect(() => {
     fetchCards()
-  }, [tcgSystem, set, supertype, rarity, name, page, sortBy, sortOrder])
+  }, [tcgSystem, set, supertype, rarity, name, page, sortBy, sortOrder, uniqueByName, alternateArtsOnly])
 
   // Fetch collection data when cards change
   useEffect(() => {
@@ -75,7 +77,9 @@ const Catalog = () => {
           page,
           pageSize: 24,
           sortBy,
-          sortOrder
+          sortOrder,
+          uniqueByName: uniqueByName || undefined,
+          alternateArtsOnly: alternateArtsOnly || undefined
         }
       })
       if (response.data.success) {
@@ -311,6 +315,39 @@ const Catalog = () => {
                 <option value="releaseDate-asc">{language === 'es' ? 'Mas antiguo' : 'Oldest'}</option>
               </select>
             </div>
+
+            {/* Reprint Filters */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                {language === 'es' ? 'Versiones' : 'Versions'}
+              </h3>
+
+              {/* Unique by Name Toggle */}
+              <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={uniqueByName}
+                  onChange={(e) => updateFilter('uniqueByName', e.target.checked ? 'true' : '')}
+                  className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {language === 'es' ? 'Una versión por carta' : 'One version per card'}
+                </span>
+              </label>
+
+              {/* Alternate Arts Only Toggle */}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={alternateArtsOnly}
+                  onChange={(e) => updateFilter('alternateArtsOnly', e.target.checked ? 'true' : '')}
+                  className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {language === 'es' ? 'Solo alternate arts' : 'Alternate arts only'}
+                </span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -408,9 +445,16 @@ const Catalog = () => {
                     )}
 
                     <Link to={`/card/${card.id}`} className="block p-2">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {card.name}
-                      </p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex-1">
+                          {card.name}
+                        </p>
+                        {card.variantCount > 1 && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+                            {card.variantCount}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                         {card.set?.name}
                       </p>
@@ -442,7 +486,14 @@ const Catalog = () => {
                         />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 dark:text-gray-100">{card.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{card.name}</p>
+                          {card.variantCount > 1 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+                              {card.variantCount} {language === 'es' ? 'versiones' : 'versions'}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{card.set?.name} - #{card.number}</p>
                       </div>
                     </Link>

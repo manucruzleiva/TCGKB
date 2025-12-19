@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import api from '../services/api'
 import Button from '../components/common/Button'
+import ReputationConfig from '../components/dashboard/ReputationConfig'
 
 const ModDashboard = () => {
   const { user, isAuthenticated } = useAuth()
@@ -520,6 +521,11 @@ const ModDashboard = () => {
             </div>
           )
         })()}
+      </div>
+
+      {/* Reputation Configuration */}
+      <div className="mt-8">
+        <ReputationConfig />
       </div>
     </div>
   )

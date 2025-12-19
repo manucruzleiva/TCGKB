@@ -1,13 +1,11 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import html2canvas from 'html2canvas'
 import { useLanguage } from '../../contexts/LanguageContext'
-import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import api from '../../services/api'
 
 const BugReportButton = () => {
   const { language } = useLanguage()
-  const { isAuthenticated } = useAuth()
   const { isDark } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [screenshot, setScreenshot] = useState(null)
@@ -18,6 +16,49 @@ const BugReportButton = () => {
   const [success, setSuccess] = useState(false)
   const [issueUrl, setIssueUrl] = useState(null)
   const buttonRef = useRef(null)
+
+  // Classification state
+  const [classification, setClassification] = useState(null)
+  const [classifying, setClassifying] = useState(false)
+  const classifyTimeoutRef = useRef(null)
+
+  // Debounced classification check
+  useEffect(() => {
+    if (!title.trim() || !description.trim() || title.length < 5 || description.length < 10) {
+      setClassification(null)
+      return
+    }
+
+    // Clear previous timeout
+    if (classifyTimeoutRef.current) {
+      clearTimeout(classifyTimeoutRef.current)
+    }
+
+    // Debounce the API call
+    classifyTimeoutRef.current = setTimeout(async () => {
+      try {
+        setClassifying(true)
+        const response = await api.post('/github/classify', {
+          title: title.trim(),
+          description: description.trim(),
+          pageUrl: window.location.href
+        })
+        if (response.data.success) {
+          setClassification(response.data.data)
+        }
+      } catch (error) {
+        console.error('Classification failed:', error)
+      } finally {
+        setClassifying(false)
+      }
+    }, 800) // 800ms debounce
+
+    return () => {
+      if (classifyTimeoutRef.current) {
+        clearTimeout(classifyTimeoutRef.current)
+      }
+    }
+  }, [title, description])
 
   // Auto-capture screenshot when opening the modal
   const handleOpenModal = useCallback(async () => {
@@ -110,6 +151,7 @@ const BugReportButton = () => {
     setScreenshot(null)
     setSuccess(false)
     setIssueUrl(null)
+    setClassification(null)
   }
 
   // Retry screenshot capture
@@ -134,14 +176,9 @@ const BugReportButton = () => {
     }
   }
 
-  // Only show for authenticated users
-  if (!isAuthenticated) {
-    return null
-  }
-
   return (
     <>
-      {/* Floating Bug Report Button - Only for logged-in users */}
+      {/* Floating Bug Report Button - Visible for all users */}
       <button
         ref={buttonRef}
         data-bug-button
@@ -232,6 +269,84 @@ const BugReportButton = () => {
                     required
                   />
                 </div>
+
+                {/* Auto-Classification Results */}
+                {(classifying || classification) && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      {classifying ? (
+                        <>
+                          <svg className="animate-spin w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          <span className="text-xs text-blue-600 dark:text-blue-400">
+                            {language === 'es' ? 'Analizando...' : 'Analyzing...'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                            🤖 {language === 'es' ? 'Auto-clasificación' : 'Auto-classification'}
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {classification && !classifying && (
+                      <div className="space-y-2">
+                        {/* Priority suggestion */}
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-gray-600 dark:text-gray-400">
+                            {language === 'es' ? 'Prioridad sugerida:' : 'Suggested priority:'}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded font-medium ${
+                            classification.priority.suggested === 'critical' ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' :
+                            classification.priority.suggested === 'high' ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300' :
+                            classification.priority.suggested === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300' :
+                            'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                          }`}>
+                            {classification.priority.suggested}
+                          </span>
+                        </div>
+
+                        {/* Potential duplicates warning */}
+                        {classification.hasPotentialDuplicates && classification.potentialDuplicates.length > 0 && (
+                          <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
+                            <p className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                              ⚠️ {language === 'es' ? 'Posibles duplicados encontrados:' : 'Potential duplicates found:'}
+                            </p>
+                            <ul className="space-y-1">
+                              {classification.potentialDuplicates.slice(0, 3).map((dup, idx) => (
+                                <li key={idx} className="text-xs text-yellow-700 dark:text-yellow-300 flex items-center gap-1">
+                                  <span className="text-yellow-500">•</span>
+                                  {dup.githubIssueUrl ? (
+                                    <a
+                                      href={dup.githubIssueUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="hover:underline truncate"
+                                    >
+                                      #{dup.githubIssueNumber}: {dup.title}
+                                    </a>
+                                  ) : (
+                                    <span className="truncate">{dup.title}</span>
+                                  )}
+                                  <span className="text-yellow-500 shrink-0">({dup.similarity}%)</span>
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                              {language === 'es'
+                                ? 'Revisa si tu problema ya fue reportado antes de enviar.'
+                                : 'Please check if your issue was already reported before submitting.'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Auto-captured screenshot preview */}
                 <div className="relative">

@@ -55,7 +55,16 @@ export const deckService = {
     return response.data
   },
 
-  // Parse deck import text (supports multiple formats)
+  // Parse deck string via backend API with TCG/format detection
+  // Optional format parameter allows manual format override
+  parseDeck: async (deckString, format = null) => {
+    const payload = { deckString }
+    if (format) payload.format = format
+    const response = await api.post('/decks/parse', payload)
+    return response.data
+  },
+
+  // Parse deck import text (supports multiple formats) - legacy client-side parser
   parseTCGLiveFormat: (text) => {
     const lines = text.trim().split('\n')
     const cards = []
