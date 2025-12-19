@@ -2,6 +2,7 @@ name: Security Alerts to Project
 
 # GitHub Actions doesn't support dependabot_alert or secret_scanning_alert triggers
 # We use schedule + workflow_dispatch to check for alerts periodically
+# Last updated: 2025-12-19
 on:
   # Run daily to check for new alerts
   schedule:
