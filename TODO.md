@@ -128,9 +128,12 @@
   - Mostrar cantidad de fans del artista
   - Click para hacerse fan (toggle)
   - Cambio visual cuando eres fan (highlight, icono, etc.)
-- [ ] **Página de artista (opcional):** `~35K tokens | ~2.5h`
+- [x] **Página de artista (opcional):** `~35K tokens | ~2.5h`
   - Ver todas las cartas de un artista
   - Ranking de artistas más populares
+  - Endpoints: GET /artists, GET /artists/cards/:artistName
+  - Páginas: /artists (lista con búsqueda y ordenamiento), /artist/:name (detalle con cartas)
+  - Fan toggle en ambas páginas, filtro por TCG en detalle
 
 ### Overhaul de Diseño Gráfico
 - [x] **Rediseño de identidad visual:** `~30K tokens | ~2h`

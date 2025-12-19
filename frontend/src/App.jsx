@@ -20,6 +20,8 @@ import DevDashboard from './pages/BugReports'
 import DeckList from './pages/DeckList'
 import DeckBuilder from './pages/DeckBuilder'
 import DeckDetail from './pages/DeckDetail'
+import Artists from './pages/Artists'
+import ArtistDetail from './pages/ArtistDetail'
 import BugReportButton from './components/common/BugReportButton'
 
 function App() {
@@ -47,6 +49,8 @@ function App() {
                       <Route path="/roadmap" element={<Roadmap />} />
                       <Route path="/relationship-map" element={<RelationshipMap />} />
                       <Route path="/catalog" element={<Catalog />} />
+                      <Route path="/artists" element={<Artists />} />
+                      <Route path="/artist/:artistName" element={<ArtistDetail />} />
                       <Route path="/decks" element={<DeckList />} />
                       <Route path="/decks/new" element={<DeckBuilder />} />
                       <Route path="/decks/:deckId" element={<DeckDetail />} />
