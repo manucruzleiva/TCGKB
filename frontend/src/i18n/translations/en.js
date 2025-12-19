@@ -131,6 +131,60 @@ export const en = {
       title: 'TCG Knowledge Base',
       subtitle: 'Search, explore and comment on your favorite trading card games'
     }
+  },
+
+  // Support / Monetization
+  support: {
+    footerLink: 'Support',
+    buttonTooltip: 'Support TCGKB',
+    pageTitle: 'Support TCGKB',
+    pageSubtitle: 'Help keep this project alive and growing',
+    whySupport: {
+      title: 'Why support?',
+      reason1: 'Keep servers running 24/7',
+      reason2: 'Develop new features',
+      reason3: 'Keep the database updated',
+      reason4: 'No invasive ads'
+    },
+    costs: {
+      title: 'Monthly costs',
+      hosting: 'Hosting (Vercel Pro)',
+      database: 'Database (MongoDB Atlas)',
+      apis: 'External APIs',
+      domain: 'Domain',
+      total: 'Approximate total'
+    },
+    tiers: {
+      title: 'Support tiers',
+      supporter: {
+        name: 'Supporter',
+        price: '$3/month',
+        benefit1: 'Special profile badge',
+        benefit2: 'Name on supporters list'
+      },
+      champion: {
+        name: 'Champion',
+        price: '$5/month',
+        benefit1: 'All of the above',
+        benefit2: 'Early access to features',
+        benefit3: 'Exclusive Discord channel'
+      },
+      hero: {
+        name: 'Hero',
+        price: '$10/month',
+        benefit1: 'All of the above',
+        benefit2: 'Your name in the footer',
+        benefit3: 'Suggest priority features'
+      }
+    },
+    cta: {
+      primary: 'Support on GitHub Sponsors',
+      oneTime: 'One-time donation also available'
+    },
+    thanks: {
+      title: 'Thanks to our supporters',
+      description: 'These people make it possible for TCGKB to keep growing'
+    }
   }
 }
 

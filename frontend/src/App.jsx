@@ -23,7 +23,9 @@ import DeckBuilder from './pages/DeckBuilder'
 import DeckDetail from './pages/DeckDetail'
 import Artists from './pages/Artists'
 import ArtistDetail from './pages/ArtistDetail'
+import Support from './pages/Support'
 import BugReportButton from './components/common/BugReportButton'
+import SupportButton from './components/common/SupportButton'
 
 function App() {
   return (
@@ -56,8 +58,10 @@ function App() {
                       <Route path="/decks/new" element={<DeckBuilder />} />
                       <Route path="/decks/:deckId" element={<DeckDetail />} />
                       <Route path="/decks/:deckId/edit" element={<DeckBuilder />} />
+                      <Route path="/support" element={<Support />} />
                     </Routes>
                   </main>
+                  <SupportButton />
                   <BugReportButton />
                   <Footer />
                 </div>

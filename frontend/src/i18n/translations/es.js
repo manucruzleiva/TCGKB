@@ -131,6 +131,60 @@ export const es = {
     weeksAgo: 'hace unas semanas',
     monthsAgo: 'hace unos meses',
     yearsAgo: 'hace unos años'
+  },
+
+  // Support / Monetization
+  support: {
+    footerLink: 'Apoyar',
+    buttonTooltip: 'Apoya TCGKB',
+    pageTitle: 'Apoya TCGKB',
+    pageSubtitle: 'Ayuda a mantener este proyecto vivo y en crecimiento',
+    whySupport: {
+      title: '¿Por qué apoyar?',
+      reason1: 'Mantener los servidores funcionando 24/7',
+      reason2: 'Desarrollar nuevas funcionalidades',
+      reason3: 'Mantener la base de datos actualizada',
+      reason4: 'Sin anuncios invasivos'
+    },
+    costs: {
+      title: 'Costos mensuales',
+      hosting: 'Hosting (Vercel Pro)',
+      database: 'Base de datos (MongoDB Atlas)',
+      apis: 'APIs externas',
+      domain: 'Dominio',
+      total: 'Total aproximado'
+    },
+    tiers: {
+      title: 'Niveles de apoyo',
+      supporter: {
+        name: 'Supporter',
+        price: '$3/mes',
+        benefit1: 'Badge especial en perfil',
+        benefit2: 'Nombre en lista de supporters'
+      },
+      champion: {
+        name: 'Champion',
+        price: '$5/mes',
+        benefit1: 'Todo lo anterior',
+        benefit2: 'Acceso anticipado a features',
+        benefit3: 'Canal de Discord exclusivo'
+      },
+      hero: {
+        name: 'Hero',
+        price: '$10/mes',
+        benefit1: 'Todo lo anterior',
+        benefit2: 'Tu nombre en el footer',
+        benefit3: 'Sugerir features prioritarias'
+      }
+    },
+    cta: {
+      primary: 'Apoyar en GitHub Sponsors',
+      oneTime: 'Donación única también disponible'
+    },
+    thanks: {
+      title: 'Gracias a nuestros supporters',
+      description: 'Estas personas hacen posible que TCGKB siga creciendo'
+    }
   }
 }
 
