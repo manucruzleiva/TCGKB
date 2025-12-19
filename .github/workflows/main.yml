@@ -1,0 +1,41 @@
+name: Auto Merge Claude Branches to Stage
+
+on:
+  push:
+    branches:
+      - 'claude/**'  # 1. Se activa solo en ramas que empiecen con 'claude/'
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # Necesario para hacer merge
+      pull-requests: write # Necesario para crear/editar PRs
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create and Merge PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Token automático de GitHub
+        run: |
+          # 2. Definir variables
+          CURRENT_BRANCH=${{ github.ref_name }}
+          TARGET_BRANCH="stage"
+
+          echo "Procesando branch: $CURRENT_BRANCH hacia $TARGET_BRANCH"
+
+          # 3. Intentar crear el PR (si ya existe, el comando fallará pero continuaremos)
+          # El '|| true' evita que el workflow falle si el PR ya existe
+          gh pr create \
+            --base $TARGET_BRANCH \
+            --head $CURRENT_BRANCH \
+            --title "Auto Merge: $CURRENT_BRANCH" \
+            --body "PR generado automáticamente para branch de Claude." \
+            || true
+
+          # 4. Hacer el Merge Automático
+          # --auto: habilita el merge automático cuando pasen los checks
+          # --merge: usa la estrategia de merge commit (puedes cambiar a --squash o --rebase)
+          gh pr merge $CURRENT_BRANCH --merge --auto
