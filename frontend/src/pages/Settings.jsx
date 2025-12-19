@@ -21,6 +21,55 @@ const DEFAULT_AVATARS = [
   { id: 131, name: 'Lapras', url: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/131.png' },
 ]
 
+// Trainer sprites from Pokemon Showdown
+const TRAINER_AVATARS = [
+  // Protagonists
+  { id: 'red', name: 'Red', url: 'https://play.pokemonshowdown.com/sprites/trainers/red.png' },
+  { id: 'blue', name: 'Blue', url: 'https://play.pokemonshowdown.com/sprites/trainers/blue.png' },
+  { id: 'leaf', name: 'Leaf', url: 'https://play.pokemonshowdown.com/sprites/trainers/leaf.png' },
+  { id: 'ethan', name: 'Ethan', url: 'https://play.pokemonshowdown.com/sprites/trainers/ethan.png' },
+  { id: 'lyra', name: 'Lyra', url: 'https://play.pokemonshowdown.com/sprites/trainers/lyra.png' },
+  { id: 'lucas', name: 'Lucas', url: 'https://play.pokemonshowdown.com/sprites/trainers/lucas.png' },
+  { id: 'dawn', name: 'Dawn', url: 'https://play.pokemonshowdown.com/sprites/trainers/dawn.png' },
+  { id: 'hilbert', name: 'Hilbert', url: 'https://play.pokemonshowdown.com/sprites/trainers/hilbert.png' },
+  { id: 'hilda', name: 'Hilda', url: 'https://play.pokemonshowdown.com/sprites/trainers/hilda.png' },
+  { id: 'nate', name: 'Nate', url: 'https://play.pokemonshowdown.com/sprites/trainers/nate.png' },
+  { id: 'rosa', name: 'Rosa', url: 'https://play.pokemonshowdown.com/sprites/trainers/rosa.png' },
+  // Gym Leaders
+  { id: 'brock', name: 'Brock', url: 'https://play.pokemonshowdown.com/sprites/trainers/brock.png' },
+  { id: 'misty', name: 'Misty', url: 'https://play.pokemonshowdown.com/sprites/trainers/misty.png' },
+  { id: 'erika', name: 'Erika', url: 'https://play.pokemonshowdown.com/sprites/trainers/erika.png' },
+  { id: 'sabrina', name: 'Sabrina', url: 'https://play.pokemonshowdown.com/sprites/trainers/sabrina.png' },
+  { id: 'blaine', name: 'Blaine', url: 'https://play.pokemonshowdown.com/sprites/trainers/blaine.png' },
+  { id: 'falkner', name: 'Falkner', url: 'https://play.pokemonshowdown.com/sprites/trainers/falkner.png' },
+  { id: 'whitney', name: 'Whitney', url: 'https://play.pokemonshowdown.com/sprites/trainers/whitney.png' },
+  { id: 'morty', name: 'Morty', url: 'https://play.pokemonshowdown.com/sprites/trainers/morty.png' },
+  { id: 'jasmine', name: 'Jasmine', url: 'https://play.pokemonshowdown.com/sprites/trainers/jasmine.png' },
+  { id: 'clair', name: 'Clair', url: 'https://play.pokemonshowdown.com/sprites/trainers/clair.png' },
+  { id: 'roxanne', name: 'Roxanne', url: 'https://play.pokemonshowdown.com/sprites/trainers/roxanne.png' },
+  { id: 'flannery', name: 'Flannery', url: 'https://play.pokemonshowdown.com/sprites/trainers/flannery.png' },
+  { id: 'elesa', name: 'Elesa', url: 'https://play.pokemonshowdown.com/sprites/trainers/elesa.png' },
+  { id: 'skyla', name: 'Skyla', url: 'https://play.pokemonshowdown.com/sprites/trainers/skyla.png' },
+  // Champions & Elite 4
+  { id: 'cynthia', name: 'Cynthia', url: 'https://play.pokemonshowdown.com/sprites/trainers/cynthia.png' },
+  { id: 'lance', name: 'Lance', url: 'https://play.pokemonshowdown.com/sprites/trainers/lance.png' },
+  { id: 'steven', name: 'Steven', url: 'https://play.pokemonshowdown.com/sprites/trainers/steven.png' },
+  { id: 'alder', name: 'Alder', url: 'https://play.pokemonshowdown.com/sprites/trainers/alder.png' },
+  { id: 'iris', name: 'Iris', url: 'https://play.pokemonshowdown.com/sprites/trainers/iris.png' },
+  // Rivals & Key Characters
+  { id: 'n', name: 'N', url: 'https://play.pokemonshowdown.com/sprites/trainers/n.png' },
+  { id: 'giovanni', name: 'Giovanni', url: 'https://play.pokemonshowdown.com/sprites/trainers/giovanni.png' },
+  { id: 'cyrus', name: 'Cyrus', url: 'https://play.pokemonshowdown.com/sprites/trainers/cyrus.png' },
+  { id: 'ghetsis', name: 'Ghetsis', url: 'https://play.pokemonshowdown.com/sprites/trainers/ghetsis.png' },
+  // Common Trainers
+  { id: 'ace-trainer-f', name: 'Ace Trainer ♀', url: 'https://play.pokemonshowdown.com/sprites/trainers/acetrainer-f.png' },
+  { id: 'ace-trainer-m', name: 'Ace Trainer ♂', url: 'https://play.pokemonshowdown.com/sprites/trainers/acetrainer-m.png' },
+  { id: 'beauty', name: 'Beauty', url: 'https://play.pokemonshowdown.com/sprites/trainers/beauty.png' },
+  { id: 'ranger-f', name: 'Ranger ♀', url: 'https://play.pokemonshowdown.com/sprites/trainers/pokemonranger-f.png' },
+  { id: 'ranger-m', name: 'Ranger ♂', url: 'https://play.pokemonshowdown.com/sprites/trainers/pokemonranger-m.png' },
+  { id: 'scientist', name: 'Scientist', url: 'https://play.pokemonshowdown.com/sprites/trainers/scientist.png' },
+]
+
 // Background gradient options
 const BACKGROUND_GRADIENTS = [
   { id: 'primary', gradient: 'from-primary-400 to-primary-600', name: 'Primary' },
@@ -52,7 +101,7 @@ const Settings = () => {
   const [selectedAvatar, setSelectedAvatar] = useState(user?.avatar || DEFAULT_AVATARS[0].url)
   const [selectedBackground, setSelectedBackground] = useState(user?.avatarBackground || BACKGROUND_GRADIENTS[0].gradient)
   const [showAvatarPicker, setShowAvatarPicker] = useState(false)
-  const [avatarTab, setAvatarTab] = useState('pokemon') // 'pokemon' | 'background'
+  const [avatarTab, setAvatarTab] = useState('pokemon') // 'pokemon' | 'trainers' | 'background'
   const [pokemonSearch, setPokemonSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -329,7 +378,17 @@ const Settings = () => {
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
-                {language === 'es' ? 'Pokemon' : 'Pokemon'}
+                Pokemon
+              </button>
+              <button
+                onClick={() => setAvatarTab('trainers')}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                  avatarTab === 'trainers'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {language === 'es' ? 'Entrenadores' : 'Trainers'}
               </button>
               <button
                 onClick={() => setAvatarTab('background')}
@@ -408,6 +467,103 @@ const Settings = () => {
                       title={avatar.name}
                     >
                       <img src={avatar.url} alt={avatar.name} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Trainers Tab */}
+            {avatarTab === 'trainers' && (
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                  {language === 'es' ? 'Protagonistas' : 'Protagonists'}
+                </h4>
+                <div className="grid grid-cols-5 gap-3 mb-4">
+                  {TRAINER_AVATARS.filter(t => ['red', 'blue', 'leaf', 'ethan', 'lyra', 'lucas', 'dawn', 'hilbert', 'hilda', 'nate', 'rosa'].includes(t.id)).map((trainer) => (
+                    <button
+                      key={trainer.id}
+                      onClick={() => setSelectedAvatar(trainer.url)}
+                      className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+                        selectedAvatar === trainer.url
+                          ? 'bg-primary-100 dark:bg-primary-900/50 ring-2 ring-primary-500'
+                          : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                      title={trainer.name}
+                    >
+                      <img src={trainer.url} alt={trainer.name} className="w-12 h-12 object-contain" />
+                      <span className="text-xs text-gray-600 dark:text-gray-300 truncate w-full text-center mt-1">
+                        {trainer.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                  {language === 'es' ? 'Líderes de Gimnasio' : 'Gym Leaders'}
+                </h4>
+                <div className="grid grid-cols-5 gap-3 mb-4">
+                  {TRAINER_AVATARS.filter(t => ['brock', 'misty', 'erika', 'sabrina', 'blaine', 'falkner', 'whitney', 'morty', 'jasmine', 'clair', 'roxanne', 'flannery', 'elesa', 'skyla'].includes(t.id)).map((trainer) => (
+                    <button
+                      key={trainer.id}
+                      onClick={() => setSelectedAvatar(trainer.url)}
+                      className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+                        selectedAvatar === trainer.url
+                          ? 'bg-primary-100 dark:bg-primary-900/50 ring-2 ring-primary-500'
+                          : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                      title={trainer.name}
+                    >
+                      <img src={trainer.url} alt={trainer.name} className="w-12 h-12 object-contain" />
+                      <span className="text-xs text-gray-600 dark:text-gray-300 truncate w-full text-center mt-1">
+                        {trainer.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                  {language === 'es' ? 'Campeones y Elite 4' : 'Champions & Elite 4'}
+                </h4>
+                <div className="grid grid-cols-5 gap-3 mb-4">
+                  {TRAINER_AVATARS.filter(t => ['cynthia', 'lance', 'steven', 'alder', 'iris', 'n', 'giovanni', 'cyrus', 'ghetsis'].includes(t.id)).map((trainer) => (
+                    <button
+                      key={trainer.id}
+                      onClick={() => setSelectedAvatar(trainer.url)}
+                      className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+                        selectedAvatar === trainer.url
+                          ? 'bg-primary-100 dark:bg-primary-900/50 ring-2 ring-primary-500'
+                          : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                      title={trainer.name}
+                    >
+                      <img src={trainer.url} alt={trainer.name} className="w-12 h-12 object-contain" />
+                      <span className="text-xs text-gray-600 dark:text-gray-300 truncate w-full text-center mt-1">
+                        {trainer.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                  {language === 'es' ? 'Entrenadores' : 'Trainers'}
+                </h4>
+                <div className="grid grid-cols-5 gap-3 mb-4">
+                  {TRAINER_AVATARS.filter(t => t.id.includes('trainer') || t.id.includes('ranger') || ['beauty', 'scientist'].includes(t.id)).map((trainer) => (
+                    <button
+                      key={trainer.id}
+                      onClick={() => setSelectedAvatar(trainer.url)}
+                      className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+                        selectedAvatar === trainer.url
+                          ? 'bg-primary-100 dark:bg-primary-900/50 ring-2 ring-primary-500'
+                          : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                      title={trainer.name}
+                    >
+                      <img src={trainer.url} alt={trainer.name} className="w-12 h-12 object-contain" />
+                      <span className="text-xs text-gray-600 dark:text-gray-300 truncate w-full text-center mt-1">
+                        {trainer.name}
+                      </span>
                     </button>
                   ))}
                 </div>
