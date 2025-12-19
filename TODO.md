@@ -114,7 +114,7 @@
   - Ver todas las cartas que el usuario posee
   - Filtrar por TCG, set, completitud de playset
   - Stats: total cartas, valor de colección (si aplica)
-- [ ] **Decks sugeridos:** `~60K tokens | ~4h`
+- [x] **Decks sugeridos:** `~60K tokens | ~4h`
   - Basado en cartas que el usuario posee
   - Mostrar % de completitud de decks populares
   - Sugerir cartas faltantes para completar decks

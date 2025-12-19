@@ -1,4 +1,5 @@
 import Deck from '../models/Deck.js'
+import Collection from '../models/Collection.js'
 import log from '../utils/logger.js'
 
 const MODULE = 'DeckController'
@@ -514,6 +515,138 @@ export const getAvailableTags = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get available tags'
+    })
+  }
+}
+
+/**
+ * Get deck suggestions based on user's collection
+ * Shows decks the user can build or almost build
+ */
+export const getSuggestedDecks = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, minCompletion = 0, tag } = req.query
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      })
+    }
+
+    // Get user's collection
+    const userCollection = await Collection.find({ userId: req.user._id })
+    const ownedCards = new Map()
+    userCollection.forEach(c => {
+      ownedCards.set(c.cardId, c.quantity)
+    })
+
+    // Query for public decks
+    const deckQuery = { isPublic: true }
+    if (tag) {
+      deckQuery.tags = tag
+    }
+
+    // Get popular public decks
+    const decks = await Deck.find(deckQuery)
+      .populate('userId', 'username')
+      .sort({ copies: -1, views: -1 })
+      .limit(100) // Get top 100 popular decks
+      .lean()
+
+    // Calculate completion for each deck
+    const deckSuggestions = decks.map(deck => {
+      let ownedCount = 0
+      let totalCount = 0
+      const missingCards = []
+      const partialCards = []
+
+      deck.cards.forEach(card => {
+        totalCount += card.quantity
+        const owned = ownedCards.get(card.cardId) || 0
+
+        if (owned >= card.quantity) {
+          ownedCount += card.quantity
+        } else if (owned > 0) {
+          ownedCount += owned
+          partialCards.push({
+            cardId: card.cardId,
+            name: card.name,
+            imageSmall: card.imageSmall,
+            needed: card.quantity,
+            owned: owned,
+            missing: card.quantity - owned
+          })
+        } else {
+          missingCards.push({
+            cardId: card.cardId,
+            name: card.name,
+            imageSmall: card.imageSmall,
+            needed: card.quantity,
+            owned: 0,
+            missing: card.quantity
+          })
+        }
+      })
+
+      const completionPercent = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0
+
+      return {
+        deck: {
+          _id: deck._id,
+          name: deck.name,
+          description: deck.description,
+          tags: deck.tags,
+          totalCards: deck.cards.reduce((sum, c) => sum + c.quantity, 0),
+          breakdown: deck.breakdown,
+          views: deck.views,
+          copies: deck.copies,
+          userId: deck.userId,
+          createdAt: deck.createdAt
+        },
+        completion: {
+          percent: completionPercent,
+          owned: ownedCount,
+          total: totalCount
+        },
+        missingCards: missingCards.slice(0, 10), // Top 10 missing
+        partialCards: partialCards.slice(0, 5),  // Top 5 partial
+        totalMissing: missingCards.length + partialCards.length
+      }
+    })
+
+    // Filter by minimum completion
+    const filtered = deckSuggestions.filter(s => s.completion.percent >= parseInt(minCompletion))
+
+    // Sort by completion percentage (highest first)
+    filtered.sort((a, b) => b.completion.percent - a.completion.percent)
+
+    // Paginate
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const paginated = filtered.slice(skip, skip + parseInt(limit))
+
+    res.status(200).json({
+      success: true,
+      data: {
+        suggestions: paginated,
+        stats: {
+          canBuildNow: filtered.filter(s => s.completion.percent === 100).length,
+          almostComplete: filtered.filter(s => s.completion.percent >= 80 && s.completion.percent < 100).length,
+          inProgress: filtered.filter(s => s.completion.percent >= 50 && s.completion.percent < 80).length
+        },
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: filtered.length,
+          pages: Math.ceil(filtered.length / parseInt(limit))
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get suggested decks failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get deck suggestions'
     })
   }
 }
