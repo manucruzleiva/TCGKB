@@ -88,6 +88,25 @@ const BACKGROUND_GRADIENTS = [
   { id: 'sunset', gradient: 'from-orange-400 via-pink-500 to-purple-600', name: 'Sunset' },
   { id: 'ocean', gradient: 'from-cyan-400 via-blue-500 to-indigo-600', name: 'Ocean' },
   { id: 'forest', gradient: 'from-green-400 via-emerald-500 to-teal-600', name: 'Forest' },
+  // More themed backgrounds
+  { id: 'pokeball', gradient: 'from-red-500 via-red-500 to-white', name: 'Pokeball' },
+  { id: 'greatball', gradient: 'from-blue-500 via-blue-400 to-white', name: 'Great Ball' },
+  { id: 'ultraball', gradient: 'from-yellow-400 via-gray-800 to-yellow-400', name: 'Ultra Ball' },
+  { id: 'masterball', gradient: 'from-purple-600 via-purple-500 to-pink-400', name: 'Master Ball' },
+  { id: 'dragon', gradient: 'from-indigo-600 via-purple-600 to-indigo-800', name: 'Dragon' },
+  { id: 'dark', gradient: 'from-gray-800 via-gray-900 to-black', name: 'Dark' },
+  { id: 'poison', gradient: 'from-purple-500 via-fuchsia-500 to-purple-700', name: 'Poison' },
+  { id: 'rock', gradient: 'from-amber-600 via-stone-500 to-amber-700', name: 'Rock' },
+  { id: 'bug', gradient: 'from-lime-500 via-green-500 to-lime-600', name: 'Bug' },
+  { id: 'flying', gradient: 'from-sky-300 via-indigo-300 to-sky-400', name: 'Flying' },
+  { id: 'normal', gradient: 'from-stone-400 via-gray-400 to-stone-500', name: 'Normal' },
+  // Special patterns (using Tailwind animation/style classes)
+  { id: 'aurora', gradient: 'from-green-400 via-cyan-500 to-purple-500', name: 'Aurora' },
+  { id: 'neon', gradient: 'from-fuchsia-500 via-cyan-400 to-fuchsia-500', name: 'Neon' },
+  { id: 'lava', gradient: 'from-red-600 via-orange-500 to-yellow-400', name: 'Lava' },
+  { id: 'cosmic', gradient: 'from-purple-900 via-indigo-800 to-blue-900', name: 'Cosmic' },
+  { id: 'mint', gradient: 'from-emerald-300 via-teal-300 to-cyan-300', name: 'Mint' },
+  { id: 'cherry', gradient: 'from-rose-400 via-pink-400 to-red-400', name: 'Cherry' },
 ]
 
 const Settings = () => {

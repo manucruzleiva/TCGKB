@@ -63,7 +63,7 @@
 - [x] Búsqueda de Pokémon para avatar - permitir buscar todos los Pokémon en todas sus formas
 - [x] Elegir background del avatar (colores, patrones, etc.)
 - [x] Sprites de entrenadores como opción de avatar (usando Pokemon Showdown sprites)
-- [ ] Sprites de backgrounds como opción (investigar disponibilidad)
+- [x] Sprites de backgrounds como opción (añadidos 32 gradientes temáticos)
 
 ### Relationship Map
 - [x] RELATIONSHIP MAP en hamburger menu:
