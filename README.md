@@ -221,6 +221,77 @@ User clicks bug button
 - Button visible for **all users** (authenticated and anonymous)
 - Anonymous users can report bugs (creates issue without user attribution)
 
+### Roadmap System
+
+**Page**: `/roadmap`
+**Component**: `frontend/src/pages/Roadmap.jsx`
+
+#### Features
+| Feature | Description |
+|---------|-------------|
+| **GitHub Project V2** | Fetches items from GitHub Project via GraphQL API |
+| **Status Grouping** | Groups by: In Progress, Planned, Backlog, Done |
+| **Progress Bar** | Shows % of completed items |
+| **Labels Display** | Shows GitHub labels with colors |
+| **Toggle Completed** | Button to show/hide completed items |
+
+#### API Integration
+
+**Endpoint**: `GET /api/github/project`
+**Backend**: `getProjectItems()` in `github.controller.js`
+**GraphQL API**: Uses GitHub Projects V2 API
+
+#### Environment Variables
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `GITHUB_TOKEN` | Yes | - | Must have `read:project` scope |
+| `GITHUB_PROJECT_NUMBER` | No | 2 | GitHub Project V2 number |
+
+#### Data Flow
+```
+Frontend                        Backend                     GitHub
+   │                              │                            │
+   │  GET /api/github/project     │                            │
+   ├─────────────────────────────▶│                            │
+   │                              │  GraphQL query             │
+   │                              ├───────────────────────────▶│
+   │                              │◀───────────────────────────┤
+   │  { items, byStatus, stats }  │                            │
+   │◀─────────────────────────────┤                            │
+```
+
+#### Response Structure
+```json
+{
+  "success": true,
+  "data": {
+    "project": { "id": "...", "title": "TCGKB Roadmap" },
+    "items": [...],
+    "byStatus": {
+      "backlog": [...],
+      "planned": [...],
+      "inProgress": [...],
+      "done": [...]
+    },
+    "stats": {
+      "total": 20,
+      "completed": 5,
+      "inProgress": 3,
+      "planned": 7,
+      "backlog": 5,
+      "progress": 25
+    }
+  }
+}
+```
+
+#### Troubleshooting
+| Error | Cause | Solution |
+|-------|-------|----------|
+| Empty roadmap | Token missing `read:project` scope | Regenerate token with scope |
+| 404 Project not found | Wrong `GITHUB_PROJECT_NUMBER` | Verify project number in Vercel |
+| 401 Unauthorized | Invalid or expired token | Check `GITHUB_TOKEN` in Vercel env |
+
 ---
 
 ## Data Models
@@ -314,6 +385,7 @@ ReputationLedger
 |--------|----------|-------------|
 | GET | `/api/decks` | List user decks |
 | POST | `/api/decks` | Create deck |
+| POST | `/api/decks/parse` | Parse deck string, detect TCG/format |
 | GET | `/api/decks/:id` | Deck detail |
 | PUT | `/api/decks/:id` | Update deck |
 | DELETE | `/api/decks/:id` | Delete deck |
@@ -331,6 +403,18 @@ ReputationLedger
 |--------|----------|-------------|
 | GET | `/api/health` | System health |
 | GET | `/api/health/sources` | External API status |
+
+### GitHub Integration
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/github/config` | Check if GitHub is configured |
+| GET | `/api/github/project` | Get project items (roadmap) |
+| GET | `/api/github/changelog` | Get changelog (commits) |
+| GET | `/api/github/commits` | Get commits from branch |
+| POST | `/api/github/issues` | Create bug report issue |
+| POST | `/api/github/classify` | Classify bug (priority, duplicates) |
+| GET | `/api/github/issues` | List issues (auth required) |
+| GET | `/api/github/stats` | Issue statistics (auth required) |
 
 ---
 
@@ -374,6 +458,12 @@ ReputationLedger
 - `POKEMON_TCG_API_KEY` - Pokemon TCG API key
 - `CORS_ORIGIN` - Allowed origins
 - `NODE_ENV` - production | development
+
+**GitHub Integration**:
+- `GITHUB_TOKEN` - GitHub Personal Access Token (requires `repo`, `read:project` scopes)
+- `GITHUB_OWNER` - GitHub username (default: `manucruzleiva`)
+- `GITHUB_REPO` - Repository name (default: `TCGKB`)
+- `GITHUB_PROJECT_NUMBER` - GitHub Project V2 number for roadmap (default: `2`)
 
 **Frontend**:
 - `VITE_API_URL` - Backend API URL
@@ -813,6 +903,66 @@ Deck validation is shown **inline** (no popups):
 | POST | `/api/decks/:id/vote` | Vote 👍/👎 | No* |
 
 *Anonymous votes allowed (fingerprint-based)
+
+#### POST /api/decks/parse
+
+Parses a deck string and auto-detects the TCG and format.
+
+**Request:**
+```json
+{
+  "deckString": "Pokémon: 12\n4 Pikachu ex SVI 057\n4 Raichu SVI 058\n\nTrainer: 36\n4 Professor's Research SVI 189\n\nEnergy: 12\n8 Electric Energy SVE 004"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "tcg": "pokemon",
+    "format": "standard",
+    "formatConfidence": 60,
+    "formatReason": "Default format (60 cards with standard structure)",
+    "inputFormat": "pokemon-tcg-live",
+    "cards": [
+      {
+        "cardId": "svi-057",
+        "name": "Pikachu ex",
+        "quantity": 4,
+        "setCode": "svi",
+        "setNumber": "057",
+        "supertype": "Pokémon"
+      }
+    ],
+    "breakdown": {
+      "pokemon": 8,
+      "trainer": 4,
+      "energy": 8,
+      "unknown": 0
+    },
+    "stats": {
+      "totalCards": 20,
+      "uniqueCards": 4
+    },
+    "errors": []
+  }
+}
+```
+
+**Supported Input Formats:**
+| Format | `inputFormat` value | Detection |
+|--------|---------------------|-----------|
+| Pokemon TCG Live | `pokemon-tcg-live` | Section headers (Pokémon/Trainer/Energy) |
+| Pokemon TCG Pocket | `pokemon-tcg-pocket` | "Name x2" pattern |
+| Riftbound | `riftbound` | "1 Name" pattern + keywords |
+| Generic | `generic` | Fallback parser |
+
+**Detected TCGs:** `pokemon`, `riftbound`
+
+**Detected Formats:**
+- Pokemon: `standard`, `glc`, `expanded`
+- Riftbound: `constructed`
 
 ---
 
