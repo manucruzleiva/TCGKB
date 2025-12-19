@@ -1,7 +1,10 @@
 import Reaction from '../models/Reaction.js'
 import User from '../models/User.js'
+import Comment from '../models/Comment.js'
+import Deck from '../models/Deck.js'
 import { generateFingerprint } from '../utils/fingerprint.js'
 import { getIO } from '../config/socket.js'
+import reputationService from '../services/reputation.service.js'
 
 // Allowed emojis
 const ALLOWED_EMOJIS = ['👍', '👎']
@@ -157,6 +160,58 @@ export const addReaction = async (req, res) => {
         { _id: req.user._id },
         { lastActivity: new Date(), isInactive: false }
       )
+
+      // Award reputation for giving a reaction (only for new reactions, not changes)
+      if (!previousEmoji) {
+        try {
+          await reputationService.awardPoints({
+            userId: req.user._id,
+            actionType: 'reaction_given',
+            sourceType: 'reaction',
+            sourceId: reaction._id,
+            description: `Reacted with ${emoji} on ${targetType}`
+          })
+        } catch (repError) {
+          console.error('Reputation award error (reaction_given):', repError)
+        }
+      }
+
+      // Award reputation to content owner for receiving a positive reaction
+      if (emoji === '👍' && !previousEmoji) {
+        try {
+          let contentOwner = null
+
+          if (targetType === 'comment') {
+            const comment = await Comment.findById(targetId).select('userId')
+            if (comment && comment.userId && !comment.userId.equals(req.user._id)) {
+              contentOwner = comment.userId
+              await reputationService.awardPoints({
+                userId: contentOwner,
+                actionType: 'comment_received_reaction',
+                sourceType: 'comment',
+                sourceId: targetId,
+                triggeredBy: req.user._id,
+                description: 'Received thumbs up on comment'
+              })
+            }
+          } else if (targetType === 'deck') {
+            const deck = await Deck.findById(targetId).select('userId')
+            if (deck && deck.userId && !deck.userId.equals(req.user._id)) {
+              contentOwner = deck.userId
+              await reputationService.awardPoints({
+                userId: contentOwner,
+                actionType: 'deck_received_reaction',
+                sourceType: 'deck',
+                sourceId: targetId,
+                triggeredBy: req.user._id,
+                description: 'Received thumbs up on deck'
+              })
+            }
+          }
+        } catch (repError) {
+          console.error('Reputation award error (received_reaction):', repError)
+        }
+      }
     } else {
       const fingerprint = generateFingerprint(req)
 

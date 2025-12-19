@@ -2,6 +2,7 @@ import Comment from '../models/Comment.js'
 import Reaction from '../models/Reaction.js'
 import User from '../models/User.js'
 import { getIO } from '../config/socket.js'
+import reputationService from '../services/reputation.service.js'
 
 /**
  * Get comments for a card
@@ -270,9 +271,35 @@ export const createComment = async (req, res) => {
 
     // Update user's lastActivity
     await User.updateOne(
-      { _id: userId },
+      { _id: req.user._id },
       { lastActivity: new Date(), isInactive: false }
     )
+
+    // Award reputation points for creating a comment
+    try {
+      await reputationService.awardPoints({
+        userId: req.user._id,
+        actionType: 'comment_created',
+        sourceType: 'comment',
+        sourceId: comment._id,
+        description: `Created comment on ${commentTargetType}`
+      })
+
+      // Award points for using mentions
+      const totalMentions = (cardMentions?.length || 0) + (deckMentions?.length || 0)
+      for (let i = 0; i < totalMentions; i++) {
+        await reputationService.awardPoints({
+          userId: req.user._id,
+          actionType: 'mention_used',
+          sourceType: 'comment',
+          sourceId: comment._id,
+          description: `Used mention in comment`
+        })
+      }
+    } catch (repError) {
+      console.error('Reputation award error:', repError)
+      // Don't fail the request if reputation fails
+    }
 
     // Populate user data
     await comment.populate('userId', 'username role avatar isDev')

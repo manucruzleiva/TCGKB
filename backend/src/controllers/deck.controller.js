@@ -1,6 +1,7 @@
 import Deck from '../models/Deck.js'
 import Collection from '../models/Collection.js'
 import log from '../utils/logger.js'
+import reputationService from '../services/reputation.service.js'
 
 const MODULE = 'DeckController'
 
@@ -111,6 +112,19 @@ export const createDeck = async (req, res) => {
     await deck.populate('userId', 'username')
 
     log.info(MODULE, `Deck "${name}" created by ${req.user.username}`)
+
+    // Award reputation for creating a deck
+    try {
+      await reputationService.awardPoints({
+        userId: req.user._id,
+        actionType: 'deck_created',
+        sourceType: 'deck',
+        sourceId: deck._id,
+        description: `Created deck: ${name.substring(0, 50)}`
+      })
+    } catch (repError) {
+      log.error(MODULE, 'Failed to award reputation for deck creation', repError)
+    }
 
     res.status(201).json({
       success: true,

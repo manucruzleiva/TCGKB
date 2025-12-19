@@ -5,6 +5,7 @@ import CardCache from '../models/CardCache.js'
 import riftboundService from '../services/riftboundTCG.service.js'
 import pokemon from 'pokemontcgsdk'
 import log from '../utils/logger.js'
+import reputationService from '../services/reputation.service.js'
 
 // Configure Pokemon TCG SDK
 pokemon.configure({ apiKey: process.env.POKEMON_TCG_API_KEY })
@@ -487,12 +488,44 @@ export const moderateCommentById = async (req, res) => {
       })
     }
 
+    const wasModerated = comment.isModerated
     comment.isModerated = isModerated
     comment.moderationReason = isModerated ? reason : null
 
     await comment.save()
 
     log.info(MODULE, `Comment ${commentId} ${isModerated ? 'moderated' : 'restored'} by admin ${req.user.username}`)
+
+    // Apply reputation changes for moderation
+    if (comment.userId) {
+      try {
+        if (isModerated && !wasModerated) {
+          // Comment was just moderated - apply penalty
+          await reputationService.awardPoints({
+            userId: comment.userId,
+            actionType: 'comment_moderated',
+            sourceType: 'comment',
+            sourceId: comment._id,
+            triggeredBy: req.user._id,
+            description: `Comment moderated: ${reason || 'No reason provided'}`
+          })
+          log.info(MODULE, `Reputation penalty applied for moderated comment by user ${comment.userId}`)
+        } else if (!isModerated && wasModerated) {
+          // Comment was restored - reverse penalty
+          await reputationService.awardPoints({
+            userId: comment.userId,
+            actionType: 'comment_restored',
+            sourceType: 'comment',
+            sourceId: comment._id,
+            triggeredBy: req.user._id,
+            description: 'Comment restored after moderation'
+          })
+          log.info(MODULE, `Reputation restored for unmoderated comment by user ${comment.userId}`)
+        }
+      } catch (repError) {
+        log.error(MODULE, 'Failed to update reputation for moderation', repError)
+      }
+    }
 
     res.status(200).json({
       success: true,

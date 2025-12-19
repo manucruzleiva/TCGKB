@@ -1,6 +1,7 @@
 import log from '../utils/logger.js'
 import BugReport from '../models/BugReport.js'
 import { classifyBug, suggestPriority, suggestLabels, findPotentialDuplicates } from '../utils/bugClassifier.js'
+import reputationService from '../services/reputation.service.js'
 
 const MODULE = 'GitHubController'
 
@@ -119,7 +120,7 @@ export const createIssue = async (req, res) => {
 
     // Save bug report to database with GitHub issue reference and auto-classification
     try {
-      await BugReport.create({
+      const bugReport = await BugReport.create({
         title: title.trim(),
         description: description.trim(),
         screenshot: screenshot || null,
@@ -136,6 +137,22 @@ export const createIssue = async (req, res) => {
         githubIssueState: issue.state
       })
       log.info(MODULE, `Bug report saved to database with GitHub issue #${issue.number}, auto-priority: ${classification.priority.priority}`)
+
+      // Award reputation points for reporting a bug (only for authenticated users)
+      if (req.user?._id) {
+        try {
+          await reputationService.awardPoints({
+            userId: req.user._id,
+            actionType: 'bug_reported',
+            sourceType: 'bug_report',
+            sourceId: bugReport._id,
+            description: `Reported bug: ${title.substring(0, 50)}`
+          })
+          log.info(MODULE, `Reputation awarded for bug report to user ${req.user._id}`)
+        } catch (repError) {
+          log.error(MODULE, 'Failed to award reputation for bug report', repError)
+        }
+      }
     } catch (dbError) {
       // Log but don't fail - GitHub issue was created successfully
       log.error(MODULE, 'Failed to save bug report to database', dbError)
@@ -542,11 +559,29 @@ export const updateIssueState = async (req, res) => {
         updateData.resolvedBy = null
       }
 
-      await BugReport.findOneAndUpdate(
+      const bugReport = await BugReport.findOneAndUpdate(
         { githubIssueNumber: parseInt(issueNumber) },
-        updateData
+        updateData,
+        { new: true }
       )
       log.info(MODULE, `Bug report synced with GitHub issue #${issueNumber} state: ${state}`)
+
+      // Award reputation to the bug reporter when their bug is resolved
+      if (issue.state === 'closed' && bugReport?.userId) {
+        try {
+          await reputationService.awardPoints({
+            userId: bugReport.userId,
+            actionType: 'bug_processed',
+            sourceType: 'bug_report',
+            sourceId: bugReport._id,
+            triggeredBy: req.user?._id,
+            description: `Bug report resolved: #${issueNumber}`
+          })
+          log.info(MODULE, `Reputation awarded for bug processed to user ${bugReport.userId}`)
+        } catch (repError) {
+          log.error(MODULE, 'Failed to award reputation for bug processed', repError)
+        }
+      }
     } catch (syncError) {
       log.error(MODULE, `Failed to sync bug report with GitHub issue #${issueNumber}`, syncError)
     }
