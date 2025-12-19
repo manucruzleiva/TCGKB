@@ -1,8 +1,7 @@
 import Reprint from '../models/Reprint.js'
 import CardCache from '../models/CardCache.js'
-import { createLogger } from '../utils/logger.js'
+import log from '../utils/logger.js'
 
-const log = createLogger('ReprintsController')
 const MODULE = 'ReprintsController'
 
 /**
