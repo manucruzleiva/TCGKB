@@ -47,6 +47,18 @@ const DevDashboard = () => {
   const [syncResult, setSyncResult] = useState(null)
   const [verifyResult, setVerifyResult] = useState(null)
 
+  // Roadmap integration state
+  const [showRoadmapModal, setShowRoadmapModal] = useState(false)
+  const [roadmapSections, setRoadmapSections] = useState(null)
+  const [roadmapLoading, setRoadmapLoading] = useState(false)
+  const [roadmapIssue, setRoadmapIssue] = useState(null)
+  const [roadmapForm, setRoadmapForm] = useState({
+    priority: '2',
+    section: '',
+    title: '',
+    description: ''
+  })
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login')
@@ -224,6 +236,69 @@ const DevDashboard = () => {
       })
     } finally {
       setVerifyingCache(false)
+    }
+  }
+
+  // Roadmap functions
+  const fetchRoadmapSections = async () => {
+    try {
+      const response = await api.get('/stats/roadmap/sections')
+      if (response.data.success) {
+        setRoadmapSections(response.data.data.priorities)
+      }
+    } catch (error) {
+      console.error('Error fetching roadmap sections:', error)
+    }
+  }
+
+  const openRoadmapModal = (issue) => {
+    setRoadmapIssue(issue)
+    setRoadmapForm({
+      priority: '2',
+      section: '',
+      title: issue.title,
+      description: `From GitHub Issue #${issue.number}: ${issue.html_url}`
+    })
+    if (!roadmapSections) {
+      fetchRoadmapSections()
+    }
+    setShowRoadmapModal(true)
+  }
+
+  const closeRoadmapModal = () => {
+    setShowRoadmapModal(false)
+    setRoadmapIssue(null)
+    setRoadmapForm({
+      priority: '2',
+      section: '',
+      title: '',
+      description: ''
+    })
+  }
+
+  const addToRoadmap = async (e) => {
+    e.preventDefault()
+    if (!roadmapForm.title.trim() || !roadmapForm.section) return
+
+    try {
+      setRoadmapLoading(true)
+      const response = await api.post('/stats/roadmap', {
+        priority: parseInt(roadmapForm.priority),
+        section: roadmapForm.section,
+        title: roadmapForm.title.trim(),
+        description: roadmapForm.description.trim() || undefined
+      })
+
+      if (response.data.success) {
+        closeRoadmapModal()
+        // Show success feedback
+        alert(language === 'es' ? 'Item agregado al roadmap' : 'Item added to roadmap')
+      }
+    } catch (error) {
+      console.error('Error adding to roadmap:', error)
+      alert(error.response?.data?.message || (language === 'es' ? 'Error al agregar al roadmap' : 'Error adding to roadmap'))
+    } finally {
+      setRoadmapLoading(false)
     }
   }
 
@@ -1686,6 +1761,19 @@ const DevDashboard = () => {
                         </span>
                       )}
                     </div>
+
+                    {/* Add to Roadmap button */}
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                      <button
+                        onClick={() => openRoadmapModal(issue)}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 rounded-lg transition-colors text-sm font-medium"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        {language === 'es' ? 'Agregar al Roadmap' : 'Add to Roadmap'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1693,6 +1781,138 @@ const DevDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Add to Roadmap Modal */}
+      {showRoadmapModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {language === 'es' ? 'Agregar al Roadmap' : 'Add to Roadmap'}
+                </h3>
+                <button
+                  onClick={closeRoadmapModal}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {roadmapIssue && (
+                <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {language === 'es' ? 'Desde Issue:' : 'From Issue:'}
+                  </p>
+                  <a
+                    href={roadmapIssue.html_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                  >
+                    #{roadmapIssue.number}: {roadmapIssue.title}
+                  </a>
+                </div>
+              )}
+
+              <form onSubmit={addToRoadmap}>
+                {/* Priority */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {language === 'es' ? 'Prioridad' : 'Priority'}
+                  </label>
+                  <select
+                    value={roadmapForm.priority}
+                    onChange={(e) => {
+                      setRoadmapForm({ ...roadmapForm, priority: e.target.value, section: '' })
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="1">{language === 'es' ? 'Prioridad 1 - Alta' : 'Priority 1 - High'}</option>
+                    <option value="2">{language === 'es' ? 'Prioridad 2 - Media' : 'Priority 2 - Medium'}</option>
+                    <option value="3">{language === 'es' ? 'Prioridad 3 - Baja' : 'Priority 3 - Low'}</option>
+                  </select>
+                </div>
+
+                {/* Section */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {language === 'es' ? 'Sección' : 'Section'}
+                  </label>
+                  <select
+                    value={roadmapForm.section}
+                    onChange={(e) => setRoadmapForm({ ...roadmapForm, section: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    required
+                  >
+                    <option value="">{language === 'es' ? 'Seleccionar sección...' : 'Select section...'}</option>
+                    {roadmapSections && roadmapSections[roadmapForm.priority]?.sections?.map((section) => (
+                      <option key={section.key} value={section.key}>
+                        {section.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Title */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {language === 'es' ? 'Título' : 'Title'}
+                  </label>
+                  <input
+                    type="text"
+                    value={roadmapForm.title}
+                    onChange={(e) => setRoadmapForm({ ...roadmapForm, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder={language === 'es' ? 'Título del item' : 'Item title'}
+                    required
+                  />
+                </div>
+
+                {/* Description */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {language === 'es' ? 'Descripción (opcional)' : 'Description (optional)'}
+                  </label>
+                  <textarea
+                    value={roadmapForm.description}
+                    onChange={(e) => setRoadmapForm({ ...roadmapForm, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    rows={3}
+                    placeholder={language === 'es' ? 'Descripción adicional...' : 'Additional description...'}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={closeRoadmapModal}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  >
+                    {language === 'es' ? 'Cancelar' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={roadmapLoading || !roadmapForm.title.trim() || !roadmapForm.section}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {roadmapLoading && (
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    )}
+                    {language === 'es' ? 'Agregar' : 'Add'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -217,7 +217,7 @@
   - Sincronizar estado: cuando Issue se cierra/reabre, actualizar bug report
   - Bug reports guardados en DB con referencia a GitHub issue
   - GitHub API con token de servicio
-- [ ] **Integración con TODO.md:** `~35K tokens | ~2.5h`
+- [x] **Integración con TODO.md:** `~35K tokens | ~2.5h`
   - Botón "Agregar al Roadmap" desde Dev Dashboard
   - Generar item formateado con estimado sugerido
   - Elegir prioridad (P1/P2/P3) y sección
