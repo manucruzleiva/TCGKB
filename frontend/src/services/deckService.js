@@ -49,7 +49,7 @@ export const deckService = {
     return response.data
   },
 
-  // Get community decks with filters
+  // Get community decks (public decks from all users)
   getCommunityDecks: async (params = {}) => {
     const response = await api.get('/decks/community', { params })
     return response.data
@@ -71,15 +71,45 @@ export const deckService = {
   },
 
   // Parse deck import text (supports multiple formats) - legacy client-side parser
+  // Tracks section headers to assign supertype (#147 fix)
   parseTCGLiveFormat: (text) => {
     const lines = text.trim().split('\n')
     const cards = []
+    let currentSection = null // Track current section for supertype assignment
 
     for (const line of lines) {
       const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('Pokémon') ||
-          trimmed.startsWith('Trainer') || trimmed.startsWith('Energy') ||
-          trimmed.startsWith('Pokemon') || trimmed.startsWith('Total')) continue
+      if (!trimmed || trimmed.startsWith('#')) continue
+
+      // Check for section headers and track the section (#147 fix)
+      const sectionMatch = trimmed.match(/^(Pokemon|Pokémon|Trainer|Energy|Total):\s*\d*$/i)
+      if (sectionMatch) {
+        const sectionName = sectionMatch[1].toLowerCase()
+        if (sectionName === 'pokemon' || sectionName === 'pokémon') {
+          currentSection = 'Pokémon'
+        } else if (sectionName === 'trainer') {
+          currentSection = 'Trainer'
+        } else if (sectionName === 'energy') {
+          currentSection = 'Energy'
+        }
+        continue
+      }
+
+      // Also handle simple section headers without count
+      if (/^(Pokemon|Pokémon|Trainer|Energy)$/i.test(trimmed)) {
+        const sectionName = trimmed.toLowerCase()
+        if (sectionName === 'pokemon' || sectionName === 'pokémon') {
+          currentSection = 'Pokémon'
+        } else if (sectionName === 'trainer') {
+          currentSection = 'Trainer'
+        } else if (sectionName === 'energy') {
+          currentSection = 'Energy'
+        }
+        continue
+      }
+
+      // Skip Total line
+      if (/^Total/i.test(trimmed)) continue
 
       // Format 1: "quantity Name SET Number" (e.g., "4 Pikachu SV1 25")
       // The SET code is usually 2-6 alphanumeric chars, Number is at the end
@@ -90,7 +120,9 @@ export const deckService = {
         const setCode = nameSetNumberMatch[3].toLowerCase()
         const number = nameSetNumberMatch[4]
         const cardId = `${setCode}-${number}`
-        cards.push({ cardId, quantity, name })
+        const card = { cardId, quantity, name }
+        if (currentSection) card.supertype = currentSection
+        cards.push(card)
         continue
       }
 
@@ -99,7 +131,9 @@ export const deckService = {
       if (setNumberMatch) {
         const quantity = parseInt(setNumberMatch[1])
         const cardId = setNumberMatch[2].toLowerCase()
-        cards.push({ cardId, quantity, name: cardId })
+        const card = { cardId, quantity, name: cardId }
+        if (currentSection) card.supertype = currentSection
+        cards.push(card)
         continue
       }
 
@@ -109,7 +143,9 @@ export const deckService = {
         const quantity = parseInt(nameWithIdMatch[1])
         const name = nameWithIdMatch[2].trim()
         const cardId = nameWithIdMatch[3].toLowerCase()
-        cards.push({ cardId, quantity, name })
+        const card = { cardId, quantity, name }
+        if (currentSection) card.supertype = currentSection
+        cards.push(card)
         continue
       }
 
@@ -118,19 +154,77 @@ export const deckService = {
       if (genericMatch) {
         const quantity = parseInt(genericMatch[1])
         const cardInfo = genericMatch[2].trim()
-        cards.push({
+        const card = {
           cardId: cardInfo.toLowerCase().replace(/\s+/g, '-'),
           quantity,
           name: cardInfo
-        })
+        }
+        if (currentSection) card.supertype = currentSection
+        cards.push(card)
       }
     }
 
     return cards
   },
 
-  // Format deck to TCG Live export string
+  // Format deck to TCG Live export string (standardized format with sections)
   formatToTCGLive: (cards) => {
-    return cards.map(card => `${card.quantity} ${card.cardId}`).join('\n')
+    const lines = []
+
+    // Helper to normalize supertype
+    const normalizeType = (type) => {
+      if (!type) return 'other'
+      const lower = type.toLowerCase()
+      if (lower === 'pokémon' || lower === 'pokemon') return 'pokemon'
+      if (lower === 'trainer') return 'trainer'
+      if (lower === 'energy') return 'energy'
+      return 'other'
+    }
+
+    // Group cards by supertype
+    const pokemon = cards.filter(c => normalizeType(c.supertype) === 'pokemon')
+    const trainers = cards.filter(c => normalizeType(c.supertype) === 'trainer')
+    const energy = cards.filter(c => normalizeType(c.supertype) === 'energy')
+    const other = cards.filter(c => normalizeType(c.supertype) === 'other')
+
+    // Format each section with header
+    if (pokemon.length > 0) {
+      const count = pokemon.reduce((sum, c) => sum + c.quantity, 0)
+      lines.push(`Pokémon: ${count}`)
+      pokemon.forEach(c => lines.push(`${c.quantity} ${c.name || c.cardId}`))
+      lines.push('')
+    }
+
+    if (trainers.length > 0) {
+      const count = trainers.reduce((sum, c) => sum + c.quantity, 0)
+      lines.push(`Trainer: ${count}`)
+      trainers.forEach(c => lines.push(`${c.quantity} ${c.name || c.cardId}`))
+      lines.push('')
+    }
+
+    if (energy.length > 0) {
+      const count = energy.reduce((sum, c) => sum + c.quantity, 0)
+      lines.push(`Energy: ${count}`)
+      energy.forEach(c => lines.push(`${c.quantity} ${c.name || c.cardId}`))
+      lines.push('')
+    }
+
+    if (other.length > 0) {
+      other.forEach(c => lines.push(`${c.quantity} ${c.name || c.cardId}`))
+    }
+
+    return lines.join('\n').trim()
+  },
+
+  // Get votes for a deck
+  getVotes: async (deckId) => {
+    const response = await api.get(`/decks/${deckId}/votes`)
+    return response.data
+  },
+
+  // Vote on a deck (up or down)
+  vote: async (deckId, vote) => {
+    const response = await api.post(`/decks/${deckId}/vote`, { vote })
+    return response.data
   }
 }

@@ -9,7 +9,7 @@ const deckCardSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 1,
-    max: 4
+    max: 60 // Allow up to 60 for Basic Energy cards (enforced by frontend)
   },
   // Cached card info for display
   name: String,
@@ -93,6 +93,14 @@ const deckSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Deck',
     default: null
+  },
+  // TCG system this deck belongs to (pokemon, riftbound)
+  // Prevents mixing cards from different TCGs
+  tcgSystem: {
+    type: String,
+    enum: ['pokemon', 'riftbound'],
+    default: 'pokemon',
+    index: true
   }
 }, {
   timestamps: true

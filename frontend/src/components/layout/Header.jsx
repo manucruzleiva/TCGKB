@@ -24,7 +24,8 @@ const Header = () => {
   const mobileSearchRef = useRef(null)
   const searchTimeoutRef = useRef(null)
   const userMenuRef = useRef(null)
-  const mainMenuRef = useRef(null)
+  const mainMenuRef = useRef(null) // Mobile logo menu
+  const desktopMenuRef = useRef(null) // Desktop "More" dropdown
 
   // Load most commented cards on mount
   useEffect(() => {
@@ -56,7 +57,10 @@ const Header = () => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false)
       }
-      if (mainMenuRef.current && !mainMenuRef.current.contains(event.target)) {
+      // Check both mobile and desktop menu refs
+      const isOutsideMainMenu = mainMenuRef.current && !mainMenuRef.current.contains(event.target)
+      const isOutsideDesktopMenu = desktopMenuRef.current && !desktopMenuRef.current.contains(event.target)
+      if (isOutsideMainMenu && isOutsideDesktopMenu) {
         setShowMainMenu(false)
       }
     }
@@ -145,14 +149,27 @@ const Header = () => {
     <header className="bg-white dark:bg-gray-800 shadow-md transition-colors relative">
       <div className="container mx-auto px-4 py-3 sm:py-4">
         <div className="flex items-center justify-between gap-4">
-          {/* Hamburger Menu */}
-          <div ref={mainMenuRef} className="relative shrink-0">
+          {/* Logo - Desktop: Link to Home, Mobile: Menu trigger */}
+          {/* Desktop Logo */}
+          <Link to="/" className="shrink-0 hidden lg:flex items-center gap-2">
+            <img
+              src="/logo-dark.png"
+              alt="TCG KB"
+              className="h-8 hidden dark:block"
+            />
+            <img
+              src="/logo-light.png"
+              alt="TCG KB"
+              className="h-8 dark:hidden"
+            />
+          </Link>
+          {/* Mobile Logo - Acts as menu trigger */}
+          <div ref={mainMenuRef} className="shrink-0 lg:hidden relative">
             <button
               onClick={() => setShowMainMenu(!showMainMenu)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="flex items-center gap-2"
               title={language === 'es' ? 'Menú' : 'Menu'}
             >
-              {/* Logo as menu invoker - switches based on theme */}
               <img
                 src="/logo-dark.png"
                 alt="TCG KB"
@@ -165,7 +182,7 @@ const Header = () => {
               />
             </button>
 
-            {/* Main Menu Dropdown */}
+            {/* Mobile Menu Dropdown */}
             {showMainMenu && (
               <div
                 className="absolute left-0 mt-2 w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl z-[9999] py-1"
@@ -179,18 +196,18 @@ const Header = () => {
                   🏠 {language === 'es' ? 'Inicio' : 'Home'}
                 </Link>
                 <Link
+                  to="/catalog"
+                  onClick={() => setShowMainMenu(false)}
+                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  📚 {language === 'es' ? 'Catálogo' : 'Cards'}
+                </Link>
+                <Link
                   to="/decks"
                   onClick={() => setShowMainMenu(false)}
                   className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   🃏 {language === 'es' ? 'Mazos' : 'Decks'}
-                </Link>
-                <Link
-                  to="/catalog"
-                  onClick={() => setShowMainMenu(false)}
-                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  📚 {language === 'es' ? 'Catalogo' : 'Catalog'}
                 </Link>
                 <Link
                   to="/artists"
@@ -205,7 +222,7 @@ const Header = () => {
                   onClick={() => setShowMainMenu(false)}
                   className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  🗺️ {language === 'es' ? 'Roadmap' : 'Roadmap'}
+                  🗺️ Roadmap
                 </Link>
                 <Link
                   to="/relationship-map"
@@ -217,6 +234,79 @@ const Header = () => {
               </div>
             )}
           </div>
+
+          {/* Desktop Navigation - Hidden on mobile */}
+          <nav className="hidden lg:flex items-center gap-1">
+            <Link
+              to="/catalog"
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                location.pathname === '/catalog'
+                  ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              {language === 'es' ? 'Catálogo' : 'Cards'}
+            </Link>
+            <Link
+              to="/decks"
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                location.pathname.startsWith('/deck')
+                  ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              {language === 'es' ? 'Mazos' : 'Decks'}
+            </Link>
+            <Link
+              to="/roadmap"
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                location.pathname === '/roadmap'
+                  ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              Roadmap
+            </Link>
+
+            {/* More dropdown for secondary links */}
+            <div ref={desktopMenuRef} className="relative">
+              <button
+                onClick={() => setShowMainMenu(!showMainMenu)}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                  showMainMenu
+                    ? 'bg-gray-100 dark:bg-gray-700'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {language === 'es' ? 'Más' : 'More'}
+                <svg className={`w-4 h-4 transition-transform ${showMainMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showMainMenu && (
+                <div
+                  className="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl z-[9999] py-1"
+                  style={{ top: '100%' }}
+                >
+                  <Link
+                    to="/artists"
+                    onClick={() => setShowMainMenu(false)}
+                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    🎨 {language === 'es' ? 'Artistas' : 'Artists'}
+                  </Link>
+                  <Link
+                    to="/relationship-map"
+                    onClick={() => setShowMainMenu(false)}
+                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    🔗 {language === 'es' ? 'Mapa de Relaciones' : 'Relationship Map'}
+                  </Link>
+                </div>
+              )}
+            </div>
+          </nav>
 
           {/* Search Bar with Autocomplete */}
           <div ref={searchRef} className="flex-1 max-w-md hidden md:block" style={{ position: 'relative' }}>
@@ -469,17 +559,27 @@ const Header = () => {
                   {searchResults.map((card) => (
                     <button
                       key={card.id}
-                      onClick={() => handleCardSelect(card.id)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleCardSelect(card.id)
+                      }}
+                      onTouchEnd={(e) => {
+                        // Ensure touch events also trigger navigation on mobile
+                        e.preventDefault()
+                        handleCardSelect(card.id)
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0 cursor-pointer touch-manipulation"
                     >
                       {card.images?.small && (
                         <img
                           src={card.images.small}
                           alt={card.name}
-                          className="w-12 h-16 object-cover rounded"
+                          className="w-12 h-16 object-cover rounded pointer-events-none"
                         />
                       )}
-                      <div className="flex-1 text-left min-w-0">
+                      <div className="flex-1 text-left min-w-0 pointer-events-none">
                         <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                           {card.name}
                         </div>
@@ -488,7 +588,7 @@ const Header = () => {
                         </div>
                       </div>
                       {card.tcgSystem && (
-                        <span className="text-xs px-2 py-1 rounded bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 shrink-0">
+                        <span className="text-xs px-2 py-1 rounded bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 shrink-0 pointer-events-none">
                           {card.tcgSystem}
                         </span>
                       )}

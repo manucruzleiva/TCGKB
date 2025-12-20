@@ -4,6 +4,8 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import api from '../../services/api'
 
+const DRAFT_STORAGE_KEY = 'tcgkb_bug_report_draft'
+
 const BugReportButton = () => {
   const { language } = useLanguage()
   const { isDark } = useTheme()
@@ -15,12 +17,53 @@ const BugReportButton = () => {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [issueUrl, setIssueUrl] = useState(null)
+  const [draftRestored, setDraftRestored] = useState(false)
   const buttonRef = useRef(null)
 
   // Classification state
   const [classification, setClassification] = useState(null)
   const [classifying, setClassifying] = useState(false)
   const classifyTimeoutRef = useRef(null)
+
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY)
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft)
+        if (draft.title || draft.description) {
+          setTitle(draft.title || '')
+          setDescription(draft.description || '')
+          setDraftRestored(true)
+          // Auto-open modal if there's a draft
+          setIsOpen(true)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load bug report draft:', error)
+    }
+  }, [])
+
+  // Save draft to localStorage when title or description changes
+  useEffect(() => {
+    if (title || description) {
+      try {
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ title, description }))
+      } catch (error) {
+        console.error('Failed to save bug report draft:', error)
+      }
+    }
+  }, [title, description])
+
+  // Clear draft from localStorage
+  const clearDraft = useCallback(() => {
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY)
+    } catch (error) {
+      console.error('Failed to clear bug report draft:', error)
+    }
+    setDraftRestored(false)
+  }, [])
 
   // Debounced classification check
   useEffect(() => {
@@ -128,6 +171,7 @@ const BugReportButton = () => {
       setTitle('')
       setDescription('')
       setScreenshot(null)
+      clearDraft() // Clear saved draft on successful submission
 
       // Keep modal open longer if we have a URL to show
       setTimeout(() => {
@@ -145,6 +189,16 @@ const BugReportButton = () => {
   }
 
   const handleClose = () => {
+    // If there's content, ask for confirmation before discarding
+    if ((title.trim() || description.trim()) && !success) {
+      const confirmDiscard = window.confirm(
+        language === 'es'
+          ? '¿Descartar el borrador? El texto se perderá.'
+          : 'Discard draft? Your text will be lost.'
+      )
+      if (!confirmDiscard) return
+    }
+
     setIsOpen(false)
     setTitle('')
     setDescription('')
@@ -152,6 +206,7 @@ const BugReportButton = () => {
     setSuccess(false)
     setIssueUrl(null)
     setClassification(null)
+    clearDraft() // Clear saved draft when explicitly closing
   }
 
   // Retry screenshot capture
@@ -178,12 +233,12 @@ const BugReportButton = () => {
 
   return (
     <>
-      {/* Floating Bug Report Button - Visible for all users */}
+      {/* Floating Bug Report Button - Visible for all users, z-[60] to be above modals (z-50) */}
       <button
         ref={buttonRef}
         data-bug-button
         onClick={handleOpenModal}
-        className="fixed bottom-4 right-4 z-40 p-3 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all hover:scale-110"
+        className="fixed bottom-4 right-4 z-[60] p-3 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all hover:scale-110"
         title={language === 'es' ? 'Reportar un Bug' : 'Report a Bug'}
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,10 +252,18 @@ const BugReportButton = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <span>🐛</span>
-                {language === 'es' ? 'Reportar un Bug' : 'Report a Bug'}
-              </h2>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <span>🐛</span>
+                  {language === 'es' ? 'Reportar un Bug' : 'Report a Bug'}
+                </h2>
+                {draftRestored && !success && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                    <span>✓</span>
+                    {language === 'es' ? 'Borrador restaurado' : 'Draft restored'}
+                  </p>
+                )}
+              </div>
               <button
                 onClick={handleClose}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"

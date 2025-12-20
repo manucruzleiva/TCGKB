@@ -14,10 +14,12 @@ export const cardService = {
     return response.data
   },
 
-  searchCards: async (name, limit = 10) => {
-    const response = await api.get('/cards/search', {
-      params: { name, limit }
-    })
+  searchCards: async (name, limit = 10, tcg = null) => {
+    const params = { name, limit }
+    if (tcg) {
+      params.tcg = tcg
+    }
+    const response = await api.get('/cards/search', { params })
     return response.data
   },
 

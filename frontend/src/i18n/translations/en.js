@@ -207,6 +207,84 @@ export const en = {
     errorDomainRestriction: '{{current}} card(s) don\'t match Legend\'s domains ({{domains}})'
   },
 
+  // Decks
+  decks: {
+    tabs: {
+      myDecks: 'My Decks',
+      community: 'Community'
+    },
+    title: 'Decks',
+    subtitle: 'Explore community decks or create your own',
+    createDeck: 'Create Deck',
+    import: 'Import',
+    search: 'Search decks...',
+    noDecks: 'No decks found',
+    noMyDecks: "You haven't created any decks yet",
+    noCommunityDecks: 'No public decks yet',
+    beFirst: 'Be the first to create a deck',
+    sortRecent: 'Recent',
+    sortPopular: 'Popular',
+    sortVotes: 'Votes',
+    vote: {
+      upvote: 'Upvote',
+      downvote: 'Downvote'
+    },
+    originalBadge: {
+      tooltip: 'The First - This deck has a unique composition'
+    },
+    // List page
+    tags: 'Tags',
+    sortLabel: 'Sort:',
+    activeFilters: 'Active filters:',
+    clearAll: 'Clear all',
+    public: 'Public',
+    private: 'Private',
+    previous: 'Previous',
+    next: 'Next',
+    // Import modal
+    importModal: {
+      title: 'Import Deck',
+      deckName: 'Deck name',
+      deckNamePlaceholder: 'My new deck',
+      cardList: 'Card list',
+      cardListPlaceholder: '4 Pikachu SV1 25\n3 Raichu SV1 26\n...',
+      formatHint: 'Format: "quantity Name SET Number" or "quantity SET-Number"',
+      cancel: 'Cancel',
+      importBtn: 'Import',
+      errorPasteCards: 'Paste the card list',
+      errorNameRequired: 'Name is required',
+      errorImportFailed: 'Import failed'
+    },
+    // Detail page
+    detail: {
+      backToDecks: 'Back to Decks',
+      notFound: 'Deck not found',
+      noAccess: 'You do not have access to this deck',
+      errorLoading: 'Error loading deck',
+      errorCopying: 'Error copying deck',
+      copiedToClipboard: 'Copied to clipboard',
+      errorDeleting: 'Error deleting',
+      views: 'views',
+      copies: 'copies',
+      export: 'Export',
+      copyDeck: 'Copy Deck',
+      edit: 'Edit',
+      delete: 'Delete',
+      cards: 'Cards',
+      emptyDeck: 'This deck is empty',
+      stats: 'Stats',
+      missingCards: 'Missing {count} cards',
+      overLimit: '{count} cards over limit',
+      deckComplete: 'Deck complete',
+      deleteConfirm: {
+        title: 'Delete deck?',
+        message: 'This action cannot be undone. Are you sure you want to delete this deck?',
+        cancel: 'Cancel',
+        confirm: 'Delete'
+      }
+    }
+  },
+
   // Deck Auto Tags
   deckAutoTags: {
     title: 'Auto Tags',

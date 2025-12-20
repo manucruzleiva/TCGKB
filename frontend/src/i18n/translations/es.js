@@ -187,6 +187,84 @@ export const es = {
     errorDomainRestriction: '{{current}} carta(s) no coinciden con los dominios del Legend ({{domains}})'
   },
 
+  // Decks
+  decks: {
+    tabs: {
+      myDecks: 'Mis Mazos',
+      community: 'Comunidad'
+    },
+    title: 'Mazos',
+    subtitle: 'Explora mazos de la comunidad o crea el tuyo',
+    createDeck: 'Crear Mazo',
+    import: 'Importar',
+    search: 'Buscar mazos...',
+    noDecks: 'No se encontraron mazos',
+    noMyDecks: 'Aún no has creado ningún mazo',
+    noCommunityDecks: 'No hay mazos públicos aún',
+    beFirst: 'Sé el primero en crear un mazo',
+    sortRecent: 'Recientes',
+    sortPopular: 'Popular',
+    sortVotes: 'Votos',
+    vote: {
+      upvote: 'Me gusta',
+      downvote: 'No me gusta'
+    },
+    originalBadge: {
+      tooltip: 'El Primero - Este mazo tiene una composición única'
+    },
+    // List page
+    tags: 'Tags',
+    sortLabel: 'Ordenar:',
+    activeFilters: 'Filtros activos:',
+    clearAll: 'Limpiar todo',
+    public: 'Público',
+    private: 'Privado',
+    previous: 'Anterior',
+    next: 'Siguiente',
+    // Import modal
+    importModal: {
+      title: 'Importar Mazo',
+      deckName: 'Nombre del mazo',
+      deckNamePlaceholder: 'Mi nuevo mazo',
+      cardList: 'Lista de cartas',
+      cardListPlaceholder: '4 Pikachu SV1 25\n3 Raichu SV1 26\n...',
+      formatHint: 'Formato: "cantidad Nombre SET Numero" o "cantidad SET-Numero"',
+      cancel: 'Cancelar',
+      importBtn: 'Importar',
+      errorPasteCards: 'Pega la lista de cartas',
+      errorNameRequired: 'El nombre es requerido',
+      errorImportFailed: 'Error al importar'
+    },
+    // Detail page
+    detail: {
+      backToDecks: 'Volver a Mazos',
+      notFound: 'Mazo no encontrado',
+      noAccess: 'No tienes acceso a este mazo',
+      errorLoading: 'Error al cargar el mazo',
+      errorCopying: 'Error al copiar el mazo',
+      copiedToClipboard: 'Copiado al portapapeles',
+      errorDeleting: 'Error al eliminar',
+      views: 'vistas',
+      copies: 'copias',
+      export: 'Exportar',
+      copyDeck: 'Copiar Mazo',
+      edit: 'Editar',
+      delete: 'Eliminar',
+      cards: 'Cartas',
+      emptyDeck: 'Este mazo está vacío',
+      stats: 'Estadísticas',
+      missingCards: 'Faltan {count} cartas',
+      overLimit: 'Sobran {count} cartas',
+      deckComplete: 'Mazo completo',
+      deleteConfirm: {
+        title: '¿Eliminar mazo?',
+        message: 'Esta acción no se puede deshacer. ¿Estás seguro de que quieres eliminar este mazo?',
+        cancel: 'Cancelar',
+        confirm: 'Eliminar'
+      }
+    }
+  },
+
   // Deck Auto Tags
   deckAutoTags: {
     title: 'Etiquetas Automáticas',

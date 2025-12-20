@@ -7,10 +7,12 @@ import { cardService } from '../services/cardService'
 import Spinner from '../components/common/Spinner'
 import DeckImportModal from '../components/decks/DeckImportModal'
 import DeckCardInteractive, { DeckDropZone } from '../components/decks/DeckCardInteractive'
-import { TypeFilterBar, TYPE_COLORS } from '../components/icons'
+import { TypeFilterBar, TYPE_COLORS, DomainFilterBar, DOMAIN_COLORS } from '../components/icons'
 
 // All Pokemon types for filtering
 const ALL_TYPES = Object.keys(TYPE_COLORS)
+// All Riftbound domains for filtering
+const ALL_DOMAINS = Object.keys(DOMAIN_COLORS)
 
 // Tag display labels
 const TAG_LABELS = {
@@ -79,6 +81,7 @@ const DeckBuilder = () => {
   const [isPublic, setIsPublic] = useState(false)
   const [tags, setTags] = useState([])
   const [cards, setCards] = useState([])
+  const [tcgSystem, setTcgSystem] = useState(null) // Locked TCG for this deck
 
   // Available tags from backend
   const [availableTags, setAvailableTags] = useState({})
@@ -97,8 +100,9 @@ const DeckBuilder = () => {
   // Import modal
   const [showImportModal, setShowImportModal] = useState(false)
 
-  // Visual filters - all types active by default
+  // Visual filters - all types/domains active by default
   const [activeTypes, setActiveTypes] = useState(ALL_TYPES)
+  const [activeDomains, setActiveDomains] = useState(ALL_DOMAINS)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -141,6 +145,7 @@ const DeckBuilder = () => {
         setIsPublic(deck.isPublic)
         setTags(deck.tags || [])
         setCards(deck.cards || [])
+        setTcgSystem(deck.tcgSystem || 'pokemon') // Load deck's TCG system
       }
     } catch (error) {
       console.error('Error fetching deck:', error)
@@ -150,7 +155,7 @@ const DeckBuilder = () => {
     }
   }
 
-  // Debounced card search
+  // Debounced card search - filtered by deck's TCG system
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([])
@@ -160,7 +165,8 @@ const DeckBuilder = () => {
     const timer = setTimeout(async () => {
       try {
         setSearching(true)
-        const response = await cardService.searchCards(searchQuery, 20)
+        // Pass tcgSystem to filter search results (only show cards from the same TCG)
+        const response = await cardService.searchCards(searchQuery, 20, tcgSystem)
         if (response.success) {
           setSearchResults(response.data.cards || [])
         }
@@ -172,16 +178,75 @@ const DeckBuilder = () => {
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [searchQuery])
+  }, [searchQuery, tcgSystem])
+
+  // Get max copies allowed based on TCG system (#150 fix)
+  // Pokemon TCG: 4 copies per card (except basic energy: unlimited)
+  // Riftbound TCG: 3 copies per card
+  const getMaxCopies = (card, currentTcg = tcgSystem) => {
+    // Energy cards in Pokemon TCG can have up to 60 copies
+    if (currentTcg !== 'riftbound' && card?.supertype === 'Energy') {
+      return 60
+    }
+    // Riftbound: 3 copies max for all cards
+    if (currentTcg === 'riftbound') {
+      return 3
+    }
+    // Pokemon TCG default: 4 copies
+    return 4
+  }
 
   const addCard = (card, quantity = 1) => {
     const cardId = card.id || card.cardId
+    const cardName = card.name
+
+    // Get card's TCG system (default to 'pokemon')
+    const cardTcg = card.tcgSystem || 'pokemon'
+
+    // If deck already has a TCG locked, prevent adding cards from different TCG
+    if (tcgSystem && cardTcg !== tcgSystem) {
+      setError(
+        language === 'es'
+          ? `No puedes mezclar cartas de diferentes TCGs. Este mazo es de ${tcgSystem === 'pokemon' ? 'Pokémon' : 'Riftbound'}.`
+          : `Cannot mix cards from different TCGs. This deck is for ${tcgSystem === 'pokemon' ? 'Pokémon' : 'Riftbound'}.`
+      )
+      // Auto-clear error after 3 seconds
+      setTimeout(() => setError(null), 3000)
+      return
+    }
+
+    // Clear any previous error when successfully adding a card
+    if (error) setError(null)
+
+    // Lock the TCG system on first card
+    if (!tcgSystem) {
+      setTcgSystem(cardTcg)
+    }
+
     setCards(prev => {
+      const maxQty = getMaxCopies(card)
+
+      // #151 fix: Count total copies of cards with the same NAME (reprint detection)
+      // This applies to all cards except basic energy in Pokemon TCG
+      const isBasicEnergy = card.supertype === 'Energy' && tcgSystem !== 'riftbound'
+      const totalByName = isBasicEnergy
+        ? 0 // Basic energy has no reprint limit
+        : prev.filter(c => c.name?.toLowerCase() === cardName?.toLowerCase())
+            .reduce((sum, c) => sum + c.quantity, 0)
+
+      // Calculate how many more copies can be added
+      const availableSlots = isBasicEnergy ? 60 : maxQty - totalByName
+
+      if (availableSlots <= 0 && !isBasicEnergy) {
+        // Can't add more - limit reached across all reprints
+        return prev
+      }
+
       const existing = prev.find(c => c.cardId === cardId)
       if (existing) {
-        // Increase quantity (max 4 for non-energy, unlimited for energy)
-        const maxQty = card.supertype === 'Energy' ? 60 : 4
-        const newQty = Math.min(maxQty, existing.quantity + quantity)
+        // Increase quantity (respecting reprint limit - #151 fix)
+        const addable = Math.min(quantity, availableSlots)
+        const newQty = existing.quantity + addable
         if (newQty === existing.quantity) return prev
         return prev.map(c =>
           c.cardId === cardId
@@ -189,12 +254,15 @@ const DeckBuilder = () => {
             : c
         )
       }
-      // Add new card
-      const maxQty = card.supertype === 'Energy' ? 60 : 4
+
+      // Add new card (respecting reprint limit - #151 fix)
+      const addable = Math.min(quantity, availableSlots)
+      if (addable <= 0) return prev
+
       return [...prev, {
         cardId: cardId,
-        name: card.name,
-        quantity: Math.min(maxQty, quantity),
+        name: cardName,
+        quantity: addable,
         supertype: card.supertype,
         imageSmall: card.images?.small || card.imageSmall
       }]
@@ -205,8 +273,20 @@ const DeckBuilder = () => {
     setCards(prev => {
       const existing = prev.find(c => c.cardId === cardId)
       if (!existing) return prev
-      const maxQty = existing.supertype === 'Energy' ? 60 : 4
-      const newQty = Math.max(1, Math.min(maxQty, quantity))
+
+      const maxQty = getMaxCopies(existing)
+
+      // #151 fix: Check reprint limit (total copies of same name across all versions)
+      const isBasicEnergy = existing.supertype === 'Energy' && tcgSystem !== 'riftbound'
+      const otherSameNameQty = isBasicEnergy
+        ? 0
+        : prev.filter(c => c.name?.toLowerCase() === existing.name?.toLowerCase() && c.cardId !== cardId)
+            .reduce((sum, c) => sum + c.quantity, 0)
+
+      // Max for this card is limit minus other reprints
+      const effectiveMax = isBasicEnergy ? 60 : maxQty - otherSameNameQty
+      const newQty = Math.max(1, Math.min(effectiveMax, quantity))
+
       return prev.map(c =>
         c.cardId === cardId
           ? { ...c, quantity: newQty }
@@ -243,6 +323,13 @@ const DeckBuilder = () => {
     setCards(prev => prev.filter(c => c.cardId !== cardId))
   }
 
+  // Clear TCG lock when all cards are removed
+  useEffect(() => {
+    if (cards.length === 0 && tcgSystem !== null) {
+      setTcgSystem(null)
+    }
+  }, [cards.length, tcgSystem])
+
   const toggleTag = (tag) => {
     if (tags.includes(tag)) {
       setTags(prev => prev.filter(t => t !== tag))
@@ -255,11 +342,10 @@ const DeckBuilder = () => {
     setTags(prev => prev.filter(t => t !== tag))
   }
 
-  // Toggle type filter
+  // Toggle type filter (Pokemon)
   const toggleTypeFilter = (type) => {
     setActiveTypes(prev => {
       if (prev.includes(type)) {
-        // If removing last type, keep it active (must have at least one)
         if (prev.length === 1) return prev
         return prev.filter(t => t !== type)
       }
@@ -267,23 +353,47 @@ const DeckBuilder = () => {
     })
   }
 
+  // Toggle domain filter (Riftbound)
+  const toggleDomainFilter = (domain) => {
+    setActiveDomains(prev => {
+      if (prev.includes(domain)) {
+        if (prev.length === 1) return prev
+        return prev.filter(d => d !== domain)
+      }
+      return [...prev, domain]
+    })
+  }
+
   // Reset all filters
   const resetFilters = () => {
     setActiveTypes(ALL_TYPES)
+    setActiveDomains(ALL_DOMAINS)
   }
 
-  // Filter search results by active types
+  // Filter search results by active types/domains
   const filteredSearchResults = useMemo(() => {
-    if (activeTypes.length === ALL_TYPES.length) {
-      return searchResults // All types active, no filtering needed
+    // For Pokemon: filter by types
+    if (tcgSystem === 'pokemon' || !tcgSystem) {
+      if (activeTypes.length === ALL_TYPES.length) {
+        return searchResults
+      }
+      return searchResults.filter(card => {
+        if (!card.types || card.types.length === 0) return true
+        return card.types.some(type => activeTypes.includes(type.toLowerCase()))
+      })
     }
-    return searchResults.filter(card => {
-      // Show cards without types (trainers, energies)
-      if (!card.types || card.types.length === 0) return true
-      // Show if any of the card's types is active
-      return card.types.some(type => activeTypes.includes(type.toLowerCase()))
-    })
-  }, [searchResults, activeTypes])
+    // For Riftbound: filter by domains
+    if (tcgSystem === 'riftbound') {
+      if (activeDomains.length === ALL_DOMAINS.length) {
+        return searchResults
+      }
+      return searchResults.filter(card => {
+        if (!card.domains || card.domains.length === 0) return true
+        return card.domains.some(domain => activeDomains.includes(domain.toLowerCase()))
+      })
+    }
+    return searchResults
+  }, [searchResults, activeTypes, activeDomains, tcgSystem])
 
   // Handle import from DeckImportModal
   const handleImport = (importData) => {
@@ -293,10 +403,16 @@ const DeckBuilder = () => {
       name: card.name,
       quantity: card.quantity,
       supertype: card.supertype || 'Unknown',
-      imageSmall: null // Images will be loaded when viewing
+      imageSmall: card.imageSmall || null // Use enriched image from parse
     }))
 
     setCards(importedCards)
+
+    // Detect TCG system from imported cards (use first card's TCG)
+    if (importData.cards.length > 0) {
+      const firstCardTcg = importData.cards[0].tcgSystem || 'pokemon'
+      setTcgSystem(firstCardTcg)
+    }
 
     // Auto-add format tag if detected
     if (importData.format && !tags.includes(importData.format)) {
@@ -325,7 +441,8 @@ const DeckBuilder = () => {
         description: description.trim(),
         isPublic,
         tags,
-        cards
+        cards,
+        tcgSystem: tcgSystem || 'pokemon' // Default to pokemon if no cards added
       }
 
       let response
@@ -358,9 +475,24 @@ const DeckBuilder = () => {
 
   // Calculate deck stats
   const totalCards = cards.reduce((sum, c) => sum + c.quantity, 0)
+
+  // Pokemon TCG stats
   const pokemonCount = cards.filter(c => normalizeType(c.supertype) === 'Pokémon').reduce((sum, c) => sum + c.quantity, 0)
   const trainerCount = cards.filter(c => normalizeType(c.supertype) === 'Trainer').reduce((sum, c) => sum + c.quantity, 0)
   const energyCount = cards.filter(c => normalizeType(c.supertype) === 'Energy').reduce((sum, c) => sum + c.quantity, 0)
+
+  // Riftbound TCG stats (#149 fix)
+  const legendCount = cards.filter(c => c.cardType === 'Legend').reduce((sum, c) => sum + c.quantity, 0)
+  const battlefieldCount = cards.filter(c => c.name?.toLowerCase().includes('battlefield')).reduce((sum, c) => sum + c.quantity, 0)
+  const runeCount = cards.filter(c => c.name?.toLowerCase().includes('rune')).reduce((sum, c) => sum + c.quantity, 0)
+  const mainDeckCount = cards.filter(c =>
+    !c.name?.toLowerCase().includes('rune') &&
+    !c.name?.toLowerCase().includes('battlefield') &&
+    c.cardType !== 'Legend'
+  ).reduce((sum, c) => sum + c.quantity, 0)
+
+  // Target deck size based on TCG
+  const targetDeckSize = tcgSystem === 'riftbound' ? 56 : 60
 
   if (loading) {
     return (
@@ -412,9 +544,9 @@ const DeckBuilder = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Deck Info */}
-        <div className="lg:col-span-1 space-y-6">
+      <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
+        {/* Deck Info - Always first on both mobile and desktop */}
+        <div className="order-1 lg:order-none lg:col-span-1">
           {/* Basic Info */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
@@ -462,6 +594,25 @@ const DeckBuilder = () => {
                   {language === 'es' ? 'Mazo público' : 'Public deck'}
                 </label>
               </div>
+
+              {/* TCG System Indicator */}
+              {tcgSystem && (
+                <div className="flex items-center gap-2 p-3 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg">
+                  <span className="text-lg">
+                    {tcgSystem === 'pokemon' ? '🎴' : '🌀'}
+                  </span>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-primary-700 dark:text-primary-300">
+                      {tcgSystem === 'pokemon' ? 'Pokémon TCG' : 'Riftbound TCG'}
+                    </span>
+                    <p className="text-xs text-primary-600 dark:text-primary-400">
+                      {language === 'es'
+                        ? 'Solo cartas de este TCG pueden añadirse'
+                        : 'Only cards from this TCG can be added'}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Tags Section */}
               <div>
@@ -530,54 +681,10 @@ const DeckBuilder = () => {
             </div>
           </div>
 
-          {/* Deck Stats */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-              {language === 'es' ? 'Estadísticas' : 'Stats'}
-            </h2>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Total</span>
-                <span className={`font-bold ${totalCards === 60 ? 'text-green-600' : totalCards > 60 ? 'text-red-600' : 'text-gray-900 dark:text-gray-100'}`}>
-                  {totalCards}/60
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Pokémon</span>
-                <span className="font-semibold text-blue-600">{pokemonCount}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Trainer</span>
-                <span className="font-semibold text-purple-600">{trainerCount}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Energy</span>
-                <span className="font-semibold text-yellow-600">{energyCount}</span>
-              </div>
-            </div>
-
-            {/* Visual breakdown bar */}
-            {totalCards > 0 && (
-              <div className="mt-4 h-4 rounded-full overflow-hidden flex bg-gray-200 dark:bg-gray-700">
-                <div
-                  className="bg-blue-500"
-                  style={{ width: `${(pokemonCount / totalCards) * 100}%` }}
-                />
-                <div
-                  className="bg-purple-500"
-                  style={{ width: `${(trainerCount / totalCards) * 100}%` }}
-                />
-                <div
-                  className="bg-yellow-500"
-                  style={{ width: `${(energyCount / totalCards) * 100}%` }}
-                />
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Right Column - Card Search & Deck */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Card Search & Deck - Second on mobile, right column on desktop */}
+        <div className="order-2 lg:order-none lg:col-span-2 space-y-6">
           {/* Card Search */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
@@ -601,19 +708,29 @@ const DeckBuilder = () => {
               )}
             </div>
 
-            {/* Type Filters */}
+            {/* Type/Domain Filters - Switch based on TCG system */}
             {searchResults.length > 0 && (
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
                   {language === 'es' ? 'Filtrar:' : 'Filter:'}
                 </span>
-                <TypeFilterBar
-                  types={ALL_TYPES}
-                  activeTypes={activeTypes}
-                  onToggle={toggleTypeFilter}
-                  size={24}
-                />
-                {activeTypes.length < ALL_TYPES.length && (
+                {tcgSystem === 'riftbound' ? (
+                  <DomainFilterBar
+                    domains={ALL_DOMAINS}
+                    activeDomains={activeDomains}
+                    onToggle={toggleDomainFilter}
+                    size={24}
+                  />
+                ) : (
+                  <TypeFilterBar
+                    types={ALL_TYPES}
+                    activeTypes={activeTypes}
+                    onToggle={toggleTypeFilter}
+                    size={24}
+                  />
+                )}
+                {((tcgSystem === 'riftbound' && activeDomains.length < ALL_DOMAINS.length) ||
+                  (tcgSystem !== 'riftbound' && activeTypes.length < ALL_TYPES.length)) && (
                   <button
                     onClick={resetFilters}
                     className="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:underline"
@@ -633,7 +750,7 @@ const DeckBuilder = () => {
                     card={card}
                     mode="search"
                     onAdd={addCard}
-                    maxQuantity={card.supertype === 'Energy' ? 60 : 4}
+                    maxQuantity={getMaxCopies(card)}
                     draggable={true}
                   />
                 ))}
@@ -692,7 +809,7 @@ const DeckBuilder = () => {
                             onRemove={removeCard}
                             onDelete={deleteCard}
                             onSetQuantity={setCardQuantity}
-                            maxQuantity={supertype === 'Energy' ? 60 : 4}
+                            maxQuantity={getMaxCopies(card)}
                           />
                         ))}
                       </div>
@@ -729,6 +846,119 @@ const DeckBuilder = () => {
               </div>
             )}
           </DeckDropZone>
+        </div>
+
+        {/* Deck Stats - Last on mobile, sidebar on desktop */}
+        <div className="order-3 lg:order-none">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+              {language === 'es' ? 'Estadísticas' : 'Stats'}
+            </h2>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-400">Total</span>
+                <span className={`font-bold ${totalCards === targetDeckSize ? 'text-green-600' : totalCards > targetDeckSize ? 'text-red-600' : 'text-gray-900 dark:text-gray-100'}`}>
+                  {totalCards}/{targetDeckSize}
+                </span>
+              </div>
+
+              {/* Pokemon TCG Stats */}
+              {tcgSystem !== 'riftbound' && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">Pokémon</span>
+                    <span className="font-semibold text-blue-600">{pokemonCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">Trainer</span>
+                    <span className="font-semibold text-purple-600">{trainerCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">Energy</span>
+                    <span className="font-semibold text-yellow-600">{energyCount}</span>
+                  </div>
+                </>
+              )}
+
+              {/* Riftbound TCG Stats (#149 fix) */}
+              {tcgSystem === 'riftbound' && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'es' ? 'Mazo Principal' : 'Main Deck'}
+                    </span>
+                    <span className={`font-semibold ${mainDeckCount === 40 ? 'text-green-600' : 'text-blue-600'}`}>
+                      {mainDeckCount}/40
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'es' ? 'Leyenda' : 'Legend'}
+                    </span>
+                    <span className={`font-semibold ${legendCount === 1 ? 'text-green-600' : 'text-amber-600'}`}>
+                      {legendCount}/1
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'es' ? 'Campos' : 'Battlefields'}
+                    </span>
+                    <span className={`font-semibold ${battlefieldCount === 3 ? 'text-green-600' : 'text-purple-600'}`}>
+                      {battlefieldCount}/3
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'es' ? 'Runas' : 'Runes'}
+                    </span>
+                    <span className={`font-semibold ${runeCount === 12 ? 'text-green-600' : 'text-cyan-600'}`}>
+                      {runeCount}/12
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Visual breakdown bar - Pokemon TCG */}
+            {totalCards > 0 && tcgSystem !== 'riftbound' && (
+              <div className="mt-4 h-4 rounded-full overflow-hidden flex bg-gray-200 dark:bg-gray-700">
+                <div
+                  className="bg-blue-500"
+                  style={{ width: `${(pokemonCount / totalCards) * 100}%` }}
+                />
+                <div
+                  className="bg-purple-500"
+                  style={{ width: `${(trainerCount / totalCards) * 100}%` }}
+                />
+                <div
+                  className="bg-yellow-500"
+                  style={{ width: `${(energyCount / totalCards) * 100}%` }}
+                />
+              </div>
+            )}
+
+            {/* Visual breakdown bar - Riftbound TCG (#149 fix) */}
+            {totalCards > 0 && tcgSystem === 'riftbound' && (
+              <div className="mt-4 h-4 rounded-full overflow-hidden flex bg-gray-200 dark:bg-gray-700">
+                <div
+                  className="bg-blue-500"
+                  style={{ width: `${(mainDeckCount / targetDeckSize) * 100}%` }}
+                />
+                <div
+                  className="bg-amber-500"
+                  style={{ width: `${(legendCount / targetDeckSize) * 100}%` }}
+                />
+                <div
+                  className="bg-purple-500"
+                  style={{ width: `${(battlefieldCount / targetDeckSize) * 100}%` }}
+                />
+                <div
+                  className="bg-cyan-500"
+                  style={{ width: `${(runeCount / targetDeckSize) * 100}%` }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

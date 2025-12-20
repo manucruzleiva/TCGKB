@@ -25,6 +25,63 @@ Este proyecto incluye tests automatizados end-to-end usando Playwright para veri
 - ✅ Visualización de comentarios existentes
 - ✅ Respuestas anidadas
 
+### 4. Deck Manager (`decks.spec.js`)
+- ✅ Community Tab - carga de decks públicos
+- ✅ Navegación entre tabs (Mis Decks / Comunidad)
+- ✅ Opciones de ordenamiento
+- ✅ Filtrado por tags
+- ✅ Import Flow - modal, validación, formatos
+- ✅ Sistema de votos (👍/👎)
+- ✅ Detalle de deck - badges, export
+
+### 5. Deck Validation (`deck-validation.spec.js`) - DM-V2
+- ✅ Pokemon Standard validation (60 cards, 4 copies, ACE SPEC, Radiant)
+- ✅ Pokemon GLC validation (singleton, single type, no rule box)
+- ✅ Riftbound validation (40+1+3+12, domain restriction)
+- ✅ Format detection (Standard, GLC, Riftbound)
+- ✅ DeckValidationIndicator component (inline errors)
+- ✅ Reprints counting together
+
+### 6. Deck API (`deck-api.spec.js`) - DM-V2
+- ✅ POST /api/decks/parse - parsing and enrichment
+- ✅ Card Enrichment Service (Rule Box, Basic Pokemon, ACE SPEC detection)
+- ✅ TCG auto-detection (Pokemon vs Riftbound)
+- ✅ GET /api/decks/community - pagination, filters, sorting
+- ✅ Voting API (upvote, downvote, anonymous)
+- ✅ Performance tests (<500ms for 60 cards)
+
+### 7. Deck Features (`deck-features.spec.js`) - DM-V2
+- ✅ Card Interactions (left/right click, drag & drop)
+- ✅ Visual Filters (type icons, grayscale toggle)
+- ✅ Auto-tagging (energy types, mechanics, real-time)
+- ✅ Real-time Updates (Socket.io)
+- ✅ Community Features (read-only, copy deck, badges)
+- ✅ i18n for DM-V2 (ES/EN)
+- ✅ Reprints Grouping (visual, normalization)
+
+---
+
+## 📊 Test Coverage Matrix (DM-V2)
+
+| Ticket | Test File | Test Cases | Status |
+|--------|-----------|------------|--------|
+| Import Flow E2E | `decks.spec.js`, `deck-api.spec.js` | 7 TCs | ✅ |
+| Pokemon Standard Validation | `deck-validation.spec.js` | 9 TCs | ✅ |
+| Pokemon GLC Validation | `deck-validation.spec.js` | 4 TCs | ✅ |
+| Riftbound Validation | `deck-validation.spec.js` | 2 TCs | ✅ |
+| Format Detection | `deck-validation.spec.js` | 3 TCs | ✅ |
+| Card Enrichment Service | `deck-api.spec.js` | 8 TCs | ✅ |
+| DeckValidationIndicator | `deck-validation.spec.js` | 4 TCs | ✅ |
+| Card Interactions | `deck-features.spec.js` | 4 TCs | ✅ |
+| Visual Filters | `deck-features.spec.js` | 4 TCs | ✅ |
+| Auto-tagging | `deck-features.spec.js` | 4 TCs | ✅ |
+| Community Features | `deck-features.spec.js`, `decks.spec.js` | 8 TCs | ✅ |
+| Real-time Updates | `deck-features.spec.js` | 2 TCs | ✅ |
+| i18n | `deck-features.spec.js` | 3 TCs | ✅ |
+| Reprints Grouping | `deck-validation.spec.js`, `deck-features.spec.js` | 3 TCs | ✅ |
+
+**Total: ~65 test cases for DM-V2**
+
 ## 🚀 Cómo Ejecutar los Tests
 
 ### Pre-requisitos
