@@ -180,6 +180,22 @@ const DeckBuilder = () => {
     return () => clearTimeout(timer)
   }, [searchQuery, tcgSystem])
 
+  // Get max copies allowed based on TCG system (#150 fix)
+  // Pokemon TCG: 4 copies per card (except basic energy: unlimited)
+  // Riftbound TCG: 3 copies per card
+  const getMaxCopies = (card, currentTcg = tcgSystem) => {
+    // Energy cards in Pokemon TCG can have up to 60 copies
+    if (currentTcg !== 'riftbound' && card?.supertype === 'Energy') {
+      return 60
+    }
+    // Riftbound: 3 copies max for all cards
+    if (currentTcg === 'riftbound') {
+      return 3
+    }
+    // Pokemon TCG default: 4 copies
+    return 4
+  }
+
   const addCard = (card, quantity = 1) => {
     const cardId = card.id || card.cardId
 
@@ -209,8 +225,8 @@ const DeckBuilder = () => {
     setCards(prev => {
       const existing = prev.find(c => c.cardId === cardId)
       if (existing) {
-        // Increase quantity (max 4 for non-energy, unlimited for energy)
-        const maxQty = card.supertype === 'Energy' ? 60 : 4
+        // Increase quantity (use TCG-specific limits - #150 fix)
+        const maxQty = getMaxCopies(card)
         const newQty = Math.min(maxQty, existing.quantity + quantity)
         if (newQty === existing.quantity) return prev
         return prev.map(c =>
@@ -219,8 +235,8 @@ const DeckBuilder = () => {
             : c
         )
       }
-      // Add new card
-      const maxQty = card.supertype === 'Energy' ? 60 : 4
+      // Add new card (use TCG-specific limits - #150 fix)
+      const maxQty = getMaxCopies(card)
       return [...prev, {
         cardId: cardId,
         name: card.name,
@@ -235,7 +251,8 @@ const DeckBuilder = () => {
     setCards(prev => {
       const existing = prev.find(c => c.cardId === cardId)
       if (!existing) return prev
-      const maxQty = existing.supertype === 'Energy' ? 60 : 4
+      // Use TCG-specific limits (#150 fix)
+      const maxQty = getMaxCopies(existing)
       const newQty = Math.max(1, Math.min(maxQty, quantity))
       return prev.map(c =>
         c.cardId === cardId
@@ -700,7 +717,7 @@ const DeckBuilder = () => {
                     card={card}
                     mode="search"
                     onAdd={addCard}
-                    maxQuantity={card.supertype === 'Energy' ? 60 : 4}
+                    maxQuantity={getMaxCopies(card)}
                     draggable={true}
                   />
                 ))}
@@ -759,7 +776,7 @@ const DeckBuilder = () => {
                             onRemove={removeCard}
                             onDelete={deleteCard}
                             onSetQuantity={setCardQuantity}
-                            maxQuantity={supertype === 'Energy' ? 60 : 4}
+                            maxQuantity={getMaxCopies(card)}
                           />
                         ))}
                       </div>

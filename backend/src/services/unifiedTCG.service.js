@@ -429,6 +429,8 @@ class UnifiedTCGService {
             id: card.id,
             name: card.name,
             supertype: card.supertype, // Include supertype for deck building
+            types: card.types || [], // Include types for filter bar (#152 fix)
+            domains: card.domains || [], // Include domains for Riftbound filter bar (#152 fix)
             images: card.images,
             set: card.set,
             number: card.number,
@@ -477,6 +479,8 @@ class UnifiedTCGService {
           id: card.id,
           name: card.name,
           supertype: card.supertype, // Include supertype for deck building
+          types: card.types || [], // Include types for filter bar (#152 fix)
+          domains: card.domains || [], // Include domains for Riftbound filter bar (#152 fix)
           images: card.images,
           set: card.set,
           number: card.number,

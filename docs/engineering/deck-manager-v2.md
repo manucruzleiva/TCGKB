@@ -438,3 +438,54 @@ Conditional UI rendering:
 - Riftbound TCG: Shows Main Deck (40), Legend (1), Battlefields (3), Runes (12) (56 card target)
 - Visual bar colors match category colors
 - Green highlight when each section reaches target count
+
+### #150 - Riftbound Deck Allowing 4 Copies Instead of 3
+
+**Problem**: When building a Riftbound deck, users could add 4 copies of a card instead of the Riftbound limit of 3.
+
+**Fix**: `frontend/src/pages/DeckBuilder.jsx`
+
+Added TCG-specific copy limit helper:
+```javascript
+// Get max copies allowed based on TCG system
+const getMaxCopies = (card, currentTcg = tcgSystem) => {
+  // Energy cards in Pokemon TCG can have up to 60 copies
+  if (currentTcg !== 'riftbound' && card?.supertype === 'Energy') {
+    return 60
+  }
+  // Riftbound: 3 copies max for all cards
+  if (currentTcg === 'riftbound') {
+    return 3
+  }
+  // Pokemon TCG default: 4 copies
+  return 4
+}
+```
+
+Updated all card quantity handlers to use `getMaxCopies()`:
+- `addCard()` - uses getMaxCopies for new and existing cards
+- `setCardQuantity()` - uses getMaxCopies for quantity changes
+- `DeckCardInteractive` components - pass getMaxCopies(card) as maxQuantity prop
+
+### #152 - Filter Bar Not Working in Deck Builder Search
+
+**Problem**: Type/Domain filter bar icons were not filtering search results in deck builder.
+
+**Root Cause**: The autocomplete search endpoint wasn't returning `types` or `domains` fields.
+
+**Fix**: `backend/src/services/unifiedTCG.service.js`
+
+Added missing fields to search result mapping:
+```javascript
+.map(card => ({
+  id: card.id,
+  name: card.name,
+  supertype: card.supertype,
+  types: card.types || [],     // Added for Pokemon filter
+  domains: card.domains || [], // Added for Riftbound filter
+  images: card.images,
+  // ... rest of fields
+}))
+```
+
+Fixed in both Level 2 (MongoDB cache) and Level 3 (API fetch) result mappings.
