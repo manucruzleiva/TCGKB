@@ -541,3 +541,89 @@ Behavior:
 - "4 Pikachu SVI-189" - accepted with warning (close to valid)
 - "4 ssp-97" - rejected with error (not valid PTCGL)
 - "4 Pikachu" - accepted for resolution (missing set info)
+
+---
+
+## Sprint 6 Fixes (2025-12-20)
+
+### Header Navigation Changes
+
+**Remove Changelog from Header**
+
+Removed the Changelog link from both desktop and mobile navigation menus. The route still exists but is no longer accessible from the main navigation.
+
+**Files changed:**
+- `frontend/src/components/layout/Header.jsx`
+
+**Mobile Header - Logo as Menu Trigger**
+
+On mobile devices, the logo now acts as the hamburger menu trigger instead of having a separate hamburger icon.
+
+**Implementation:**
+- Desktop (lg:): Logo links to home, "More" dropdown for secondary links
+- Mobile (<lg): Clicking logo opens mobile navigation menu
+
+**Files changed:**
+- `frontend/src/components/layout/Header.jsx`
+  - Added `desktopMenuRef` for desktop "More" dropdown
+  - Mobile logo button opens `showMainMenu` state
+  - Removed separate hamburger icon
+  - Updated click-outside handler to check both refs
+
+```jsx
+{/* Desktop Logo - Link to Home */}
+<Link to="/" className="hidden lg:flex ...">
+  <img src="/logo-*.png" />
+</Link>
+
+{/* Mobile Logo - Menu trigger */}
+<div ref={mainMenuRef} className="lg:hidden relative">
+  <button onClick={() => setShowMainMenu(!showMainMenu)}>
+    <img src="/logo-*.png" />
+  </button>
+  {showMainMenu && (
+    <div className="absolute left-0 ...">
+      {/* Mobile menu items */}
+    </div>
+  )}
+</div>
+```
+
+### #154 - Unified Import Logic
+
+**Problem**: DeckList.jsx and DeckBuilder.jsx used different import modals with different parsing logic.
+
+**Solution**: Unified both to use `DeckImportModal` component:
+- Added `mode` prop: `'import'` (default) or `'create'`
+- Added `onCreateDeck` callback for create mode
+- Create mode shows deck name input field
+
+**Files changed:**
+- `frontend/src/components/decks/DeckImportModal.jsx`
+  - Added `mode` and `onCreateDeck` props
+  - Added `deckName` state for create mode
+  - Updated `handleImport` to handle both modes
+  - Added name input field in create mode
+  - Updated button text based on mode
+
+- `frontend/src/pages/DeckList.jsx`
+  - Removed inline import modal
+  - Uses `DeckImportModal` with `mode="create"`
+  - Simplified state (removed importText, importName, importing, importError)
+  - Added `handleCreateDeck` handler
+
+```jsx
+// DeckList.jsx now uses unified modal
+<DeckImportModal
+  isOpen={showImportModal}
+  onClose={() => setShowImportModal(false)}
+  mode="create"
+  onCreateDeck={handleCreateDeck}
+/>
+```
+
+**Benefits:**
+- Single source of truth for deck parsing (backend API)
+- Preview with validation before creating
+- Consistent UX across both pages
+- Auto-detection of TCG system and format
