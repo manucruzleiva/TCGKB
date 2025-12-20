@@ -198,6 +198,7 @@ const DeckBuilder = () => {
 
   const addCard = (card, quantity = 1) => {
     const cardId = card.id || card.cardId
+    const cardName = card.name
 
     // Get card's TCG system (default to 'pokemon')
     const cardTcg = card.tcgSystem || 'pokemon'
@@ -223,11 +224,29 @@ const DeckBuilder = () => {
     }
 
     setCards(prev => {
+      const maxQty = getMaxCopies(card)
+
+      // #151 fix: Count total copies of cards with the same NAME (reprint detection)
+      // This applies to all cards except basic energy in Pokemon TCG
+      const isBasicEnergy = card.supertype === 'Energy' && tcgSystem !== 'riftbound'
+      const totalByName = isBasicEnergy
+        ? 0 // Basic energy has no reprint limit
+        : prev.filter(c => c.name?.toLowerCase() === cardName?.toLowerCase())
+            .reduce((sum, c) => sum + c.quantity, 0)
+
+      // Calculate how many more copies can be added
+      const availableSlots = isBasicEnergy ? 60 : maxQty - totalByName
+
+      if (availableSlots <= 0 && !isBasicEnergy) {
+        // Can't add more - limit reached across all reprints
+        return prev
+      }
+
       const existing = prev.find(c => c.cardId === cardId)
       if (existing) {
-        // Increase quantity (use TCG-specific limits - #150 fix)
-        const maxQty = getMaxCopies(card)
-        const newQty = Math.min(maxQty, existing.quantity + quantity)
+        // Increase quantity (respecting reprint limit - #151 fix)
+        const addable = Math.min(quantity, availableSlots)
+        const newQty = existing.quantity + addable
         if (newQty === existing.quantity) return prev
         return prev.map(c =>
           c.cardId === cardId
@@ -235,12 +254,15 @@ const DeckBuilder = () => {
             : c
         )
       }
-      // Add new card (use TCG-specific limits - #150 fix)
-      const maxQty = getMaxCopies(card)
+
+      // Add new card (respecting reprint limit - #151 fix)
+      const addable = Math.min(quantity, availableSlots)
+      if (addable <= 0) return prev
+
       return [...prev, {
         cardId: cardId,
-        name: card.name,
-        quantity: Math.min(maxQty, quantity),
+        name: cardName,
+        quantity: addable,
         supertype: card.supertype,
         imageSmall: card.images?.small || card.imageSmall
       }]
@@ -251,9 +273,20 @@ const DeckBuilder = () => {
     setCards(prev => {
       const existing = prev.find(c => c.cardId === cardId)
       if (!existing) return prev
-      // Use TCG-specific limits (#150 fix)
+
       const maxQty = getMaxCopies(existing)
-      const newQty = Math.max(1, Math.min(maxQty, quantity))
+
+      // #151 fix: Check reprint limit (total copies of same name across all versions)
+      const isBasicEnergy = existing.supertype === 'Energy' && tcgSystem !== 'riftbound'
+      const otherSameNameQty = isBasicEnergy
+        ? 0
+        : prev.filter(c => c.name?.toLowerCase() === existing.name?.toLowerCase() && c.cardId !== cardId)
+            .reduce((sum, c) => sum + c.quantity, 0)
+
+      // Max for this card is limit minus other reprints
+      const effectiveMax = isBasicEnergy ? 60 : maxQty - otherSameNameQty
+      const newQty = Math.max(1, Math.min(effectiveMax, quantity))
+
       return prev.map(c =>
         c.cardId === cardId
           ? { ...c, quantity: newQty }

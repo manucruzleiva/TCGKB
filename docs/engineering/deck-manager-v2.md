@@ -489,3 +489,55 @@ Added missing fields to search result mapping:
 ```
 
 Fixed in both Level 2 (MongoDB cache) and Level 3 (API fetch) result mappings.
+
+### #151 - No Reprint Check on Card Copies
+
+**Problem**: Users could add multiple reprints of the same card (e.g., 4x "Pikachu sv1-25" + 4x "Pikachu sv2-50" = 8 Pikachus), bypassing the copy limit.
+
+**Fix**: `frontend/src/pages/DeckBuilder.jsx`
+
+Added reprint detection in `addCard()` and `setCardQuantity()`:
+```javascript
+// Count total copies of cards with the same NAME (reprint detection)
+const isBasicEnergy = card.supertype === 'Energy' && tcgSystem !== 'riftbound'
+const totalByName = isBasicEnergy
+  ? 0 // Basic energy has no reprint limit
+  : prev.filter(c => c.name?.toLowerCase() === cardName?.toLowerCase())
+      .reduce((sum, c) => sum + c.quantity, 0)
+
+// Calculate how many more copies can be added
+const availableSlots = isBasicEnergy ? 60 : maxQty - totalByName
+```
+
+Behavior:
+- Tracks total copies by card NAME, not just cardId
+- Prevents adding more if limit (4 for Pokemon, 3 for Riftbound) is reached across all versions
+- Basic Energy in Pokemon TCG is exempt (can have up to 60)
+- `setCardQuantity` also respects reprint limits when adjusting quantity
+
+### #153 - Import Format Should Be Stricter for PTCGL
+
+**Problem**: The import parser accepted non-PTCGL formats like "4 ssp-97" (quantity + set-number), which isn't valid Pokemon TCG Live format.
+
+**PTCGL Format**: `<quantity> <card name> <SET> <number>`
+- Example: "4 Pikachu ex SVI 057"
+
+**Fix**: `backend/src/services/deckParser.service.js`
+
+Added stricter format validation in `parsePokemonTCGLive()`:
+```javascript
+// Reject pure "set-number" format (e.g., "4 ssp-97") - #153 fix
+else if (/^[A-Z]{2,4}-\d{1,4}$/i.test(simpleMatch[2])) {
+  warnings.push({
+    type: 'invalid_format',
+    message: `Invalid format: "${line}". PTCGL requires card name before set code.`
+  })
+  // Don't add the card - it's not valid PTCGL format
+}
+```
+
+Behavior:
+- "4 Pikachu ex SVI 057" - accepted (standard PTCGL)
+- "4 Pikachu SVI-189" - accepted with warning (close to valid)
+- "4 ssp-97" - rejected with error (not valid PTCGL)
+- "4 Pikachu" - accepted for resolution (missing set info)
