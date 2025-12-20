@@ -74,6 +74,7 @@ const DeckBuilder = () => {
   const [isPublic, setIsPublic] = useState(false)
   const [tags, setTags] = useState([])
   const [cards, setCards] = useState([])
+  const [tcgSystem, setTcgSystem] = useState(null) // Locked TCG for this deck
 
   // Available tags from backend
   const [availableTags, setAvailableTags] = useState({})
@@ -133,6 +134,7 @@ const DeckBuilder = () => {
         setIsPublic(deck.isPublic)
         setTags(deck.tags || [])
         setCards(deck.cards || [])
+        setTcgSystem(deck.tcgSystem || 'pokemon') // Load deck's TCG system
       }
     } catch (error) {
       console.error('Error fetching deck:', error)
@@ -142,7 +144,7 @@ const DeckBuilder = () => {
     }
   }
 
-  // Debounced card search
+  // Debounced card search - filtered by deck's TCG system
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([])
@@ -152,7 +154,8 @@ const DeckBuilder = () => {
     const timer = setTimeout(async () => {
       try {
         setSearching(true)
-        const response = await cardService.searchCards(searchQuery, 20)
+        // Pass tcgSystem to filter search results (only show cards from the same TCG)
+        const response = await cardService.searchCards(searchQuery, 20, tcgSystem)
         if (response.success) {
           setSearchResults(response.data.cards || [])
         }
@@ -164,9 +167,32 @@ const DeckBuilder = () => {
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [searchQuery])
+  }, [searchQuery, tcgSystem])
 
   const addCard = (card) => {
+    // Get card's TCG system (default to 'pokemon')
+    const cardTcg = card.tcgSystem || 'pokemon'
+
+    // If deck already has a TCG locked, prevent adding cards from different TCG
+    if (tcgSystem && cardTcg !== tcgSystem) {
+      setError(
+        language === 'es'
+          ? `No puedes mezclar cartas de diferentes TCGs. Este mazo es de ${tcgSystem === 'pokemon' ? 'Pokémon' : 'Riftbound'}.`
+          : `Cannot mix cards from different TCGs. This deck is for ${tcgSystem === 'pokemon' ? 'Pokémon' : 'Riftbound'}.`
+      )
+      // Auto-clear error after 3 seconds
+      setTimeout(() => setError(null), 3000)
+      return
+    }
+
+    // Clear any previous error when successfully adding a card
+    if (error) setError(null)
+
+    // Lock the TCG system on first card
+    if (!tcgSystem) {
+      setTcgSystem(cardTcg)
+    }
+
     setCards(prev => {
       const existing = prev.find(c => c.cardId === card.id)
       if (existing) {
@@ -208,6 +234,13 @@ const DeckBuilder = () => {
     setCards(prev => prev.filter(c => c.cardId !== cardId))
   }
 
+  // Clear TCG lock when all cards are removed
+  useEffect(() => {
+    if (cards.length === 0 && tcgSystem !== null) {
+      setTcgSystem(null)
+    }
+  }, [cards.length, tcgSystem])
+
   const toggleTag = (tag) => {
     if (tags.includes(tag)) {
       setTags(prev => prev.filter(t => t !== tag))
@@ -232,6 +265,12 @@ const DeckBuilder = () => {
     }))
 
     setCards(importedCards)
+
+    // Detect TCG system from imported cards (use first card's TCG)
+    if (importData.cards.length > 0) {
+      const firstCardTcg = importData.cards[0].tcgSystem || 'pokemon'
+      setTcgSystem(firstCardTcg)
+    }
 
     // Auto-add format tag if detected
     if (importData.format && !tags.includes(importData.format)) {
@@ -260,7 +299,8 @@ const DeckBuilder = () => {
         description: description.trim(),
         isPublic,
         tags,
-        cards
+        cards,
+        tcgSystem: tcgSystem || 'pokemon' // Default to pokemon if no cards added
       }
 
       let response
@@ -347,9 +387,9 @@ const DeckBuilder = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Deck Info */}
-        <div className="lg:col-span-1 space-y-6">
+      <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
+        {/* Deck Info - Always first on both mobile and desktop */}
+        <div className="order-1 lg:order-none lg:col-span-1">
           {/* Basic Info */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
@@ -397,6 +437,25 @@ const DeckBuilder = () => {
                   {language === 'es' ? 'Mazo público' : 'Public deck'}
                 </label>
               </div>
+
+              {/* TCG System Indicator */}
+              {tcgSystem && (
+                <div className="flex items-center gap-2 p-3 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg">
+                  <span className="text-lg">
+                    {tcgSystem === 'pokemon' ? '🎴' : '🌀'}
+                  </span>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-primary-700 dark:text-primary-300">
+                      {tcgSystem === 'pokemon' ? 'Pokémon TCG' : 'Riftbound TCG'}
+                    </span>
+                    <p className="text-xs text-primary-600 dark:text-primary-400">
+                      {language === 'es'
+                        ? 'Solo cartas de este TCG pueden añadirse'
+                        : 'Only cards from this TCG can be added'}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Tags Section */}
               <div>
@@ -464,55 +523,10 @@ const DeckBuilder = () => {
               </div>
             </div>
           </div>
-
-          {/* Deck Stats */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-              {language === 'es' ? 'Estadísticas' : 'Stats'}
-            </h2>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Total</span>
-                <span className={`font-bold ${totalCards === 60 ? 'text-green-600' : totalCards > 60 ? 'text-red-600' : 'text-gray-900 dark:text-gray-100'}`}>
-                  {totalCards}/60
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Pokémon</span>
-                <span className="font-semibold text-blue-600">{pokemonCount}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Trainer</span>
-                <span className="font-semibold text-purple-600">{trainerCount}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Energy</span>
-                <span className="font-semibold text-yellow-600">{energyCount}</span>
-              </div>
-            </div>
-
-            {/* Visual breakdown bar */}
-            {totalCards > 0 && (
-              <div className="mt-4 h-4 rounded-full overflow-hidden flex bg-gray-200 dark:bg-gray-700">
-                <div
-                  className="bg-blue-500"
-                  style={{ width: `${(pokemonCount / totalCards) * 100}%` }}
-                />
-                <div
-                  className="bg-purple-500"
-                  style={{ width: `${(trainerCount / totalCards) * 100}%` }}
-                />
-                <div
-                  className="bg-yellow-500"
-                  style={{ width: `${(energyCount / totalCards) * 100}%` }}
-                />
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Right Column - Card Search & Deck */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Card Search & Deck - Second on mobile, right column on desktop */}
+        <div className="order-2 lg:order-none lg:col-span-2 space-y-6">
           {/* Card Search */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
@@ -663,6 +677,53 @@ const DeckBuilder = () => {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Deck Stats - Last on mobile, sidebar on desktop */}
+        <div className="order-3 lg:order-none">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+              {language === 'es' ? 'Estadísticas' : 'Stats'}
+            </h2>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-400">Total</span>
+                <span className={`font-bold ${totalCards === 60 ? 'text-green-600' : totalCards > 60 ? 'text-red-600' : 'text-gray-900 dark:text-gray-100'}`}>
+                  {totalCards}/60
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-400">Pokémon</span>
+                <span className="font-semibold text-blue-600">{pokemonCount}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-400">Trainer</span>
+                <span className="font-semibold text-purple-600">{trainerCount}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-400">Energy</span>
+                <span className="font-semibold text-yellow-600">{energyCount}</span>
+              </div>
+            </div>
+
+            {/* Visual breakdown bar */}
+            {totalCards > 0 && (
+              <div className="mt-4 h-4 rounded-full overflow-hidden flex bg-gray-200 dark:bg-gray-700">
+                <div
+                  className="bg-blue-500"
+                  style={{ width: `${(pokemonCount / totalCards) * 100}%` }}
+                />
+                <div
+                  className="bg-purple-500"
+                  style={{ width: `${(trainerCount / totalCards) * 100}%` }}
+                />
+                <div
+                  className="bg-yellow-500"
+                  style={{ width: `${(energyCount / totalCards) * 100}%` }}
+                />
               </div>
             )}
           </div>
