@@ -195,7 +195,58 @@ export const en = {
     errorAceSpec: 'Deck can only have 1 ACE SPEC card (currently {{current}})',
     errorRadiant: 'Deck can only have 1 Radiant Pokémon (currently {{current}})',
     errorRuleBox: 'Rule Box Pokémon (ex, V, VSTAR, VMAX, Radiant) are not allowed in GLC',
-    errorAceSpecGLC: 'ACE SPEC cards are not allowed in GLC'
+    errorAceSpecGLC: 'ACE SPEC cards are not allowed in GLC',
+    errorRegulationMark: '{{current}} card(s) are not legal in Standard (valid marks: {{validMarks}})',
+    errorProfessorGroup: 'Only 1 Professor card allowed in GLC (Professor\'s Research, Juniper, or Sycamore). Currently {{current}}',
+    errorBossGroup: 'Only 1 Boss card allowed in GLC (Boss\'s Orders or Lysandre). Currently {{current}}',
+    errorMainDeckCount: 'Main deck must have exactly {{expected}} cards (currently {{current}})',
+    errorLegendCount: 'Deck must have exactly 1 Legend (currently {{current}})',
+    errorBattlefieldCount: 'Deck must have exactly 3 Battlefields (currently {{current}})',
+    errorRuneCount: 'Deck must have exactly 12 Runes (currently {{current}})',
+    errorSideboardCount: 'Sideboard must have exactly 8 cards if used (currently {{current}})',
+    errorDomainRestriction: '{{current}} card(s) don\'t match Legend\'s domains ({{domains}})'
+  },
+
+  // Deck Auto Tags
+  deckAutoTags: {
+    title: 'Auto Tags',
+    format: {
+      standard: 'Standard',
+      expanded: 'Expanded',
+      glc: 'GLC',
+      unlimited: 'Unlimited'
+    },
+    'energy-type': {
+      fire: 'Fire',
+      water: 'Water',
+      grass: 'Grass',
+      electric: 'Electric',
+      psychic: 'Psychic',
+      fighting: 'Fighting',
+      dark: 'Dark',
+      steel: 'Steel',
+      dragon: 'Dragon',
+      colorless: 'Colorless',
+      fairy: 'Fairy'
+    },
+    mechanic: {
+      'ex-focused': 'ex Focused',
+      'v-focused': 'V Focused',
+      'vstar': 'VSTAR',
+      'vmax': 'VMAX',
+      'single-prize': 'Single Prize',
+      'lost-zone': 'Lost Zone',
+      'rapid-strike': 'Rapid Strike',
+      'single-strike': 'Single Strike'
+    },
+    domain: {
+      fury: 'Fury',
+      calm: 'Calm',
+      mind: 'Mind',
+      body: 'Body',
+      order: 'Order',
+      chaos: 'Chaos'
+    }
   },
 
   // Support / Monetization

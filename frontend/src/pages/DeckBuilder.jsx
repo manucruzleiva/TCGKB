@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -6,6 +6,11 @@ import { deckService } from '../services/deckService'
 import { cardService } from '../services/cardService'
 import Spinner from '../components/common/Spinner'
 import DeckImportModal from '../components/decks/DeckImportModal'
+import DeckCardInteractive, { DeckDropZone } from '../components/decks/DeckCardInteractive'
+import { TypeFilterBar, TYPE_COLORS } from '../components/icons'
+
+// All Pokemon types for filtering
+const ALL_TYPES = Object.keys(TYPE_COLORS)
 
 // Tag display labels
 const TAG_LABELS = {
@@ -92,6 +97,9 @@ const DeckBuilder = () => {
   // Import modal
   const [showImportModal, setShowImportModal] = useState(false)
 
+  // Visual filters - all types active by default
+  const [activeTypes, setActiveTypes] = useState(ALL_TYPES)
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login')
@@ -166,28 +174,55 @@ const DeckBuilder = () => {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  const addCard = (card) => {
+  const addCard = (card, quantity = 1) => {
+    const cardId = card.id || card.cardId
     setCards(prev => {
-      const existing = prev.find(c => c.cardId === card.id)
+      const existing = prev.find(c => c.cardId === cardId)
       if (existing) {
         // Increase quantity (max 4 for non-energy, unlimited for energy)
         const maxQty = card.supertype === 'Energy' ? 60 : 4
-        if (existing.quantity >= maxQty) return prev
+        const newQty = Math.min(maxQty, existing.quantity + quantity)
+        if (newQty === existing.quantity) return prev
         return prev.map(c =>
-          c.cardId === card.id
-            ? { ...c, quantity: c.quantity + 1 }
+          c.cardId === cardId
+            ? { ...c, quantity: newQty }
             : c
         )
       }
       // Add new card
+      const maxQty = card.supertype === 'Energy' ? 60 : 4
       return [...prev, {
-        cardId: card.id,
+        cardId: cardId,
         name: card.name,
-        quantity: 1,
+        quantity: Math.min(maxQty, quantity),
         supertype: card.supertype,
-        imageSmall: card.images?.small
+        imageSmall: card.images?.small || card.imageSmall
       }]
     })
+  }
+
+  const setCardQuantity = (cardId, quantity) => {
+    setCards(prev => {
+      const existing = prev.find(c => c.cardId === cardId)
+      if (!existing) return prev
+      const maxQty = existing.supertype === 'Energy' ? 60 : 4
+      const newQty = Math.max(1, Math.min(maxQty, quantity))
+      return prev.map(c =>
+        c.cardId === cardId
+          ? { ...c, quantity: newQty }
+          : c
+      )
+    })
+  }
+
+  // Handle drop from drag & drop
+  const handleCardDrop = (cardData) => {
+    addCard({
+      id: cardData.id,
+      name: cardData.name,
+      supertype: cardData.supertype,
+      images: cardData.images
+    }, 1)
   }
 
   const removeCard = (cardId) => {
@@ -219,6 +254,36 @@ const DeckBuilder = () => {
   const removeTag = (tag) => {
     setTags(prev => prev.filter(t => t !== tag))
   }
+
+  // Toggle type filter
+  const toggleTypeFilter = (type) => {
+    setActiveTypes(prev => {
+      if (prev.includes(type)) {
+        // If removing last type, keep it active (must have at least one)
+        if (prev.length === 1) return prev
+        return prev.filter(t => t !== type)
+      }
+      return [...prev, type]
+    })
+  }
+
+  // Reset all filters
+  const resetFilters = () => {
+    setActiveTypes(ALL_TYPES)
+  }
+
+  // Filter search results by active types
+  const filteredSearchResults = useMemo(() => {
+    if (activeTypes.length === ALL_TYPES.length) {
+      return searchResults // All types active, no filtering needed
+    }
+    return searchResults.filter(card => {
+      // Show cards without types (trainers, energies)
+      if (!card.types || card.types.length === 0) return true
+      // Show if any of the card's types is active
+      return card.types.some(type => activeTypes.includes(type.toLowerCase()))
+    })
+  }, [searchResults, activeTypes])
 
   // Handle import from DeckImportModal
   const handleImport = (importData) => {
@@ -536,31 +601,58 @@ const DeckBuilder = () => {
               )}
             </div>
 
-            {/* Search Results */}
+            {/* Type Filters */}
             {searchResults.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-64 overflow-y-auto">
-                {searchResults.map(card => (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
+                  {language === 'es' ? 'Filtrar:' : 'Filter:'}
+                </span>
+                <TypeFilterBar
+                  types={ALL_TYPES}
+                  activeTypes={activeTypes}
+                  onToggle={toggleTypeFilter}
+                  size={24}
+                />
+                {activeTypes.length < ALL_TYPES.length && (
                   <button
-                    key={card.id}
-                    onClick={() => addCard(card)}
-                    className="relative group rounded-lg overflow-hidden border-2 border-transparent hover:border-primary-500 transition-colors"
+                    onClick={resetFilters}
+                    className="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:underline"
                   >
-                    <img
-                      src={card.images?.small}
-                      alt={card.name}
-                      className="w-full h-auto"
-                    />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="text-white font-bold text-2xl">+</span>
-                    </div>
+                    {language === 'es' ? 'Mostrar todos' : 'Show all'}
                   </button>
+                )}
+              </div>
+            )}
+
+            {/* Search Results */}
+            {filteredSearchResults.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-64 overflow-y-auto">
+                {filteredSearchResults.map(card => (
+                  <DeckCardInteractive
+                    key={card.id}
+                    card={card}
+                    mode="search"
+                    onAdd={addCard}
+                    maxQuantity={card.supertype === 'Energy' ? 60 : 4}
+                    draggable={true}
+                  />
                 ))}
+              </div>
+            )}
+
+            {/* No results after filtering */}
+            {searchResults.length > 0 && filteredSearchResults.length === 0 && (
+              <div className="mt-4 text-center py-4 text-gray-500 dark:text-gray-400">
+                <p>{language === 'es' ? 'No hay cartas con los tipos seleccionados' : 'No cards match selected types'}</p>
               </div>
             )}
           </div>
 
           {/* Deck Cards */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <DeckDropZone
+            onDrop={handleCardDrop}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 relative"
+          >
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
               {language === 'es' ? 'Cartas en el Mazo' : 'Cards in Deck'} ({totalCards})
             </h2>
@@ -568,7 +660,7 @@ const DeckBuilder = () => {
             {cards.length === 0 ? (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 <div className="text-4xl mb-2">🃏</div>
-                <p>{language === 'es' ? 'Añade cartas buscando arriba o importando' : 'Add cards by searching above or importing'}</p>
+                <p>{language === 'es' ? 'Añade cartas buscando arriba, importando o arrastrando' : 'Add cards by searching above, importing, or dragging'}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -584,53 +676,24 @@ const DeckBuilder = () => {
                       </h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                         {supertypeCards.map(card => (
-                          <div
+                          <DeckCardInteractive
                             key={card.cardId}
-                            className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600"
-                          >
-                            {card.imageSmall ? (
-                              <img
-                                src={card.imageSmall}
-                                alt={card.name}
-                                className="w-full h-auto"
-                              />
-                            ) : (
-                              <div className="aspect-[63/88] bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                                <span className="text-xs text-gray-500 text-center px-1">{card.name}</span>
-                              </div>
-                            )}
-                            {/* Quantity badge */}
-                            <div className="absolute top-1 right-1 px-2 py-0.5 bg-primary-600 text-white text-xs font-bold rounded-full">
-                              ×{card.quantity}
-                            </div>
-                            {/* Hover controls */}
-                            <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                              <button
-                                onClick={() => removeCard(card.cardId)}
-                                className="p-2 bg-yellow-500 text-white rounded-full hover:bg-yellow-600"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => addCard({ id: card.cardId, name: card.name, supertype: card.supertype, images: { small: card.imageSmall } })}
-                                className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => deleteCard(card.cardId)}
-                                className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
+                            card={{
+                              id: card.cardId,
+                              cardId: card.cardId,
+                              name: card.name,
+                              quantity: card.quantity,
+                              supertype: card.supertype,
+                              images: { small: card.imageSmall },
+                              imageSmall: card.imageSmall
+                            }}
+                            mode="deck"
+                            onAdd={addCard}
+                            onRemove={removeCard}
+                            onDelete={deleteCard}
+                            onSetQuantity={setCardQuantity}
+                            maxQuantity={supertype === 'Energy' ? 60 : 4}
+                          />
                         ))}
                       </div>
                     </div>
@@ -665,7 +728,7 @@ const DeckBuilder = () => {
                 )}
               </div>
             )}
-          </div>
+          </DeckDropZone>
         </div>
       </div>
 
