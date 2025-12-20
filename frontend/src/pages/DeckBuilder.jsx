@@ -7,10 +7,12 @@ import { cardService } from '../services/cardService'
 import Spinner from '../components/common/Spinner'
 import DeckImportModal from '../components/decks/DeckImportModal'
 import DeckCardInteractive, { DeckDropZone } from '../components/decks/DeckCardInteractive'
-import { TypeFilterBar, TYPE_COLORS } from '../components/icons'
+import { TypeFilterBar, TYPE_COLORS, DomainFilterBar, DOMAIN_COLORS } from '../components/icons'
 
 // All Pokemon types for filtering
 const ALL_TYPES = Object.keys(TYPE_COLORS)
+// All Riftbound domains for filtering
+const ALL_DOMAINS = Object.keys(DOMAIN_COLORS)
 
 // Tag display labels
 const TAG_LABELS = {
@@ -98,8 +100,9 @@ const DeckBuilder = () => {
   // Import modal
   const [showImportModal, setShowImportModal] = useState(false)
 
-  // Visual filters - all types active by default
+  // Visual filters - all types/domains active by default
   const [activeTypes, setActiveTypes] = useState(ALL_TYPES)
+  const [activeDomains, setActiveDomains] = useState(ALL_DOMAINS)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -289,11 +292,10 @@ const DeckBuilder = () => {
     setTags(prev => prev.filter(t => t !== tag))
   }
 
-  // Toggle type filter
+  // Toggle type filter (Pokemon)
   const toggleTypeFilter = (type) => {
     setActiveTypes(prev => {
       if (prev.includes(type)) {
-        // If removing last type, keep it active (must have at least one)
         if (prev.length === 1) return prev
         return prev.filter(t => t !== type)
       }
@@ -301,23 +303,47 @@ const DeckBuilder = () => {
     })
   }
 
+  // Toggle domain filter (Riftbound)
+  const toggleDomainFilter = (domain) => {
+    setActiveDomains(prev => {
+      if (prev.includes(domain)) {
+        if (prev.length === 1) return prev
+        return prev.filter(d => d !== domain)
+      }
+      return [...prev, domain]
+    })
+  }
+
   // Reset all filters
   const resetFilters = () => {
     setActiveTypes(ALL_TYPES)
+    setActiveDomains(ALL_DOMAINS)
   }
 
-  // Filter search results by active types
+  // Filter search results by active types/domains
   const filteredSearchResults = useMemo(() => {
-    if (activeTypes.length === ALL_TYPES.length) {
-      return searchResults // All types active, no filtering needed
+    // For Pokemon: filter by types
+    if (tcgSystem === 'pokemon' || !tcgSystem) {
+      if (activeTypes.length === ALL_TYPES.length) {
+        return searchResults
+      }
+      return searchResults.filter(card => {
+        if (!card.types || card.types.length === 0) return true
+        return card.types.some(type => activeTypes.includes(type.toLowerCase()))
+      })
     }
-    return searchResults.filter(card => {
-      // Show cards without types (trainers, energies)
-      if (!card.types || card.types.length === 0) return true
-      // Show if any of the card's types is active
-      return card.types.some(type => activeTypes.includes(type.toLowerCase()))
-    })
-  }, [searchResults, activeTypes])
+    // For Riftbound: filter by domains
+    if (tcgSystem === 'riftbound') {
+      if (activeDomains.length === ALL_DOMAINS.length) {
+        return searchResults
+      }
+      return searchResults.filter(card => {
+        if (!card.domains || card.domains.length === 0) return true
+        return card.domains.some(domain => activeDomains.includes(domain.toLowerCase()))
+      })
+    }
+    return searchResults
+  }, [searchResults, activeTypes, activeDomains, tcgSystem])
 
   // Handle import from DeckImportModal
   const handleImport = (importData) => {
@@ -327,7 +353,7 @@ const DeckBuilder = () => {
       name: card.name,
       quantity: card.quantity,
       supertype: card.supertype || 'Unknown',
-      imageSmall: null // Images will be loaded when viewing
+      imageSmall: card.imageSmall || null // Use enriched image from parse
     }))
 
     setCards(importedCards)
@@ -617,19 +643,29 @@ const DeckBuilder = () => {
               )}
             </div>
 
-            {/* Type Filters */}
+            {/* Type/Domain Filters - Switch based on TCG system */}
             {searchResults.length > 0 && (
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
                   {language === 'es' ? 'Filtrar:' : 'Filter:'}
                 </span>
-                <TypeFilterBar
-                  types={ALL_TYPES}
-                  activeTypes={activeTypes}
-                  onToggle={toggleTypeFilter}
-                  size={24}
-                />
-                {activeTypes.length < ALL_TYPES.length && (
+                {tcgSystem === 'riftbound' ? (
+                  <DomainFilterBar
+                    domains={ALL_DOMAINS}
+                    activeDomains={activeDomains}
+                    onToggle={toggleDomainFilter}
+                    size={24}
+                  />
+                ) : (
+                  <TypeFilterBar
+                    types={ALL_TYPES}
+                    activeTypes={activeTypes}
+                    onToggle={toggleTypeFilter}
+                    size={24}
+                  />
+                )}
+                {((tcgSystem === 'riftbound' && activeDomains.length < ALL_DOMAINS.length) ||
+                  (tcgSystem !== 'riftbound' && activeTypes.length < ALL_TYPES.length)) && (
                   <button
                     onClick={resetFilters}
                     className="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:underline"
@@ -792,7 +828,7 @@ const DeckBuilder = () => {
               </div>
             )}
           </div>
-        </div>ain
+        </div>
       </div>
 
       {/* Import Modal */}

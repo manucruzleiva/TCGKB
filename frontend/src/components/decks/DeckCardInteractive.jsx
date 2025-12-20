@@ -144,6 +144,7 @@ const DeckCardInteractive = ({
                 value={quantityValue}
                 onChange={(e) => setQuantityValue(e.target.value)}
                 autoFocus
+                onFocus={(e) => e.target.select()}
                 onBlur={() => setShowQuantityInput(false)}
                 className="w-16 px-2 py-1 text-center text-lg font-bold rounded border-2 border-primary-500 focus:outline-none"
               />
@@ -224,6 +225,7 @@ const DeckCardInteractive = ({
               value={quantityValue}
               onChange={(e) => setQuantityValue(e.target.value)}
               autoFocus
+              onFocus={(e) => e.target.select()}
               onBlur={() => setShowQuantityInput(false)}
               className="w-16 px-2 py-1 text-center text-lg font-bold rounded border-2 border-primary-500 focus:outline-none"
             />
