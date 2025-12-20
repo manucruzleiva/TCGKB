@@ -126,5 +126,17 @@ export const deckService = {
   // Format deck to TCG Live export string
   formatToTCGLive: (cards) => {
     return cards.map(card => `${card.quantity} ${card.cardId}`).join('\n')
+  },
+
+  // Get votes for a deck
+  getVotes: async (deckId) => {
+    const response = await api.get(`/decks/${deckId}/votes`)
+    return response.data
+  },
+
+  // Vote on a deck (up or down)
+  vote: async (deckId, vote) => {
+    const response = await api.post(`/decks/${deckId}/vote`, { vote })
+    return response.data
   }
 }

@@ -187,6 +187,14 @@ export const es = {
     errorDomainRestriction: '{{current}} carta(s) no coinciden con los dominios del Legend ({{domains}})'
   },
 
+  // Decks
+  decks: {
+    vote: {
+      upvote: 'Me gusta',
+      downvote: 'No me gusta'
+    }
+  },
+
   // Deck Auto Tags
   deckAutoTags: {
     title: 'Etiquetas Automáticas',

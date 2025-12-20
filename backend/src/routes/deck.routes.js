@@ -12,7 +12,9 @@ import {
   getSuggestedDecks,
   checkDuplicates,
   getDuplicateGroups,
-  parseDeck
+  parseDeck,
+  voteDeck,
+  getDeckVotes
 } from '../controllers/deck.controller.js'
 import { protect, optionalAuth, adminOrDevOnly } from '../middleware/auth.middleware.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
@@ -26,6 +28,7 @@ router.get('/suggestions', protect, generalLimiter, getSuggestedDecks) // Sugges
 router.get('/duplicates', protect, adminOrDevOnly, getDuplicateGroups) // Admin: view duplicate groups
 router.get('/:deckId', optionalAuth, generalLimiter, getDeckById)
 router.get('/:deckId/export', optionalAuth, generalLimiter, exportDeck)
+router.get('/:deckId/votes', optionalAuth, generalLimiter, getDeckVotes)
 
 // Parse route (public - no auth required for parsing)
 router.post('/parse', generalLimiter, parseDeck) // Parse deck string and detect TCG/format
@@ -37,5 +40,8 @@ router.put('/:deckId', protect, generalLimiter, updateDeck)
 router.delete('/:deckId', protect, generalLimiter, deleteDeck)
 router.post('/:deckId/copy', protect, generalLimiter, copyDeck)
 router.put('/:deckId/card-info', protect, generalLimiter, updateDeckCardInfo)
+
+// Voting routes (optionalAuth - anonymous users can vote with fingerprint)
+router.post('/:deckId/vote', optionalAuth, generalLimiter, voteDeck)
 
 export default router
