@@ -6,6 +6,7 @@ import reputationService from '../services/reputation.service.js'
 import { generateDeckHash, findExactDuplicate, findSimilarDecks } from '../utils/deckHash.js'
 import { parseDeckString } from '../services/deckParser.service.js'
 import { validateDeck } from '../utils/deckValidator.js'
+import { getIO } from '../config/socket.js'
 
 const MODULE = 'DeckController'
 
@@ -1007,6 +1008,15 @@ export const voteDeck = async (req, res) => {
 
     // Get updated counts
     const counts = await Vote.getVoteCounts(deckId)
+
+    // Emit real-time update to all clients
+    try {
+      const io = getIO()
+      io.emit('deck:vote:updated', { deckId, counts })
+    } catch (socketError) {
+      // Socket not initialized (e.g., in tests) - continue without real-time
+      log.warn(MODULE, 'Socket.io not available for vote broadcast', socketError.message)
+    }
 
     res.status(200).json({
       success: true,
