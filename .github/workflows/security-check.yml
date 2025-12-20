@@ -1,19 +1,24 @@
-name: Security Alerts to Issues
+name: Security Alerts to Project
 
+# GitHub Actions doesn't support dependabot_alert or secret_scanning_alert triggers
+# We use schedule + workflow_dispatch to check for alerts periodically
+# Last updated: 2025-12-19T21:00
 on:
+  # Run daily to check for new alerts
   schedule:
-    - cron: '0 8 * * *'
+    - cron: '0 8 * * *'  # Daily at 8am UTC
+
+  # Manual trigger for testing
   workflow_dispatch:
 
-permissions:
-  security-events: read
-  issues: write
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  check-alerts:
+  check-security-alerts:
     runs-on: ubuntu-latest
     steps:
-      - name: Create Issues from Security Alerts
+      - name: Check and Create Issues for Security Alerts
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.SECURITY_PAT }}
@@ -21,6 +26,7 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
+            // Priority mapping
             const severityToPriority = {
               'critical': 'P0-Critical',
               'high': 'P1-High',
@@ -28,65 +34,217 @@ jobs:
               'low': 'P3-Low'
             };
 
+            // Get existing security issues to avoid duplicates
             const existingIssues = await github.rest.issues.listForRepo({
-              owner, repo,
+              owner,
+              repo,
               labels: 'security',
               state: 'all',
               per_page: 100
             });
+
             const existingTitles = existingIssues.data.map(i => i.title);
-            console.log('Existing security issues: ' + existingTitles.length);
 
-            let created = 0;
+            console.log(`Found ${existingTitles.length} existing security issues`);
 
+            let issuesCreated = 0;
+
+            // Check Dependabot alerts
             try {
-              const alerts = await github.rest.dependabot.listAlertsForRepo({
-                owner, repo, state: 'open'
+              const dependabotAlerts = await github.rest.dependabot.listAlertsForRepo({
+                owner,
+                repo,
+                state: 'open'
               });
-              console.log('Open Dependabot alerts: ' + alerts.data.length);
 
-              for (const alert of alerts.data) {
-                const pkg = alert.dependency?.package?.name || 'Unknown';
-                const sev = alert.security_advisory?.severity?.toLowerCase() || 'medium';
-                const sum = alert.security_advisory?.summary || 'No summary';
-                const priority = severityToPriority[sev] || 'P2-Medium';
+              console.log(`Found ${dependabotAlerts.data.length} open Dependabot alerts`);
 
-                const title = '[SECURITY] ' + pkg + ': ' + sum.substring(0, 50);
+              for (const alert of dependabotAlerts.data) {
+                const severity = alert.security_advisory?.severity?.toLowerCase() || 'medium';
+                const packageName = alert.dependency?.package?.name || 'Unknown';
+                const summary = alert.security_advisory?.summary || 'No summary';
+                const priority = severityToPriority[severity] || 'P1-High';
 
-                if (existingTitles.some(t => t.includes(pkg) && t.includes('[SECURITY]'))) {
-                  console.log('Skip ' + pkg + ' - exists');
+                const title = `[SECURITY] [${severity.toUpperCase()}] ${packageName}: ${summary.substring(0, 60)}`;
+
+                // Check if issue already exists
+                if (existingTitles.some(t => t.includes(packageName) && t.includes('[SECURITY]'))) {
+                  console.log(`Skipping ${packageName} - issue already exists`);
                   continue;
                 }
 
-                const body = [
-                  '## Dependabot Alert',
-                  '',
-                  '**Package**: ' + pkg,
-                  '**Severity**: ' + sev.toUpperCase(),
-                  '**Summary**: ' + sum,
-                  '',
-                  '**CVE**: ' + (alert.security_advisory?.cve_id || 'N/A'),
-                  '',
-                  '### Action Required',
-                  '- [ ] Update package',
-                  '- [ ] Verify fix',
-                  '',
-                  '[View Alert](' + alert.html_url + ')'
-                ].join('\n');
+                const body = `## Security Alert - Dependabot
+
+**Severity**: ${severity.toUpperCase()}
+**Package**: ${packageName}
+**Summary**: ${summary}
+
+**CVE**: ${alert.security_advisory?.cve_id || 'N/A'}
+**GHSA**: ${alert.security_advisory?.ghsa_id || 'N/A'}
+
+### Action Required
+- [ ] Review vulnerability details
+- [ ] Update package to patched version
+- [ ] Verify fix doesn't break functionality
+- [ ] @bob security review
+- [ ] @raj implement fix
+
+### Links
+- [Alert Details](${alert.html_url})
+- [Advisory](${alert.security_advisory?.permalink || 'N/A'})
+
+---
+*Auto-generated by security-alerts-to-project workflow*`;
 
                 try {
                   const issue = await github.rest.issues.create({
-                    owner, repo, title, body,
+                    owner,
+                    repo,
+                    title,
+                    body,
                     labels: ['security', priority, 'dependabot']
                   });
-                  console.log('Created issue #' + issue.data.number);
-                  created++;
+                  console.log(`Created issue #${issue.data.number} for ${packageName}`);
+                  issuesCreated++;
                 } catch (e) {
-                  console.log('Failed: ' + e.message);
+                  console.log(`Failed to create issue for ${packageName}: ${e.message}`);
                 }
               }
             } catch (e) {
-              console.log('Dependabot error: ' + e.message);
+              console.log('Could not fetch Dependabot alerts:', e.message);
             }
 
-            console.log('Total issues created: ' + created);
+            // Check Code Scanning alerts
+            try {
+              const codeAlerts = await github.rest.codeScanning.listAlertsForRepo({
+                owner,
+                repo,
+                state: 'open'
+              });
+
+              console.log(`Found ${codeAlerts.data.length} open Code Scanning alerts`);
+
+              for (const alert of codeAlerts.data) {
+                const ruleId = alert.rule?.id || 'unknown';
+                const severity = alert.rule?.security_severity_level || alert.rule?.severity || 'warning';
+                const description = alert.rule?.description || 'No description';
+                const filePath = alert.most_recent_instance?.location?.path || 'Unknown';
+                const line = alert.most_recent_instance?.location?.start_line || '?';
+
+                const priorityMap = { 'critical': 'P0-Critical', 'high': 'P1-High', 'medium': 'P2-Medium', 'low': 'P3-Low', 'error': 'P0-Critical', 'warning': 'P1-High', 'note': 'P2-Medium' };
+                const priority = priorityMap[severity.toLowerCase()] || 'P1-High';
+
+                const title = `[SECURITY] [CodeQL] ${ruleId}: ${description.substring(0, 50)}`;
+
+                if (existingTitles.some(t => t.includes(ruleId) && t.includes('[CodeQL]'))) {
+                  console.log(`Skipping ${ruleId} - issue already exists`);
+                  continue;
+                }
+
+                const body = `## Security Alert - Code Scanning (CodeQL)
+
+**Rule**: ${ruleId}
+**Severity**: ${severity.toUpperCase()}
+**Description**: ${description}
+
+### Location
+- **File**: \`${filePath}:${line}\`
+
+### Action Required
+- [ ] Review code at specified location
+- [ ] Fix vulnerability
+- [ ] @bob verify fix
+- [ ] @raj implement fix
+
+### Links
+- [Alert Details](${alert.html_url})
+
+---
+*Auto-generated by security-alerts-to-project workflow*`;
+
+                try {
+                  const issue = await github.rest.issues.create({
+                    owner,
+                    repo,
+                    title,
+                    body,
+                    labels: ['security', priority, 'codeql']
+                  });
+                  console.log(`Created issue #${issue.data.number} for ${ruleId}`);
+                  issuesCreated++;
+                } catch (e) {
+                  console.log(`Failed to create issue for ${ruleId}: ${e.message}`);
+                }
+              }
+            } catch (e) {
+              console.log('Could not fetch Code Scanning alerts:', e.message);
+            }
+
+            // Check Secret Scanning alerts
+            try {
+              const secretAlerts = await github.rest.secretScanning.listAlertsForRepo({
+                owner,
+                repo,
+                state: 'open'
+              });
+
+              console.log(`Found ${secretAlerts.data.length} open Secret Scanning alerts`);
+
+              for (const alert of secretAlerts.data) {
+                const secretType = alert.secret_type_display_name || alert.secret_type || 'Unknown';
+
+                const title = `[SECURITY] [CRITICAL] Exposed Secret: ${secretType}`;
+
+                if (existingTitles.some(t => t.includes(secretType) && t.includes('Exposed Secret'))) {
+                  console.log(`Skipping ${secretType} - issue already exists`);
+                  continue;
+                }
+
+                const body = `## Security Alert - Secret Scanning
+
+**Type**: ${secretType}
+**Status**: CRITICAL - Immediate action required
+
+### IMMEDIATE ACTIONS REQUIRED
+1. **REVOKE** the exposed secret immediately
+2. **ROTATE** credentials in all environments
+3. **AUDIT** for unauthorized access
+4. **UPDATE** the secret in Vercel/production
+
+### Checklist
+- [ ] Secret revoked at source
+- [ ] New secret generated
+- [ ] Vercel env vars updated
+- [ ] Local .env updated
+- [ ] @bob security audit
+- [ ] Verify no unauthorized access occurred
+
+### Links
+- [Alert Details](${alert.html_url})
+
+---
+*Auto-generated by security-alerts-to-project workflow*
+
+**THIS IS A P0 CRITICAL ISSUE - DROP EVERYTHING AND FIX**`;
+
+                try {
+                  const issue = await github.rest.issues.create({
+                    owner,
+                    repo,
+                    title,
+                    body,
+                    labels: ['security', 'P0-Critical', 'secret-exposed']
+                  });
+                  console.log(`Created issue #${issue.data.number} for ${secretType}`);
+                  issuesCreated++;
+                } catch (e) {
+                  console.log(`Failed to create issue for ${secretType}: ${e.message}`);
+                }
+              }
+            } catch (e) {
+              console.log('Could not fetch Secret Scanning alerts:', e.message);
+            }
+
+            console.log(`\n=== Security Check Complete ===`);
+            console.log(`Issues created: ${issuesCreated}`);
+

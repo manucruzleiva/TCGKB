@@ -195,7 +195,136 @@ export const en = {
     errorAceSpec: 'Deck can only have 1 ACE SPEC card (currently {{current}})',
     errorRadiant: 'Deck can only have 1 Radiant Pokémon (currently {{current}})',
     errorRuleBox: 'Rule Box Pokémon (ex, V, VSTAR, VMAX, Radiant) are not allowed in GLC',
-    errorAceSpecGLC: 'ACE SPEC cards are not allowed in GLC'
+    errorAceSpecGLC: 'ACE SPEC cards are not allowed in GLC',
+    errorRegulationMark: '{{current}} card(s) are not legal in Standard (valid marks: {{validMarks}})',
+    errorProfessorGroup: 'Only 1 Professor card allowed in GLC (Professor\'s Research, Juniper, or Sycamore). Currently {{current}}',
+    errorBossGroup: 'Only 1 Boss card allowed in GLC (Boss\'s Orders or Lysandre). Currently {{current}}',
+    errorMainDeckCount: 'Main deck must have exactly {{expected}} cards (currently {{current}})',
+    errorLegendCount: 'Deck must have exactly 1 Legend (currently {{current}})',
+    errorBattlefieldCount: 'Deck must have exactly 3 Battlefields (currently {{current}})',
+    errorRuneCount: 'Deck must have exactly 12 Runes (currently {{current}})',
+    errorSideboardCount: 'Sideboard must have exactly 8 cards if used (currently {{current}})',
+    errorDomainRestriction: '{{current}} card(s) don\'t match Legend\'s domains ({{domains}})'
+  },
+
+  // Decks
+  decks: {
+    tabs: {
+      myDecks: 'My Decks',
+      community: 'Community'
+    },
+    title: 'Decks',
+    subtitle: 'Explore community decks or create your own',
+    createDeck: 'Create Deck',
+    import: 'Import',
+    search: 'Search decks...',
+    noDecks: 'No decks found',
+    noMyDecks: "You haven't created any decks yet",
+    noCommunityDecks: 'No public decks yet',
+    beFirst: 'Be the first to create a deck',
+    sortRecent: 'Recent',
+    sortPopular: 'Popular',
+    sortVotes: 'Votes',
+    vote: {
+      upvote: 'Upvote',
+      downvote: 'Downvote'
+    },
+    originalBadge: {
+      tooltip: 'The First - This deck has a unique composition'
+    },
+    // List page
+    tags: 'Tags',
+    sortLabel: 'Sort:',
+    activeFilters: 'Active filters:',
+    clearAll: 'Clear all',
+    public: 'Public',
+    private: 'Private',
+    previous: 'Previous',
+    next: 'Next',
+    // Import modal
+    importModal: {
+      title: 'Import Deck',
+      deckName: 'Deck name',
+      deckNamePlaceholder: 'My new deck',
+      cardList: 'Card list',
+      cardListPlaceholder: '4 Pikachu SV1 25\n3 Raichu SV1 26\n...',
+      formatHint: 'Format: "quantity Name SET Number" or "quantity SET-Number"',
+      cancel: 'Cancel',
+      importBtn: 'Import',
+      errorPasteCards: 'Paste the card list',
+      errorNameRequired: 'Name is required',
+      errorImportFailed: 'Import failed'
+    },
+    // Detail page
+    detail: {
+      backToDecks: 'Back to Decks',
+      notFound: 'Deck not found',
+      noAccess: 'You do not have access to this deck',
+      errorLoading: 'Error loading deck',
+      errorCopying: 'Error copying deck',
+      copiedToClipboard: 'Copied to clipboard',
+      errorDeleting: 'Error deleting',
+      views: 'views',
+      copies: 'copies',
+      export: 'Export',
+      copyDeck: 'Copy Deck',
+      edit: 'Edit',
+      delete: 'Delete',
+      cards: 'Cards',
+      emptyDeck: 'This deck is empty',
+      stats: 'Stats',
+      missingCards: 'Missing {count} cards',
+      overLimit: '{count} cards over limit',
+      deckComplete: 'Deck complete',
+      deleteConfirm: {
+        title: 'Delete deck?',
+        message: 'This action cannot be undone. Are you sure you want to delete this deck?',
+        cancel: 'Cancel',
+        confirm: 'Delete'
+      }
+    }
+  },
+
+  // Deck Auto Tags
+  deckAutoTags: {
+    title: 'Auto Tags',
+    format: {
+      standard: 'Standard',
+      expanded: 'Expanded',
+      glc: 'GLC',
+      unlimited: 'Unlimited'
+    },
+    'energy-type': {
+      fire: 'Fire',
+      water: 'Water',
+      grass: 'Grass',
+      electric: 'Electric',
+      psychic: 'Psychic',
+      fighting: 'Fighting',
+      dark: 'Dark',
+      steel: 'Steel',
+      dragon: 'Dragon',
+      colorless: 'Colorless',
+      fairy: 'Fairy'
+    },
+    mechanic: {
+      'ex-focused': 'ex Focused',
+      'v-focused': 'V Focused',
+      'vstar': 'VSTAR',
+      'vmax': 'VMAX',
+      'single-prize': 'Single Prize',
+      'lost-zone': 'Lost Zone',
+      'rapid-strike': 'Rapid Strike',
+      'single-strike': 'Single Strike'
+    },
+    domain: {
+      fury: 'Fury',
+      calm: 'Calm',
+      mind: 'Mind',
+      body: 'Body',
+      order: 'Order',
+      chaos: 'Chaos'
+    }
   },
 
   // Support / Monetization

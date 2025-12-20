@@ -175,7 +175,136 @@ export const es = {
     errorAceSpec: 'El mazo solo puede tener 1 carta ACE SPEC (actualmente {{current}})',
     errorRadiant: 'El mazo solo puede tener 1 Pokémon Radiant (actualmente {{current}})',
     errorRuleBox: 'Los Pokémon Rule Box (ex, V, VSTAR, VMAX, Radiant) no están permitidos en GLC',
-    errorAceSpecGLC: 'Las cartas ACE SPEC no están permitidas en GLC'
+    errorAceSpecGLC: 'Las cartas ACE SPEC no están permitidas en GLC',
+    errorRegulationMark: '{{current}} carta(s) no son legales en Estándar (marcas válidas: {{validMarks}})',
+    errorProfessorGroup: 'Solo 1 carta Profesor permitida en GLC (Professor\'s Research, Juniper o Sycamore). Actualmente {{current}}',
+    errorBossGroup: 'Solo 1 carta Boss permitida en GLC (Boss\'s Orders o Lysandre). Actualmente {{current}}',
+    errorMainDeckCount: 'El mazo principal debe tener exactamente {{expected}} cartas (actualmente {{current}})',
+    errorLegendCount: 'El mazo debe tener exactamente 1 Legend (actualmente {{current}})',
+    errorBattlefieldCount: 'El mazo debe tener exactamente 3 Battlefields (actualmente {{current}})',
+    errorRuneCount: 'El mazo debe tener exactamente 12 Runes (actualmente {{current}})',
+    errorSideboardCount: 'El sideboard debe tener exactamente 8 cartas si se usa (actualmente {{current}})',
+    errorDomainRestriction: '{{current}} carta(s) no coinciden con los dominios del Legend ({{domains}})'
+  },
+
+  // Decks
+  decks: {
+    tabs: {
+      myDecks: 'Mis Mazos',
+      community: 'Comunidad'
+    },
+    title: 'Mazos',
+    subtitle: 'Explora mazos de la comunidad o crea el tuyo',
+    createDeck: 'Crear Mazo',
+    import: 'Importar',
+    search: 'Buscar mazos...',
+    noDecks: 'No se encontraron mazos',
+    noMyDecks: 'Aún no has creado ningún mazo',
+    noCommunityDecks: 'No hay mazos públicos aún',
+    beFirst: 'Sé el primero en crear un mazo',
+    sortRecent: 'Recientes',
+    sortPopular: 'Popular',
+    sortVotes: 'Votos',
+    vote: {
+      upvote: 'Me gusta',
+      downvote: 'No me gusta'
+    },
+    originalBadge: {
+      tooltip: 'El Primero - Este mazo tiene una composición única'
+    },
+    // List page
+    tags: 'Tags',
+    sortLabel: 'Ordenar:',
+    activeFilters: 'Filtros activos:',
+    clearAll: 'Limpiar todo',
+    public: 'Público',
+    private: 'Privado',
+    previous: 'Anterior',
+    next: 'Siguiente',
+    // Import modal
+    importModal: {
+      title: 'Importar Mazo',
+      deckName: 'Nombre del mazo',
+      deckNamePlaceholder: 'Mi nuevo mazo',
+      cardList: 'Lista de cartas',
+      cardListPlaceholder: '4 Pikachu SV1 25\n3 Raichu SV1 26\n...',
+      formatHint: 'Formato: "cantidad Nombre SET Numero" o "cantidad SET-Numero"',
+      cancel: 'Cancelar',
+      importBtn: 'Importar',
+      errorPasteCards: 'Pega la lista de cartas',
+      errorNameRequired: 'El nombre es requerido',
+      errorImportFailed: 'Error al importar'
+    },
+    // Detail page
+    detail: {
+      backToDecks: 'Volver a Mazos',
+      notFound: 'Mazo no encontrado',
+      noAccess: 'No tienes acceso a este mazo',
+      errorLoading: 'Error al cargar el mazo',
+      errorCopying: 'Error al copiar el mazo',
+      copiedToClipboard: 'Copiado al portapapeles',
+      errorDeleting: 'Error al eliminar',
+      views: 'vistas',
+      copies: 'copias',
+      export: 'Exportar',
+      copyDeck: 'Copiar Mazo',
+      edit: 'Editar',
+      delete: 'Eliminar',
+      cards: 'Cartas',
+      emptyDeck: 'Este mazo está vacío',
+      stats: 'Estadísticas',
+      missingCards: 'Faltan {count} cartas',
+      overLimit: 'Sobran {count} cartas',
+      deckComplete: 'Mazo completo',
+      deleteConfirm: {
+        title: '¿Eliminar mazo?',
+        message: 'Esta acción no se puede deshacer. ¿Estás seguro de que quieres eliminar este mazo?',
+        cancel: 'Cancelar',
+        confirm: 'Eliminar'
+      }
+    }
+  },
+
+  // Deck Auto Tags
+  deckAutoTags: {
+    title: 'Etiquetas Automáticas',
+    format: {
+      standard: 'Estándar',
+      expanded: 'Expandido',
+      glc: 'GLC',
+      unlimited: 'Ilimitado'
+    },
+    'energy-type': {
+      fire: 'Fuego',
+      water: 'Agua',
+      grass: 'Planta',
+      electric: 'Eléctrico',
+      psychic: 'Psíquico',
+      fighting: 'Lucha',
+      dark: 'Oscuro',
+      steel: 'Acero',
+      dragon: 'Dragón',
+      colorless: 'Incoloro',
+      fairy: 'Hada'
+    },
+    mechanic: {
+      'ex-focused': 'Enfoque ex',
+      'v-focused': 'Enfoque V',
+      'vstar': 'VSTAR',
+      'vmax': 'VMAX',
+      'single-prize': 'Premio Único',
+      'lost-zone': 'Zona Perdida',
+      'rapid-strike': 'Golpe Fluido',
+      'single-strike': 'Golpe Brusco'
+    },
+    domain: {
+      fury: 'Furia',
+      calm: 'Calma',
+      mind: 'Mente',
+      body: 'Cuerpo',
+      order: 'Orden',
+      chaos: 'Caos'
+    }
   },
 
   // Support / Monetization

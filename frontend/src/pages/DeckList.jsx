@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useDateFormat } from '../contexts/DateFormatContext'
 import { deckService } from '../services/deckService'
 import Spinner from '../components/common/Spinner'
+import VoteButtons from '../components/decks/VoteButtons'
 
 // Tag colors and labels
 const TAG_COLORS = {
@@ -67,16 +68,22 @@ const TAG_CATEGORIES = {
 
 const DeckList = () => {
   const { isAuthenticated } = useAuth()
-  const { language } = useLanguage()
+  const { language, t } = useLanguage()
   const { timeAgo } = useDateFormat()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Get tab from URL, default to 'community' for non-authenticated users
+  const urlTab = searchParams.get('tab')
+  const defaultTab = isAuthenticated ? 'mine' : 'community'
+  const activeTab = urlTab || defaultTab
 
   const [loading, setLoading] = useState(true)
   const [decks, setDecks] = useState([])
-  const [filter, setFilter] = useState('all')
   const [selectedTags, setSelectedTags] = useState([])
   const [showTagFilters, setShowTagFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('recent')
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 })
 
   // Import modal state
@@ -86,36 +93,81 @@ const DeckList = () => {
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState('')
 
+  // Update URL when tab changes
+  const setActiveTab = (tab) => {
+    const newParams = new URLSearchParams(searchParams)
+    newParams.set('tab', tab)
+    setSearchParams(newParams)
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }
+
   useEffect(() => {
     fetchDecks()
-  }, [filter, selectedTags, pagination.page])
+  }, [activeTab, selectedTags, pagination.page, sortBy])
 
   const fetchDecks = async () => {
     try {
       setLoading(true)
-      const params = {
-        page: pagination.page,
-        limit: pagination.limit
-      }
 
-      if (filter === 'mine') {
-        params.mine = true
-      }
-      if (selectedTags.length > 0) {
-        params.tags = selectedTags.join(',')
-      }
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim()
-      }
+      if (activeTab === 'mine') {
+        // Fetch user's own decks
+        const params = {
+          page: pagination.page,
+          limit: pagination.limit,
+          mine: true
+        }
+        if (selectedTags.length > 0) {
+          params.tags = selectedTags.join(',')
+        }
+        if (searchQuery.trim()) {
+          params.search = searchQuery.trim()
+        }
 
-      const response = await deckService.getDecks(params)
-      if (response.success) {
-        setDecks(response.data.decks)
-        setPagination(prev => ({
-          ...prev,
-          total: response.data.pagination.total,
-          pages: response.data.pagination.pages
-        }))
+        const response = await deckService.getDecks(params)
+        if (response.success) {
+          setDecks(response.data.decks)
+          setPagination(prev => ({
+            ...prev,
+            total: response.data.pagination.total,
+            pages: response.data.pagination.pages
+          }))
+        }
+      } else {
+        // Fetch community decks using the new endpoint
+        const params = {
+          page: pagination.page,
+          limit: pagination.limit,
+          sort: sortBy
+        }
+        if (selectedTags.length > 0) {
+          params.tags = selectedTags.join(',')
+        }
+
+        const response = await deckService.getCommunityDecks(params)
+        if (response.success) {
+          // Map community response to match deck card format
+          const mappedDecks = response.data.map(deck => ({
+            _id: deck.id,
+            name: deck.name,
+            description: deck.description,
+            tags: [...(deck.format ? [deck.format] : []), ...deck.tags],
+            userId: { username: deck.author.username },
+            isPublic: true,
+            cards: [], // Community endpoint doesn't return full card list
+            totalCards: deck.cardCount,
+            views: deck.views,
+            copies: deck.copies,
+            createdAt: deck.createdAt,
+            votes: deck.votes,
+            isOriginal: deck.isOriginal
+          }))
+          setDecks(mappedDecks)
+          setPagination(prev => ({
+            ...prev,
+            total: response.pagination.total,
+            pages: response.pagination.totalPages
+          }))
+        }
       }
     } catch (error) {
       console.error('Error fetching decks:', error)
@@ -152,12 +204,12 @@ const DeckList = () => {
   // Handle import deck
   const handleImportDeck = async () => {
     if (!importText.trim()) {
-      setImportError(language === 'es' ? 'Pega la lista de cartas' : 'Paste the card list')
+      setImportError(t('decks.importModal.errorPasteCards'))
       return
     }
 
     if (!importName.trim()) {
-      setImportError(language === 'es' ? 'El nombre es requerido' : 'Name is required')
+      setImportError(t('decks.importModal.errorNameRequired'))
       return
     }
 
@@ -179,7 +231,7 @@ const DeckList = () => {
       }
     } catch (err) {
       console.error('Error importing deck:', err)
-      setImportError(err.response?.data?.message || (language === 'es' ? 'Error al importar' : 'Import failed'))
+      setImportError(err.response?.data?.message || t('decks.importModal.errorImportFailed'))
     } finally {
       setImporting(false)
     }
@@ -198,12 +250,10 @@ const DeckList = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
         <div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-            {language === 'es' ? 'Mazos' : 'Decks'}
+            {t('decks.title')}
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {language === 'es'
-              ? 'Explora mazos de la comunidad o crea el tuyo'
-              : 'Explore community decks or create your own'}
+            {t('decks.subtitle')}
           </p>
         </div>
         {isAuthenticated && (
@@ -215,7 +265,7 @@ const DeckList = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-              {language === 'es' ? 'Importar' : 'Import'}
+              {t('decks.import')}
             </button>
             <Link
               to="/decks/new"
@@ -224,7 +274,7 @@ const DeckList = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              {language === 'es' ? 'Crear Mazo' : 'Create Deck'}
+              {t('decks.createDeck')}
             </Link>
           </div>
         )}
@@ -242,7 +292,7 @@ const DeckList = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={language === 'es' ? 'Buscar mazos...' : 'Search decks...'}
+                  placeholder={t('decks.search')}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,30 +301,30 @@ const DeckList = () => {
               </div>
             </form>
 
-            {/* Filter Tabs */}
+            {/* Main Tabs */}
             <div className="flex gap-2">
-              <button
-                onClick={() => { setFilter('all'); setPagination(p => ({ ...p, page: 1 })) }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'all'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {language === 'es' ? 'Todos' : 'All'}
-              </button>
               {isAuthenticated && (
                 <button
-                  onClick={() => { setFilter('mine'); setPagination(p => ({ ...p, page: 1 })) }}
+                  onClick={() => setActiveTab('mine')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    filter === 'mine'
+                    activeTab === 'mine'
                       ? 'bg-primary-600 text-white'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                   }`}
                 >
-                  {language === 'es' ? 'Mis Mazos' : 'My Decks'}
+                  {t('decks.tabs.myDecks')}
                 </button>
               )}
+              <button
+                onClick={() => setActiveTab('community')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'community'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {t('decks.tabs.community')}
+              </button>
               <button
                 onClick={() => setShowTagFilters(!showTagFilters)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
@@ -283,7 +333,7 @@ const DeckList = () => {
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
-                🏷️ {language === 'es' ? 'Tags' : 'Tags'}
+                🏷️ {t('decks.tags')}
                 {selectedTags.length > 0 && (
                   <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary-500 text-white">
                     {selectedTags.length}
@@ -293,13 +343,41 @@ const DeckList = () => {
             </div>
           </div>
 
+          {/* Sort Options (only for community tab) */}
+          {activeTab === 'community' && (
+            <div className="flex items-center gap-2 pt-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {t('decks.sortLabel')}
+              </span>
+              <div className="flex gap-1">
+                {[
+                  { value: 'recent', label: t('decks.sortRecent') },
+                  { value: 'popular', label: t('decks.sortPopular') },
+                  { value: 'votes', label: t('decks.sortVotes') }
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => { setSortBy(option.value); setPagination(p => ({ ...p, page: 1 })) }}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      sortBy === option.value
+                        ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Tag Filters (Expandable) */}
           {showTagFilters && (
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
               {selectedTags.length > 0 && (
                 <div className="mb-4 flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {language === 'es' ? 'Filtros activos:' : 'Active filters:'}
+                    {t('decks.activeFilters')}
                   </span>
                   {selectedTags.map(tag => (
                     <button
@@ -317,7 +395,7 @@ const DeckList = () => {
                     onClick={clearTags}
                     className="px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:underline"
                   >
-                    {language === 'es' ? 'Limpiar todo' : 'Clear all'}
+                    {t('decks.clearAll')}
                   </button>
                 </div>
               )}
@@ -358,12 +436,12 @@ const DeckList = () => {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center">
           <div className="text-6xl mb-4">🃏</div>
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            {language === 'es' ? 'No se encontraron mazos' : 'No decks found'}
+            {t('decks.noDecks')}
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            {filter === 'mine'
-              ? (language === 'es' ? 'Aún no has creado ningún mazo' : "You haven't created any decks yet")
-              : (language === 'es' ? 'Sé el primero en crear un mazo' : 'Be the first to create a deck')}
+            {activeTab === 'mine'
+              ? t('decks.noMyDecks')
+              : t('decks.noCommunityDecks')}
           </p>
           {isAuthenticated && (
             <Link
@@ -373,7 +451,7 @@ const DeckList = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              {language === 'es' ? 'Crear Mazo' : 'Create Deck'}
+              {t('decks.createDeck')}
             </Link>
           )}
         </div>
@@ -403,11 +481,11 @@ const DeckList = () => {
                   <div className="absolute top-2 right-2">
                     {deck.isPublic ? (
                       <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {language === 'es' ? 'Público' : 'Public'}
+                        {t('decks.public')}
                       </span>
                     ) : (
                       <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        {language === 'es' ? 'Privado' : 'Private'}
+                        {t('decks.private')}
                       </span>
                     )}
                   </div>
@@ -423,9 +501,19 @@ const DeckList = () => {
 
                 {/* Deck Info */}
                 <div className="p-4">
-                  <h3 className="font-bold text-gray-900 dark:text-gray-100 truncate mb-1">
-                    {deck.name}
-                  </h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 truncate">
+                      {deck.name}
+                    </h3>
+                    {deck.isOriginal && (
+                      <span
+                        className="flex-shrink-0"
+                        title={t('decks.originalBadge.tooltip')}
+                      >
+                        🏆
+                      </span>
+                    )}
+                  </div>
                   {deck.description && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
                       {deck.description}
@@ -461,6 +549,12 @@ const DeckList = () => {
                       <span>📋 {deck.copies || 0}</span>
                     </span>
                   </div>
+                  <div
+                    className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <VoteButtons deckId={deck._id} compact />
+                  </div>
                 </div>
               </Link>
             ))}
@@ -474,7 +568,7 @@ const DeckList = () => {
                 disabled={pagination.page === 1}
                 className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {language === 'es' ? 'Anterior' : 'Previous'}
+                {t('decks.previous')}
               </button>
               <span className="px-4 py-2 text-gray-600 dark:text-gray-400">
                 {pagination.page} / {pagination.pages}
@@ -484,7 +578,7 @@ const DeckList = () => {
                 disabled={pagination.page === pagination.pages}
                 className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {language === 'es' ? 'Siguiente' : 'Next'}
+                {t('decks.next')}
               </button>
             </div>
           )}
@@ -497,7 +591,7 @@ const DeckList = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg">
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {language === 'es' ? 'Importar Mazo' : 'Import Deck'}
+                {t('decks.importModal.title')}
               </h2>
               <button
                 onClick={closeImportModal}
@@ -513,13 +607,13 @@ const DeckList = () => {
               {/* Deck Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {language === 'es' ? 'Nombre del mazo' : 'Deck name'}
+                  {t('decks.importModal.deckName')}
                 </label>
                 <input
                   type="text"
                   value={importName}
                   onChange={(e) => setImportName(e.target.value)}
-                  placeholder={language === 'es' ? 'Mi nuevo mazo' : 'My new deck'}
+                  placeholder={t('decks.importModal.deckNamePlaceholder')}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
@@ -527,20 +621,16 @@ const DeckList = () => {
               {/* Deck List */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {language === 'es' ? 'Lista de cartas' : 'Card list'}
+                  {t('decks.importModal.cardList')}
                 </label>
                 <textarea
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
-                  placeholder={language === 'es'
-                    ? '4 Pikachu SV1 25\n3 Raichu SV1 26\n...'
-                    : '4 Pikachu SV1 25\n3 Raichu SV1 26\n...'}
+                  placeholder={t('decks.importModal.cardListPlaceholder')}
                   className="w-full h-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {language === 'es'
-                    ? 'Formato: "cantidad Nombre SET Numero" o "cantidad SET-Numero"'
-                    : 'Format: "quantity Name SET Number" or "quantity SET-Number"'}
+                  {t('decks.importModal.formatHint')}
                 </p>
               </div>
 
@@ -557,7 +647,7 @@ const DeckList = () => {
                 onClick={closeImportModal}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                {language === 'es' ? 'Cancelar' : 'Cancel'}
+                {t('decks.importModal.cancel')}
               </button>
               <button
                 onClick={handleImportDeck}
@@ -570,7 +660,7 @@ const DeckList = () => {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                 )}
-                {language === 'es' ? 'Importar' : 'Import'}
+                {t('decks.importModal.importBtn')}
               </button>
             </div>
           </div>

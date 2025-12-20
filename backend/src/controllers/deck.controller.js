@@ -1,10 +1,12 @@
 import Deck from '../models/Deck.js'
 import Collection from '../models/Collection.js'
+import Vote from '../models/Vote.js'
 import log from '../utils/logger.js'
 import reputationService from '../services/reputation.service.js'
 import { generateDeckHash, findExactDuplicate, findSimilarDecks } from '../utils/deckHash.js'
 import { parseDeckString } from '../services/deckParser.service.js'
 import { validateDeck } from '../utils/deckValidator.js'
+import { getIO } from '../config/socket.js'
 
 const MODULE = 'DeckController'
 
@@ -916,6 +918,305 @@ export const parseDeck = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to parse deck'
+    })
+  }
+}
+
+/**
+ * Vote on a deck (up or down)
+ * POST /api/decks/:deckId/vote
+ *
+ * Body: { vote: 'up' | 'down' }
+ * Headers: x-fingerprint (for anonymous users)
+ *
+ * Rules:
+ * - One vote per user (up OR down, not both)
+ * - Clicking same vote removes it
+ * - Anonymous users can vote (fingerprint-based)
+ */
+export const voteDeck = async (req, res) => {
+  try {
+    const { deckId } = req.params
+    const { vote } = req.body
+    const fingerprint = req.headers['x-fingerprint']
+
+    // Validate vote type
+    if (!vote || !['up', 'down'].includes(vote)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vote must be "up" or "down"'
+      })
+    }
+
+    // Check deck exists
+    const deck = await Deck.findById(deckId)
+    if (!deck) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deck not found'
+      })
+    }
+
+    // Must have either user or fingerprint
+    const userId = req.user?._id
+    if (!userId && !fingerprint) {
+      return res.status(400).json({
+        success: false,
+        message: 'Authentication or fingerprint required to vote'
+      })
+    }
+
+    // Build query for existing vote
+    const voteQuery = { deckId }
+    if (userId) {
+      voteQuery.userId = userId
+    } else {
+      voteQuery.fingerprint = fingerprint
+    }
+
+    // Check for existing vote
+    const existingVote = await Vote.findOne(voteQuery)
+
+    let action = 'added'
+    let newVote = null
+
+    if (existingVote) {
+      if (existingVote.vote === vote) {
+        // Same vote - remove it (toggle off)
+        await Vote.findByIdAndDelete(existingVote._id)
+        action = 'removed'
+        log.info(MODULE, `Vote ${vote} removed from deck ${deckId} by ${userId || fingerprint}`)
+      } else {
+        // Different vote - update it
+        existingVote.vote = vote
+        await existingVote.save()
+        action = 'changed'
+        newVote = vote
+        log.info(MODULE, `Vote changed to ${vote} on deck ${deckId} by ${userId || fingerprint}`)
+      }
+    } else {
+      // No existing vote - create new
+      await Vote.create({
+        deckId,
+        vote,
+        userId: userId || null,
+        fingerprint: userId ? null : fingerprint
+      })
+      newVote = vote
+      log.info(MODULE, `Vote ${vote} added to deck ${deckId} by ${userId || fingerprint}`)
+    }
+
+    // Get updated counts
+    const counts = await Vote.getVoteCounts(deckId)
+
+    // Emit real-time update to all clients
+    try {
+      const io = getIO()
+      io.emit('deck:vote:updated', { deckId, counts })
+    } catch (socketError) {
+      // Socket not initialized (e.g., in tests) - continue without real-time
+      log.warn(MODULE, 'Socket.io not available for vote broadcast', socketError.message)
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        action,
+        userVote: action === 'removed' ? null : newVote,
+        counts
+      },
+      message: action === 'removed' ? 'Vote removed' :
+               action === 'changed' ? 'Vote updated' : 'Vote recorded'
+    })
+  } catch (error) {
+    log.error(MODULE, 'Vote on deck failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to vote on deck'
+    })
+  }
+}
+
+/**
+ * Get community decks (public decks from all users)
+ * GET /api/decks/community
+ *
+ * Query params:
+ * - page, limit (pagination)
+ * - tcg (pokemon | riftbound) - filter by TCG
+ * - format (standard, glc, expanded, etc) - filter by format tag
+ * - tags (comma-separated) - filter by additional tags
+ * - sort (recent, popular, votes) - sort order
+ *
+ * Returns public decks with author info and vote counts
+ */
+export const getCommunityDecks = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      tcg,
+      format,
+      tags,
+      sort = 'recent'
+    } = req.query
+
+    const query = { isPublic: true }
+
+    // Filter by format (it's stored as a tag)
+    const formatTags = ['standard', 'expanded', 'unlimited', 'glc']
+    if (format && formatTags.includes(format)) {
+      query.tags = query.tags ? { $all: [...(query.tags.$all || []), format] } : format
+    }
+
+    // Filter by additional tags
+    if (tags) {
+      const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)
+      if (tagList.length > 0) {
+        if (query.tags) {
+          // Already have format filter
+          if (query.tags.$all) {
+            query.tags.$all.push(...tagList)
+          } else {
+            query.tags = { $all: [query.tags, ...tagList] }
+          }
+        } else {
+          query.tags = { $all: tagList }
+        }
+      }
+    }
+
+    // TODO: TCG filter - requires adding tcg field to Deck model
+    // For now, we skip tcg filtering as the model doesn't have this field yet
+
+    // Sort options
+    let sortOption = { createdAt: -1 } // recent (default)
+    if (sort === 'popular') {
+      sortOption = { views: -1, copies: -1 }
+    } else if (sort === 'votes') {
+      // For votes sorting, we need to calculate score
+      // This will be handled after fetching with a separate sort
+      sortOption = { createdAt: -1 } // Fallback, will re-sort after getting votes
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const limitNum = parseInt(limit)
+
+    // Fetch decks
+    const [decks, total] = await Promise.all([
+      Deck.find(query)
+        .populate('userId', 'username avatar')
+        .sort(sortOption)
+        .skip(skip)
+        .limit(limitNum * 2) // Fetch more if we need to re-sort by votes
+        .lean(),
+      Deck.countDocuments(query)
+    ])
+
+    // Get vote counts for all fetched decks
+    const deckIds = decks.map(d => d._id)
+    const voteCounts = await Vote.getVoteCountsBulk(deckIds)
+
+    // Map decks with vote info
+    let enrichedDecks = decks.map(deck => {
+      const votes = voteCounts[deck._id.toString()] || { up: 0, down: 0 }
+      return {
+        id: deck._id,
+        name: deck.name,
+        description: deck.description ? deck.description.substring(0, 200) : '',
+        tcg: 'pokemon', // Default for now, TODO: add tcg field to model
+        format: deck.tags?.find(t => formatTags.includes(t)) || 'standard',
+        author: {
+          username: deck.userId?.username || 'Unknown',
+          avatar: deck.userId?.avatar || null
+        },
+        votes: {
+          up: votes.up,
+          down: votes.down,
+          score: votes.up - votes.down
+        },
+        cardCount: deck.cards?.reduce((sum, c) => sum + c.quantity, 0) || 0,
+        tags: deck.tags?.filter(t => !formatTags.includes(t)) || [],
+        views: deck.views || 0,
+        copies: deck.copies || 0,
+        isOriginal: deck.isOriginal !== false,
+        createdAt: deck.createdAt
+      }
+    })
+
+    // If sorting by votes, re-sort by score
+    if (sort === 'votes') {
+      enrichedDecks.sort((a, b) => b.votes.score - a.votes.score)
+    }
+
+    // Apply pagination after vote-based sorting
+    if (sort === 'votes') {
+      enrichedDecks = enrichedDecks.slice(0, limitNum)
+    } else {
+      enrichedDecks = enrichedDecks.slice(0, limitNum)
+    }
+
+    log.info(MODULE, `Community decks fetched: ${enrichedDecks.length} of ${total}`)
+
+    res.status(200).json({
+      success: true,
+      data: enrichedDecks,
+      pagination: {
+        page: parseInt(page),
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get community decks failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get community decks'
+    })
+  }
+}
+
+/**
+ * Get votes for a deck
+ * GET /api/decks/:deckId/votes
+ *
+ * Returns vote counts and optionally the current user's vote
+ */
+export const getDeckVotes = async (req, res) => {
+  try {
+    const { deckId } = req.params
+    const fingerprint = req.headers['x-fingerprint']
+
+    // Check deck exists
+    const deck = await Deck.findById(deckId)
+    if (!deck) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deck not found'
+      })
+    }
+
+    // Get vote counts
+    const counts = await Vote.getVoteCounts(deckId)
+
+    // Get user's vote if authenticated or has fingerprint
+    const userId = req.user?._id
+    const userVote = await Vote.getUserVote(deckId, userId, fingerprint)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        counts,
+        userVote,
+        score: counts.up - counts.down
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get deck votes failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get votes'
     })
   }
 }

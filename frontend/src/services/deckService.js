@@ -49,6 +49,12 @@ export const deckService = {
     return response.data
   },
 
+  // Get community decks (public decks from all users)
+  getCommunityDecks: async (params = {}) => {
+    const response = await api.get('/decks/community', { params })
+    return response.data
+  },
+
   // Get available tags (predefined categories)
   getAvailableTags: async () => {
     const response = await api.get('/decks/tags')
@@ -126,5 +132,17 @@ export const deckService = {
   // Format deck to TCG Live export string
   formatToTCGLive: (cards) => {
     return cards.map(card => `${card.quantity} ${card.cardId}`).join('\n')
+  },
+
+  // Get votes for a deck
+  getVotes: async (deckId) => {
+    const response = await api.get(`/decks/${deckId}/votes`)
+    return response.data
+  },
+
+  // Vote on a deck (up or down)
+  vote: async (deckId, vote) => {
+    const response = await api.post(`/decks/${deckId}/vote`, { vote })
+    return response.data
   }
 }
