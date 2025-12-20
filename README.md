@@ -130,9 +130,11 @@ TCGKB/
 
 ### Deck Builder
 - **Create/manage decks** for any supported TCG
+- **TCG System Locking** - Prevents mixing cards from different TCGs (Issue #56)
 - **Import/export** functionality
 - **Deck comments** and sharing
 - **Collection tracking** with quantities
+- **Mobile-optimized layout** - Stats moved to bottom on mobile (Issue #53)
 
 See [Deck Manager V2 Technical Spec](#deck-manager-v2) for detailed implementation.
 
@@ -160,6 +162,7 @@ The platform includes a floating bug report button that allows users to submit i
 | **Duplicate Detection** | Compares against existing issues, shows potential matches |
 | **Context Capture** | Includes theme, URL, screen size, user agent |
 | **i18n Support** | Full Spanish/English translations |
+| **Draft Persistence** | Saves draft to localStorage, restores on reload (Issue #55) |
 
 #### Flow
 ```
@@ -333,9 +336,9 @@ Reaction
 Deck
   ├── userId (creator)
   ├── name, description, tags
-  ├── tcg (pokemon | riftbound)
+  ├── tcgSystem (pokemon | riftbound) - Locks deck to single TCG
   ├── cards [{ cardId, quantity }]
-  └── hash (for duplicate detection)
+  └── compositionHash (for duplicate detection, "El Primero" badge)
 
 Collection
   ├── userId
@@ -1352,12 +1355,35 @@ Riftbound filters: Fury, Calm, Mind, Body, Order, Chaos
 | Feature | Description |
 |---------|-------------|
 | **My Decks / Community tabs** | Browse personal or public decks |
-| **Voting** | 👍/👎 only (no emoji reactions) |
+| **Voting** | 👍/👎 only (no emoji reactions) with real-time Socket.io updates |
 | **Read-only mode** | View others' decks without editing |
 | **Comments** | Discuss decks |
-| **"El Primero" badge** | First deck with unique hash |
+| **"El Primero" badge** | 🏆 badge for first deck with unique composition hash |
 
 **No limit** on public decks per user.
+
+### TCG System Locking (Issue #56)
+
+Decks are locked to a single TCG system to prevent mixing cards from different games.
+
+| Behavior | Description |
+|----------|-------------|
+| **Auto-detect** | TCG is locked when first card is added |
+| **Filter search** | Card search only shows cards from the locked TCG |
+| **Visual indicator** | Shows 🎴 Pokémon or 🌀 Riftbound badge in deck info |
+| **Clear on empty** | TCG lock is cleared when all cards are removed |
+| **Error message** | Shows warning if user tries to add cross-TCG card |
+
+### Mobile Layout Optimization (Issue #53)
+
+On mobile devices, the deck builder reorders sections for better UX:
+
+| Screen | Order |
+|--------|-------|
+| **Desktop** | Left: Info + Stats | Right: Search + Cards |
+| **Mobile** | 1. Info → 2. Search + Cards → 3. Stats (bottom) |
+
+This ensures users focus on adding cards first, with stats visible after.
 
 ### Asset Repositories
 

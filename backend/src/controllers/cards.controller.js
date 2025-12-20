@@ -90,14 +90,16 @@ export const getCardById = async (req, res) => {
 
 /**
  * Search cards for autocomplete
+ * Supports optional tcg filter for deck building
  */
 export const searchCardsAutocomplete = async (req, res) => {
   try {
-    const { name = '', limit = 10 } = req.query
+    const { name = '', limit = 10, tcg = null } = req.query
 
     const cards = await unifiedTCGService.searchCardsAutocomplete(
       name,
-      parseInt(limit)
+      parseInt(limit),
+      tcg // Pass TCG filter (e.g., 'pokemon' or 'riftbound')
     )
 
     res.status(200).json({
