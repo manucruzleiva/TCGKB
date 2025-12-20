@@ -6,6 +6,7 @@ import reputationService from '../services/reputation.service.js'
 import { generateDeckHash, findExactDuplicate, findSimilarDecks } from '../utils/deckHash.js'
 import { parseDeckString } from '../services/deckParser.service.js'
 import { validateDeck } from '../utils/deckValidator.js'
+import { enrichDeckCards } from '../services/cardEnricher.service.js'
 import { getIO } from '../config/socket.js'
 
 const MODULE = 'DeckController'
@@ -870,7 +871,7 @@ export const getDuplicateGroups = async (req, res) => {
  */
 export const parseDeck = async (req, res) => {
   try {
-    const { deckString, format = null, validate = true } = req.body
+    const { deckString, format = null, validate = true, enrich = true } = req.body
 
     if (!deckString) {
       return res.status(400).json({
@@ -890,10 +891,20 @@ export const parseDeck = async (req, res) => {
       })
     }
 
+    // Enrich cards with metadata from CardCache (for accurate validation)
+    let cards = result.cards
+    let enrichmentStats = null
+
+    if (enrich) {
+      const enrichResult = await enrichDeckCards(result.cards, result.tcg)
+      cards = enrichResult.cards
+      enrichmentStats = enrichResult.stats
+    }
+
     // Use the validation from the parser (already includes format-specific rules)
     const validation = result.validation
 
-    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}`)
+    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}${enrichmentStats ? `, Enriched=${enrichmentStats.enriched}/${enrichmentStats.total} in ${enrichmentStats.duration}ms` : ''}`)
 
     res.status(200).json({
       success: true,
@@ -905,10 +916,13 @@ export const parseDeck = async (req, res) => {
         formatConfidence: result.formatConfidence,
         formatReasons: result.formatReasons,
         inputFormat: result.inputFormat,
-        cards: result.cards,
+        cards,
         reprintGroups: result.reprintGroups,
         breakdown: result.breakdown,
-        stats: result.stats,
+        stats: {
+          ...result.stats,
+          enrichment: enrichmentStats
+        },
         warnings: result.warnings,
         validation
       }
