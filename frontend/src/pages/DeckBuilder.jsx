@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -7,6 +7,10 @@ import { cardService } from '../services/cardService'
 import Spinner from '../components/common/Spinner'
 import DeckImportModal from '../components/decks/DeckImportModal'
 import DeckCardInteractive, { DeckDropZone } from '../components/decks/DeckCardInteractive'
+import { TypeFilterBar, TYPE_COLORS } from '../components/icons'
+
+// All Pokemon types for filtering
+const ALL_TYPES = Object.keys(TYPE_COLORS)
 
 // Tag display labels
 const TAG_LABELS = {
@@ -92,6 +96,9 @@ const DeckBuilder = () => {
 
   // Import modal
   const [showImportModal, setShowImportModal] = useState(false)
+
+  // Visual filters - all types active by default
+  const [activeTypes, setActiveTypes] = useState(ALL_TYPES)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -247,6 +254,36 @@ const DeckBuilder = () => {
   const removeTag = (tag) => {
     setTags(prev => prev.filter(t => t !== tag))
   }
+
+  // Toggle type filter
+  const toggleTypeFilter = (type) => {
+    setActiveTypes(prev => {
+      if (prev.includes(type)) {
+        // If removing last type, keep it active (must have at least one)
+        if (prev.length === 1) return prev
+        return prev.filter(t => t !== type)
+      }
+      return [...prev, type]
+    })
+  }
+
+  // Reset all filters
+  const resetFilters = () => {
+    setActiveTypes(ALL_TYPES)
+  }
+
+  // Filter search results by active types
+  const filteredSearchResults = useMemo(() => {
+    if (activeTypes.length === ALL_TYPES.length) {
+      return searchResults // All types active, no filtering needed
+    }
+    return searchResults.filter(card => {
+      // Show cards without types (trainers, energies)
+      if (!card.types || card.types.length === 0) return true
+      // Show if any of the card's types is active
+      return card.types.some(type => activeTypes.includes(type.toLowerCase()))
+    })
+  }, [searchResults, activeTypes])
 
   // Handle import from DeckImportModal
   const handleImport = (importData) => {
@@ -564,10 +601,33 @@ const DeckBuilder = () => {
               )}
             </div>
 
-            {/* Search Results */}
+            {/* Type Filters */}
             {searchResults.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
+                  {language === 'es' ? 'Filtrar:' : 'Filter:'}
+                </span>
+                <TypeFilterBar
+                  types={ALL_TYPES}
+                  activeTypes={activeTypes}
+                  onToggle={toggleTypeFilter}
+                  size={24}
+                />
+                {activeTypes.length < ALL_TYPES.length && (
+                  <button
+                    onClick={resetFilters}
+                    className="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                  >
+                    {language === 'es' ? 'Mostrar todos' : 'Show all'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Search Results */}
+            {filteredSearchResults.length > 0 && (
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-64 overflow-y-auto">
-                {searchResults.map(card => (
+                {filteredSearchResults.map(card => (
                   <DeckCardInteractive
                     key={card.id}
                     card={card}
@@ -577,6 +637,13 @@ const DeckBuilder = () => {
                     draggable={true}
                   />
                 ))}
+              </div>
+            )}
+
+            {/* No results after filtering */}
+            {searchResults.length > 0 && filteredSearchResults.length === 0 && (
+              <div className="mt-4 text-center py-4 text-gray-500 dark:text-gray-400">
+                <p>{language === 'es' ? 'No hay cartas con los tipos seleccionados' : 'No cards match selected types'}</p>
               </div>
             )}
           </div>
