@@ -675,14 +675,40 @@ function generateRiftboundAutoTags(deck) {
 
 ## Implementation Status
 
-> **Last Updated**: 2025-12-20 (Sprint by @raj)
+> **Last Updated**: 2025-12-20 (Status Review by @cuervo)
 
 ### Completed (PRs Merged to Stage)
 
 | Issue | PR | Description | Status |
 |-------|-----|-------------|--------|
+| #14 | - | POST /api/decks/parse con detección de TCG/formato | ✅ Done |
+| #15 | - | DeckImportModal con preview y detección automática | ✅ Done |
+| #16 | - | Validación Pokemon Standard (60 cards, 4 copies, ACE SPEC, Radiant) | ✅ Done |
+| #17 | - | Agrupación de reprints por nombre para validación de copias | ✅ Done |
+| #18 | - | Validación Pokemon GLC (singleton, single type, no rule box) | ✅ Done |
+| #19 | - | Validación Riftbound (40+1+3+12, domain restriction) | ✅ Done |
+| #20 | - | Detección de formato en tiempo real | ✅ Done |
+| #25 | - | DeckValidationIndicator component (inline, real-time) | ✅ Done |
+| #30 | - | Sistema de votos 👍/👎 (backend + frontend) | ✅ Done |
 | #36 | [#80](https://github.com/manucruzleiva/TCGKB/pull/80) | Card Enrichment Service | ✅ Merged |
 | #37 | [#81](https://github.com/manucruzleiva/TCGKB/pull/81) | Real-time validation with enriched cards | ✅ Merged |
+
+### Pending (Issues Reopened)
+
+| Issue | Description | Priority | Tests Ready |
+|-------|-------------|----------|-------------|
+| #22 | Auto-tagging en tiempo real | Media | ✅ `deck-features.spec.js` |
+| #23 | Card interactions (left/right/ctrl click, drag&drop) | Media | ✅ `deck-features.spec.js` |
+| #24 | Filtros visuales con iconos toggle + grayscale | Media | ✅ `deck-features.spec.js` |
+| #26 | Integrar SVG assets de tipos Pokemon (repositorios MIT) | Media | N/A |
+| #27 | Crear SVG assets de dominios Riftbound | Media | N/A |
+| #28 | Tabs 'Mis Decks' / 'Comunidad' en DeckList | Media | ✅ `decks.spec.js` |
+| #29 | GET /api/decks/community endpoint | Media | ✅ `deck-api.spec.js` |
+| #31 | Modo read-only para decks ajenos | Baja | ✅ `deck-features.spec.js` |
+| #32 | Real-time updates para votos/comentarios (Socket.io) | Media | ✅ `deck-features.spec.js` |
+| #33 | Badge 'El Primero' para decks originales | Baja | ✅ `deck-features.spec.js` |
+| #34 | i18n para todas las nuevas strings | Media | ✅ `deck-features.spec.js` |
+| #35 | Tests E2E para import flow y validaciones | Baja | Self |
 
 ### Implementation Details
 
@@ -713,34 +739,35 @@ The `parseDeck` endpoint now:
 
 ### Epic: Deck Manager V2
 
-| # | Título | Prioridad | Estimación | Status |
-|---|--------|-----------|------------|--------|
-| 1 | Crear endpoint POST /api/decks/parse con detección de TCG/formato | Alta | 4h | ✅ Done |
-| 2 | Implementar DeckImportModal con preview y detección automática | Alta | 5h | ✅ Done |
-| 3 | Añadir validación Pokemon Standard (60 cards, 4 copies, ACE SPEC, Radiant) | Alta | 3h | ✅ Done |
-| 3b | Implementar agrupación de reprints por nombre para validación de copias | Alta | 3h | ✅ Done |
-| 4 | Añadir validación Pokemon GLC (singleton, single type, no rule box) | Alta | 3h | ✅ Done |
-| 5 | Añadir validación Riftbound (40+1+3+12, domain restriction) | Alta | 3h | ✅ Done |
-| 6 | Implementar detección de formato en tiempo real | Alta | 3h | ✅ Done |
-| 7 | Implementar auto-tagging en tiempo real | Media | 3h | Pending |
-| 8 | Crear DeckValidationIndicator component (inline, real-time) | Media | 2h | ✅ Done |
-| 9 | Implementar card interactions (left/right/ctrl click, drag&drop) | Media | 4h | Pending |
-| 10 | Implementar filtros visuales con iconos toggle + grayscale | Media | 4h | Pending |
-| 11 | Integrar SVG assets de tipos Pokemon (desde repositorios MIT) | Media | 2h | Pending |
-| 12 | Crear SVG assets de dominios Riftbound | Media | 3h | Pending |
-| 13 | Añadir tabs "Mis Decks" / "Comunidad" en DeckList | Media | 2h | Pending |
-| 14 | Crear endpoint GET /api/decks/community | Media | 2h | Pending |
-| 15 | Implementar sistema de votos 👍/👎 (backend + frontend) | Media | 3h | ✅ Done |
-| 16 | Implementar modo read-only para decks ajenos | Baja | 2h | Pending |
-| 17 | Añadir real-time updates para votos/comentarios (Socket.io) | Media | 3h | Pending |
-| 18 | Añadir badge "El Primero" para decks originales | Baja | 1h | Pending |
-| 19 | Añadir i18n para todas las nuevas strings | Media | 2h | Partial |
-| 20 | Tests E2E para import flow y validaciones | Baja | 4h | Pending |
-| 21 | **Card Enrichment Service** (#36) | Alta | 3h | ✅ Done |
-| 22 | **Real-time Validation** (#37) | Alta | 2h | ✅ Done |
+| # | Issue | Título | Prioridad | Estimación | Status |
+|---|-------|--------|-----------|------------|--------|
+| 1 | #14 | Crear endpoint POST /api/decks/parse con detección de TCG/formato | Alta | 4h | ✅ Done |
+| 2 | #15 | Implementar DeckImportModal con preview y detección automática | Alta | 5h | ✅ Done |
+| 3 | #16 | Añadir validación Pokemon Standard (60 cards, 4 copies, ACE SPEC, Radiant) | Alta | 3h | ✅ Done |
+| 3b | #17 | Implementar agrupación de reprints por nombre para validación de copias | Alta | 3h | ✅ Done |
+| 4 | #18 | Añadir validación Pokemon GLC (singleton, single type, no rule box) | Alta | 3h | ✅ Done |
+| 5 | #19 | Añadir validación Riftbound (40+1+3+12, domain restriction) | Alta | 3h | ✅ Done |
+| 6 | #20 | Implementar detección de formato en tiempo real | Alta | 3h | ✅ Done |
+| 7 | #22 | Implementar auto-tagging en tiempo real | Media | 3h | 🔄 Open |
+| 8 | #25 | Crear DeckValidationIndicator component (inline, real-time) | Media | 2h | ✅ Done |
+| 9 | #23 | Implementar card interactions (left/right/ctrl click, drag&drop) | Media | 4h | 🔄 Open |
+| 10 | #24 | Implementar filtros visuales con iconos toggle + grayscale | Media | 4h | 🔄 Open |
+| 11 | #26 | Integrar SVG assets de tipos Pokemon (desde repositorios MIT) | Media | 2h | 🔄 Open |
+| 12 | #27 | Crear SVG assets de dominios Riftbound | Media | 3h | 🔄 Open |
+| 13 | #28 | Añadir tabs "Mis Decks" / "Comunidad" en DeckList | Media | 2h | 🔄 Open |
+| 14 | #29 | Crear endpoint GET /api/decks/community | Media | 2h | 🔄 Open |
+| 15 | #30 | Implementar sistema de votos 👍/👎 (backend + frontend) | Media | 3h | ✅ Done |
+| 16 | #31 | Implementar modo read-only para decks ajenos | Baja | 2h | 🔄 Open |
+| 17 | #32 | Añadir real-time updates para votos/comentarios (Socket.io) | Media | 3h | 🔄 Open |
+| 18 | #33 | Añadir badge "El Primero" para decks originales | Baja | 1h | 🔄 Open |
+| 19 | #34 | Añadir i18n para todas las nuevas strings | Media | 2h | 🔄 Open (Partial) |
+| 20 | #35 | Tests E2E para import flow y validaciones | Baja | 4h | 🔄 Open |
+| 21 | #36 | **Card Enrichment Service** | Alta | 3h | ✅ Done |
+| 22 | #37 | **Real-time Validation** | Alta | 2h | ✅ Done |
 
 **Total estimado**: ~61 horas de desarrollo
 **Completado**: ~35 horas (~57%)
+**Pendiente**: ~26 horas (12 issues reopened)
 
 ---
 
