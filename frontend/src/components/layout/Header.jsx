@@ -476,17 +476,27 @@ const Header = () => {
                   {searchResults.map((card) => (
                     <button
                       key={card.id}
-                      onClick={() => handleCardSelect(card.id)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleCardSelect(card.id)
+                      }}
+                      onTouchEnd={(e) => {
+                        // Ensure touch events also trigger navigation on mobile
+                        e.preventDefault()
+                        handleCardSelect(card.id)
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0 cursor-pointer touch-manipulation"
                     >
                       {card.images?.small && (
                         <img
                           src={card.images.small}
                           alt={card.name}
-                          className="w-12 h-16 object-cover rounded"
+                          className="w-12 h-16 object-cover rounded pointer-events-none"
                         />
                       )}
-                      <div className="flex-1 text-left min-w-0">
+                      <div className="flex-1 text-left min-w-0 pointer-events-none">
                         <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                           {card.name}
                         </div>
@@ -495,7 +505,7 @@ const Header = () => {
                         </div>
                       </div>
                       {card.tcgSystem && (
-                        <span className="text-xs px-2 py-1 rounded bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 shrink-0">
+                        <span className="text-xs px-2 py-1 rounded bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 shrink-0 pointer-events-none">
                           {card.tcgSystem}
                         </span>
                       )}
