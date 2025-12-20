@@ -202,6 +202,7 @@ const DeckBuilder = () => {
     if (!tcgSystem) {
       setTcgSystem(cardTcg)
     }
+
     setCards(prev => {
       const existing = prev.find(c => c.cardId === cardId)
       if (existing) {
@@ -588,6 +589,7 @@ const DeckBuilder = () => {
               </div>
             </div>
           </div>
+
         </div>
 
         {/* Card Search & Deck - Second on mobile, right column on desktop */}
@@ -790,7 +792,7 @@ const DeckBuilder = () => {
               </div>
             )}
           </div>
-        </div>
+        </div>ain
       </div>
 
       {/* Import Modal */}
