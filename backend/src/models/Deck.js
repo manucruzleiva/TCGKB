@@ -93,6 +93,14 @@ const deckSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Deck',
     default: null
+  },
+  // TCG system this deck belongs to (pokemon, riftbound)
+  // Prevents mixing cards from different TCGs
+  tcgSystem: {
+    type: String,
+    enum: ['pokemon', 'riftbound'],
+    default: 'pokemon',
+    index: true
   }
 }, {
   timestamps: true

@@ -381,8 +381,11 @@ class UnifiedTCGService {
 
   /**
    * Search cards for autocomplete (ultra-fast with 3-level cache)
+   * @param {string} name - Search query
+   * @param {number} limit - Max results
+   * @param {string|null} tcgSystem - Optional TCG filter ('pokemon' or 'riftbound')
    */
-  async searchCardsAutocomplete(name, limit = 10) {
+  async searchCardsAutocomplete(name, limit = 10, tcgSystem = null) {
     const startTime = Date.now()
 
     try {
@@ -390,7 +393,7 @@ class UnifiedTCGService {
         return []
       }
 
-      const searchKey = name.toLowerCase().trim()
+      const searchKey = `${name.toLowerCase().trim()}_${tcgSystem || 'all'}`
 
       // LEVEL 1: Memory cache (1-2ms response time)
       const memCached = searchCache.get('autocomplete', searchKey)
@@ -400,9 +403,15 @@ class UnifiedTCGService {
       }
 
       // LEVEL 2: MongoDB cache with index (5-20ms response time)
-      const dbCached = await CardCache.find({
+      const dbQuery = {
         'data.name': { $regex: `^${name}`, $options: 'i' }
-      })
+      }
+      // Filter by TCG system if specified
+      if (tcgSystem) {
+        dbQuery.tcgSystem = tcgSystem
+      }
+
+      const dbCached = await CardCache.find(dbQuery)
         .limit(limit * 3)
         .sort({ 'data.set.releaseDate': -1 })
         .lean()
@@ -419,6 +428,7 @@ class UnifiedTCGService {
           .map(card => ({
             id: card.id,
             name: card.name,
+            supertype: card.supertype, // Include supertype for deck building
             images: card.images,
             set: card.set,
             number: card.number,
@@ -435,16 +445,22 @@ class UnifiedTCGService {
 
       log.info(MODULE, `Autocomplete cache miss for "${searchKey}", fetching from API`)
 
-      // LEVEL 3: Fetch from Pokemon API (200-500ms)
-      const [pokemonResults, rifboundResults] = await Promise.all([
-        pokemon.card.where({
+      // LEVEL 3: Fetch from external APIs (200-500ms)
+      // Only fetch from relevant TCG if filter is specified
+      let pokemonResults = []
+      let rifboundResults = []
+
+      if (!tcgSystem || tcgSystem === 'pokemon') {
+        pokemonResults = await pokemon.card.where({
           q: `name:${name}*`,
           pageSize: limit * 2,
           orderBy: '-set.releaseDate'
-        }).then(res => res.data || []).catch(() => []),
+        }).then(res => res.data || []).catch(() => [])
+      }
 
-        this.searchRifbound(name, 1, limit).catch(() => [])
-      ])
+      if (!tcgSystem || tcgSystem === 'riftbound') {
+        rifboundResults = await this.searchRifbound(name, 1, limit).catch(() => [])
+      }
 
       // Combine results
       const allResults = [
@@ -460,6 +476,7 @@ class UnifiedTCGService {
         .map(card => ({
           id: card.id,
           name: card.name,
+          supertype: card.supertype, // Include supertype for deck building
           images: card.images,
           set: card.set,
           number: card.number,
@@ -487,9 +504,14 @@ class UnifiedTCGService {
 
       // Emergency fallback
       try {
-        const fallbackResults = await CardCache.find({
+        const fallbackQuery = {
           'data.name': { $regex: name, $options: 'i' }
-        })
+        }
+        if (tcgSystem) {
+          fallbackQuery.tcgSystem = tcgSystem
+        }
+
+        const fallbackResults = await CardCache.find(fallbackQuery)
           .limit(limit)
           .lean()
 
@@ -497,6 +519,7 @@ class UnifiedTCGService {
           return fallbackResults.map(c => ({
             id: c.data.id,
             name: c.data.name,
+            supertype: c.data.supertype, // Include supertype for deck building
             images: c.data.images,
             set: c.data.set,
             number: c.data.number,
