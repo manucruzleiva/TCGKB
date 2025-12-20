@@ -12,7 +12,8 @@ import {
   getSuggestedDecks,
   checkDuplicates,
   getDuplicateGroups,
-  parseDeck
+  parseDeck,
+  getCommunityDecks
 } from '../controllers/deck.controller.js'
 import { protect, optionalAuth, adminOrDevOnly } from '../middleware/auth.middleware.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
@@ -21,6 +22,7 @@ const router = express.Router()
 
 // Public routes (with optional auth for checking ownership)
 router.get('/', optionalAuth, generalLimiter, getDecks)
+router.get('/community', generalLimiter, getCommunityDecks) // Community decks with filters
 router.get('/tags', generalLimiter, getAvailableTags) // Get available tags (must be before :deckId)
 router.get('/suggestions', protect, generalLimiter, getSuggestedDecks) // Suggested decks based on collection
 router.get('/duplicates', protect, adminOrDevOnly, getDuplicateGroups) // Admin: view duplicate groups

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useDateFormat } from '../contexts/DateFormatContext'
@@ -65,19 +65,35 @@ const TAG_CATEGORIES = {
   strategy: ['meta', 'budget', 'fun', 'competitive', 'casual', 'beginner-friendly']
 }
 
+// Sort options for community tab
+const SORT_OPTIONS = {
+  recent: { es: 'Recientes', en: 'Recent' },
+  popular: { es: 'Populares', en: 'Popular' },
+  copies: { es: 'Más copiados', en: 'Most copied' }
+}
+
 const DeckList = () => {
   const { isAuthenticated } = useAuth()
   const { language } = useLanguage()
   const { timeAgo } = useDateFormat()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Read initial state from URL
+  const initialTab = searchParams.get('tab') || (isAuthenticated ? 'mine' : 'community')
+  const initialSort = searchParams.get('sort') || 'recent'
+  const initialFormat = searchParams.get('format') || ''
+  const initialPage = parseInt(searchParams.get('page') || '1')
 
   const [loading, setLoading] = useState(true)
   const [decks, setDecks] = useState([])
-  const [filter, setFilter] = useState('all')
+  const [activeTab, setActiveTab] = useState(initialTab)
+  const [sortBy, setSortBy] = useState(initialSort)
+  const [formatFilter, setFormatFilter] = useState(initialFormat)
   const [selectedTags, setSelectedTags] = useState([])
   const [showTagFilters, setShowTagFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 })
+  const [pagination, setPagination] = useState({ page: initialPage, limit: 20, total: 0, pages: 0 })
 
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false)
@@ -86,29 +102,60 @@ const DeckList = () => {
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState('')
 
+  // Update URL when tab/sort/page changes
+  useEffect(() => {
+    const params = new URLSearchParams()
+    params.set('tab', activeTab)
+    if (activeTab === 'community') {
+      params.set('sort', sortBy)
+      if (formatFilter) params.set('format', formatFilter)
+    }
+    if (pagination.page > 1) params.set('page', pagination.page.toString())
+    setSearchParams(params, { replace: true })
+  }, [activeTab, sortBy, formatFilter, pagination.page])
+
   useEffect(() => {
     fetchDecks()
-  }, [filter, selectedTags, pagination.page])
+  }, [activeTab, selectedTags, pagination.page, sortBy, formatFilter])
 
   const fetchDecks = async () => {
     try {
       setLoading(true)
-      const params = {
-        page: pagination.page,
-        limit: pagination.limit
+      let response
+
+      if (activeTab === 'mine') {
+        // Fetch user's own decks
+        const params = {
+          mine: true,
+          page: pagination.page,
+          limit: pagination.limit
+        }
+        if (selectedTags.length > 0) {
+          params.tags = selectedTags.join(',')
+        }
+        if (searchQuery.trim()) {
+          params.search = searchQuery.trim()
+        }
+        response = await deckService.getDecks(params)
+      } else {
+        // Fetch community decks with filters
+        const params = {
+          page: pagination.page,
+          limit: pagination.limit,
+          sort: sortBy
+        }
+        if (formatFilter) {
+          params.format = formatFilter
+        }
+        if (selectedTags.length > 0) {
+          params.tags = selectedTags.join(',')
+        }
+        if (searchQuery.trim()) {
+          params.search = searchQuery.trim()
+        }
+        response = await deckService.getCommunityDecks(params)
       }
 
-      if (filter === 'mine') {
-        params.mine = true
-      }
-      if (selectedTags.length > 0) {
-        params.tags = selectedTags.join(',')
-      }
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim()
-      }
-
-      const response = await deckService.getDecks(params)
       if (response.success) {
         setDecks(response.data.decks)
         setPagination(prev => ({
@@ -198,12 +245,14 @@ const DeckList = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
         <div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-            {language === 'es' ? 'Mazos' : 'Decks'}
+            {activeTab === 'mine'
+              ? (language === 'es' ? 'Mis Mazos' : 'My Decks')
+              : (language === 'es' ? 'Mazos de la Comunidad' : 'Community Decks')}
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {language === 'es'
-              ? 'Explora mazos de la comunidad o crea el tuyo'
-              : 'Explore community decks or create your own'}
+            {activeTab === 'mine'
+              ? (language === 'es' ? 'Gestiona y organiza tus mazos' : 'Manage and organize your decks')
+              : (language === 'es' ? 'Explora mazos compartidos por otros jugadores' : 'Explore decks shared by other players')}
           </p>
         </div>
         {isAuthenticated && (
@@ -251,23 +300,13 @@ const DeckList = () => {
               </div>
             </form>
 
-            {/* Filter Tabs */}
+            {/* Main Tabs */}
             <div className="flex gap-2">
-              <button
-                onClick={() => { setFilter('all'); setPagination(p => ({ ...p, page: 1 })) }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'all'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {language === 'es' ? 'Todos' : 'All'}
-              </button>
               {isAuthenticated && (
                 <button
-                  onClick={() => { setFilter('mine'); setPagination(p => ({ ...p, page: 1 })) }}
+                  onClick={() => { setActiveTab('mine'); setPagination(p => ({ ...p, page: 1 })) }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    filter === 'mine'
+                    activeTab === 'mine'
                       ? 'bg-primary-600 text-white'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                   }`}
@@ -275,6 +314,16 @@ const DeckList = () => {
                   {language === 'es' ? 'Mis Mazos' : 'My Decks'}
                 </button>
               )}
+              <button
+                onClick={() => { setActiveTab('community'); setPagination(p => ({ ...p, page: 1 })) }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'community'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {language === 'es' ? 'Comunidad' : 'Community'}
+              </button>
               <button
                 onClick={() => setShowTagFilters(!showTagFilters)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
@@ -292,6 +341,65 @@ const DeckList = () => {
               </button>
             </div>
           </div>
+
+          {/* Community Filters (Sort & Format) */}
+          {activeTab === 'community' && (
+            <div className="flex flex-wrap gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              {/* Sort By */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {language === 'es' ? 'Ordenar:' : 'Sort:'}
+                </span>
+                <div className="flex gap-1">
+                  {Object.entries(SORT_OPTIONS).map(([key, labels]) => (
+                    <button
+                      key={key}
+                      onClick={() => { setSortBy(key); setPagination(p => ({ ...p, page: 1 })) }}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                        sortBy === key
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {labels[language]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Format Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {language === 'es' ? 'Formato:' : 'Format:'}
+                </span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => { setFormatFilter(''); setPagination(p => ({ ...p, page: 1 })) }}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      !formatFilter
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {language === 'es' ? 'Todos' : 'All'}
+                  </button>
+                  {['standard', 'expanded', 'glc'].map(format => (
+                    <button
+                      key={format}
+                      onClick={() => { setFormatFilter(format); setPagination(p => ({ ...p, page: 1 })) }}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                        formatFilter === format
+                          ? TAG_COLORS[format]
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {TAG_LABELS[format][language]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Tag Filters (Expandable) */}
           {showTagFilters && (
@@ -361,9 +469,9 @@ const DeckList = () => {
             {language === 'es' ? 'No se encontraron mazos' : 'No decks found'}
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            {filter === 'mine'
+            {activeTab === 'mine'
               ? (language === 'es' ? 'Aún no has creado ningún mazo' : "You haven't created any decks yet")
-              : (language === 'es' ? 'Sé el primero en crear un mazo' : 'Be the first to create a deck')}
+              : (language === 'es' ? 'No hay mazos públicos aún. ¡Sé el primero!' : 'No public decks yet. Be the first!')}
           </p>
           {isAuthenticated && (
             <Link

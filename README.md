@@ -571,6 +571,7 @@ PATCH  /api/test/users/:id      Modify role/restrictions
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/decks` | List user decks |
+| GET | `/api/decks/community` | List public community decks with filters (sort, format, tags) |
 | POST | `/api/decks` | Create deck |
 | POST | `/api/decks/parse` | Parse deck string, detect TCG/format |
 | GET | `/api/decks/:id` | Deck detail |

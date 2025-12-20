@@ -49,6 +49,12 @@ export const deckService = {
     return response.data
   },
 
+  // Get community decks with filters
+  getCommunityDecks: async (params = {}) => {
+    const response = await api.get('/decks/community', { params })
+    return response.data
+  },
+
   // Get available tags (predefined categories)
   getAvailableTags: async () => {
     const response = await api.get('/decks/tags')
