@@ -300,9 +300,10 @@ Frontend                        Backend                     GitHub
 ```
 User
   ├── email, username, password (hashed)
-  ├── role (user | moderator | admin)
+  ├── role (user | moderator | dev)
   ├── preferences { theme, language, dateFormat }
   ├── canComment, canReact (restriction flags)
+  ├── isActive (account status)
   └── avatar { emoji, gradient }
 
 CardCache
@@ -344,6 +345,191 @@ ReputationLedger
   ├── userId
   ├── action, points, timestamp
   └── metadata
+```
+
+---
+
+## User Roles & Permissions
+
+### Role Hierarchy
+
+```
+user → moderator → dev
+```
+
+| Role | Description | Access Level |
+|------|-------------|--------------|
+| `user` | Standard authenticated user | Basic features |
+| `moderator` | Community moderator | + Moderation tools |
+| `dev` | Developer/Admin | Full system access |
+
+### Permission Matrix
+
+| Action | Anonymous | user | moderator | dev |
+|--------|-----------|------|-----------|-----|
+| View cards/decks | ✅ | ✅ | ✅ | ✅ |
+| Search cards | ✅ | ✅ | ✅ | ✅ |
+| React to cards | ✅* | ✅ | ✅ | ✅ |
+| Comment on cards | ❌ | ✅ | ✅ | ✅ |
+| Create/edit own decks | ❌ | ✅ | ✅ | ✅ |
+| View others' public decks | ✅ | ✅ | ✅ | ✅ |
+| Moderation queue | ❌ | ❌ | ✅ | ✅ |
+| Hide/show comments | ❌ | ❌ | ✅ | ✅ |
+| Manage user restrictions | ❌ | ❌ | ❌ | ✅ |
+| Promote/demote users | ❌ | ❌ | ❌ | ✅ |
+| KPI Dashboard | ❌ | ❌ | ❌ | ✅ |
+| System configuration | ❌ | ❌ | ❌ | ✅ |
+
+*Anonymous reactions use fingerprint instead of userId
+
+### Restriction Flags
+
+Users can have restrictions applied regardless of role:
+
+| Flag | Effect | Applied By |
+|------|--------|------------|
+| `canComment: false` | Cannot post comments | moderator, dev |
+| `canReact: false` | Cannot add reactions | moderator, dev |
+| `isActive: false` | Account disabled, cannot login | dev only |
+
+### User Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           USER LIFECYCLE                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  CREATION                    PROMOTIONS                  RESTRICTIONS
+  ─────────                   ──────────                  ────────────
+  POST /auth/register         user → moderator            canComment: false
+        │                     moderator → dev             canReact: false
+        ▼                     user → dev (skip)           isActive: false
+  role: 'user'
+  canComment: true            DEMOTIONS                   REMOVAL
+  canReact: true              ─────────                   ───────
+  isActive: true              dev → moderator             Lift restrictions
+                              moderator → user            Delete account
+                              dev → user (skip)
+```
+
+---
+
+## User Roles for Testing
+
+### Test User Inventory
+
+For E2E testing, the following user profiles must be covered:
+
+| ID | Profile (ES/EN) | Auth | Role | Restrictions | Context |
+|----|-----------------|------|------|--------------|---------|
+| **U01** | Anónimo / Anonymous | ❌ | - | - | Browsing without login |
+| **U02** | Usuario básico / Basic User | ✅ | user | none | Standard authenticated user |
+| **U03** | Usuario restringido (comentarios) / Comment-Restricted | ✅ | user | canComment: ❌ | Moderated user |
+| **U04** | Usuario restringido (reacciones) / Reaction-Restricted | ✅ | user | canReact: ❌ | Moderated user |
+| **U05** | Usuario totalmente restringido / Fully Restricted | ✅ | user | both: ❌ | Heavy moderation |
+| **U06** | Usuario inactivo / Inactive User | ✅ | user | isActive: ❌ | Disabled account |
+| **U07** | Moderador / Moderator | ✅ | moderator | none | Community moderator |
+| **U08** | Moderador restringido / Restricted Mod | ✅ | moderator | canComment: ❌ | Edge case |
+| **U09** | Desarrollador / Developer | ✅ | dev | none | Full access |
+
+### Third-Party Context (Viewing Others' Content)
+
+| ID | Profile | Auth | Role | Viewing |
+|----|---------|------|------|---------|
+| **T01** | 3ro anónimo / Anonymous Third-party | ❌ | - | Others' profiles/decks |
+| **T02** | 3ro autenticado / Authenticated Third-party | ✅ | user | Others' profiles/decks |
+| **T03** | 3ro restringido / Restricted Third-party | ✅ | user (restricted) | Others' profiles/decks |
+| **T04** | Mod viendo usuario / Mod Viewing User | ✅ | moderator | Users' content |
+| **T05** | Dev viendo usuario / Dev Viewing User | ✅ | dev | Users' content |
+
+### State Transitions to Test
+
+| ID | Transition | Scenario | Verify |
+|----|------------|----------|--------|
+| **E01** | user → moderator | Promotion | Mod queue access granted |
+| **E02** | moderator → dev | Promotion | Full system access granted |
+| **E03** | dev → moderator | Demotion | System config access revoked |
+| **E04** | moderator → user | Demotion | Mod queue access revoked |
+| **E05** | Apply canComment: false | Restriction | Comment form disabled |
+| **E06** | Apply canReact: false | Restriction | Reaction buttons disabled |
+| **E07** | Apply isActive: false | Deactivation | Cannot login, session ends |
+| **E08** | Remove restriction | Unrestriction | Feature re-enabled |
+| **E09** | Token expired | Session | Redirect to login |
+| **E10** | Role change while logged in | Live update | Permissions refresh |
+
+### E2E Testing Infrastructure
+
+#### Mocked Users Approach
+
+All test users are created and destroyed during test runs (not persisted in DB).
+
+```
+Test Start → Create user → Run tests → Cleanup user → Test End
+```
+
+#### File Structure
+
+```
+.dev/
+├── tests/
+│   ├── fixtures/
+│   │   ├── userFactory.js          # User creation/deletion logic
+│   │   ├── authHelpers.js          # Login/logout + Playwright fixtures
+│   │   └── testApiClient.js        # Direct API client for setup
+│   ├── user-lifecycle/
+│   │   ├── registration.spec.js    # Account creation
+│   │   ├── deletion.spec.js        # Account deletion
+│   │   ├── promotion.spec.js       # user → mod → dev
+│   │   ├── demotion.spec.js        # dev → mod → user
+│   │   └── restrictions.spec.js    # canComment, canReact, isActive
+│   └── role-permissions/
+│       ├── anonymous.spec.js       # U01, T01
+│       ├── authenticated.spec.js   # U02, T02
+│       ├── restricted.spec.js      # U03-U06, T03
+│       ├── moderator.spec.js       # U07-U08, T04
+│       └── developer.spec.js       # U09, T05
+└── configs/
+    └── playwright.config.js
+```
+
+#### Test User Naming Convention
+
+```
+test_<timestamp>_<random>@tcgkb.test
+
+Example: test_1703001234567_a1b2c3@tcgkb.test
+```
+
+#### Playwright Fixtures
+
+```javascript
+// Usage in tests
+import { test } from '../fixtures/authHelpers'
+
+test('user can comment on card', async ({ authenticatedUser }) => {
+  const { page, user } = authenticatedUser
+  // user is auto-created, logged in, and cleaned up after test
+})
+
+test('restricted user cannot comment', async ({ restrictedUser }) => {
+  const { page, user } = restrictedUser
+  // user has canComment: false
+})
+
+test('moderator can access mod queue', async ({ moderatorUser }) => {
+  const { page, user } = moderatorUser
+  // user has role: 'moderator'
+})
+```
+
+#### Test API Endpoint (Staging/Dev Only)
+
+```
+POST   /api/test/users          Create test user (returns JWT)
+DELETE /api/test/users/:id      Delete test user
+PATCH  /api/test/users/:id      Modify role/restrictions
+
+⚠️ DISABLED IN PRODUCTION (returns 404)
 ```
 
 ---
@@ -1098,6 +1284,58 @@ Uses `POST /api/decks/parse` endpoint for server-side parsing, enrichment, and v
 **Auto-Tagging** (real-time):
 - Pokemon: Energy types, Pokémon types, mechanics (ex, V, etc.)
 - Riftbound: Domains, Champion name
+
+### Icon Components
+
+**Components**: `frontend/src/components/icons/`
+
+SVG icon components for Pokemon types and Riftbound domains with color/grayscale toggle support.
+
+#### TypeIcon (Pokemon Types)
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `type` | String | Pokemon type (fire, water, grass, etc.) |
+| `size` | Number | Icon size in pixels (default: 24) |
+| `active` | Boolean | Color when true, grayscale when false |
+| `onClick` | Function | Click handler |
+
+```jsx
+import { TypeIcon, TypeFilterBar } from '../components/icons'
+
+// Single icon
+<TypeIcon type="fire" size={24} active={true} />
+
+// Filter bar with toggles
+<TypeFilterBar
+  types={['fire', 'water', 'grass']}
+  activeTypes={['fire']}
+  onToggle={(type) => handleToggle(type)}
+/>
+```
+
+#### DomainIcon (Riftbound Domains)
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `domain` | String | Riftbound domain (fury, calm, mind, body, order, chaos) |
+| `size` | Number | Icon size in pixels (default: 24) |
+| `active` | Boolean | Color when true, grayscale when false |
+| `onClick` | Function | Click handler |
+
+```jsx
+import { DomainIcon, DomainFilterBar } from '../components/icons'
+
+// Single icon
+<DomainIcon domain="fury" size={24} active={true} />
+
+// Filter bar with toggles
+<DomainFilterBar
+  domains={['fury', 'calm', 'mind']}
+  activeDomains={['fury']}
+  onToggle={(domain) => handleToggle(domain)}
+/>
+```
 
 ### Visual Filters
 

@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { useLanguage } from '../../contexts/LanguageContext'
+import TypeIcon from '../icons/TypeIcon'
+import DomainIcon from '../icons/DomainIcon'
 
 /**
  * DeckAutoTags - Displays auto-generated tags as badges
@@ -11,7 +13,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
  * - onTagClick: optional callback when tag is clicked
  */
 
-// Pokemon type colors
+// Pokemon type colors (for text badges)
 const TYPE_COLORS = {
   fire: 'bg-orange-500',
   water: 'bg-blue-500',
@@ -183,22 +185,52 @@ const DeckAutoTags = ({ cards, tcg = 'pokemon', format, onTagClick, className = 
   if (tags.length === 0) return null
 
   return (
-    <div className={`flex flex-wrap gap-1.5 ${className}`}>
-      {tags.map((tag, idx) => (
-        <span
-          key={`${tag.type}-${tag.value}-${idx}`}
-          onClick={() => onTagClick?.(tag)}
-          className={`
-            inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-            text-white ${getTagColor(tag)}
-            ${onTagClick ? 'cursor-pointer hover:opacity-80' : ''}
-            transition-opacity
-          `}
-          title={`${tag.type}: ${tag.value}`}
-        >
-          {getTagLabel(tag, t)}
-        </span>
-      ))}
+    <div className={`flex flex-wrap gap-1.5 items-center ${className}`}>
+      {tags.map((tag, idx) => {
+        // Use icons for energy types and domains
+        if (tag.type === 'energy-type') {
+          return (
+            <TypeIcon
+              key={`${tag.type}-${tag.value}-${idx}`}
+              type={tag.value}
+              size={20}
+              onClick={() => onTagClick?.(tag)}
+              title={getTagLabel(tag, t)}
+              className={onTagClick ? 'hover:scale-110' : ''}
+            />
+          )
+        }
+
+        if (tag.type === 'domain') {
+          return (
+            <DomainIcon
+              key={`${tag.type}-${tag.value}-${idx}`}
+              domain={tag.value}
+              size={20}
+              onClick={() => onTagClick?.(tag)}
+              title={getTagLabel(tag, t)}
+              className={onTagClick ? 'hover:scale-110' : ''}
+            />
+          )
+        }
+
+        // Regular text badge for other tags
+        return (
+          <span
+            key={`${tag.type}-${tag.value}-${idx}`}
+            onClick={() => onTagClick?.(tag)}
+            className={`
+              inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+              text-white ${getTagColor(tag)}
+              ${onTagClick ? 'cursor-pointer hover:opacity-80' : ''}
+              transition-opacity
+            `}
+            title={`${tag.type}: ${tag.value}`}
+          >
+            {getTagLabel(tag, t)}
+          </span>
+        )
+      })}
     </div>
   )
 }
