@@ -792,7 +792,7 @@ const DeckBuilder = () => {
               </div>
             )}
           </div>
-        </div>ain
+        </div>
       </div>
 
       {/* Import Modal */}
