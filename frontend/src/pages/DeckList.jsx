@@ -158,7 +158,8 @@ const DeckList = () => {
             views: deck.views,
             copies: deck.copies,
             createdAt: deck.createdAt,
-            votes: deck.votes
+            votes: deck.votes,
+            isOriginal: deck.isOriginal
           }))
           setDecks(mappedDecks)
           setPagination(prev => ({
@@ -203,12 +204,12 @@ const DeckList = () => {
   // Handle import deck
   const handleImportDeck = async () => {
     if (!importText.trim()) {
-      setImportError(language === 'es' ? 'Pega la lista de cartas' : 'Paste the card list')
+      setImportError(t('decks.importModal.errorPasteCards'))
       return
     }
 
     if (!importName.trim()) {
-      setImportError(language === 'es' ? 'El nombre es requerido' : 'Name is required')
+      setImportError(t('decks.importModal.errorNameRequired'))
       return
     }
 
@@ -230,7 +231,7 @@ const DeckList = () => {
       }
     } catch (err) {
       console.error('Error importing deck:', err)
-      setImportError(err.response?.data?.message || (language === 'es' ? 'Error al importar' : 'Import failed'))
+      setImportError(err.response?.data?.message || t('decks.importModal.errorImportFailed'))
     } finally {
       setImporting(false)
     }
@@ -332,7 +333,7 @@ const DeckList = () => {
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
-                🏷️ {language === 'es' ? 'Tags' : 'Tags'}
+                🏷️ {t('decks.tags')}
                 {selectedTags.length > 0 && (
                   <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary-500 text-white">
                     {selectedTags.length}
@@ -346,7 +347,7 @@ const DeckList = () => {
           {activeTab === 'community' && (
             <div className="flex items-center gap-2 pt-2">
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                {language === 'es' ? 'Ordenar:' : 'Sort:'}
+                {t('decks.sortLabel')}
               </span>
               <div className="flex gap-1">
                 {[
@@ -368,7 +369,7 @@ const DeckList = () => {
                 ))}
               </div>
             </div>
-          )
+          )}
 
           {/* Tag Filters (Expandable) */}
           {showTagFilters && (
@@ -376,7 +377,7 @@ const DeckList = () => {
               {selectedTags.length > 0 && (
                 <div className="mb-4 flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {language === 'es' ? 'Filtros activos:' : 'Active filters:'}
+                    {t('decks.activeFilters')}
                   </span>
                   {selectedTags.map(tag => (
                     <button
@@ -394,7 +395,7 @@ const DeckList = () => {
                     onClick={clearTags}
                     className="px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:underline"
                   >
-                    {language === 'es' ? 'Limpiar todo' : 'Clear all'}
+                    {t('decks.clearAll')}
                   </button>
                 </div>
               )}
@@ -480,11 +481,11 @@ const DeckList = () => {
                   <div className="absolute top-2 right-2">
                     {deck.isPublic ? (
                       <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {language === 'es' ? 'Público' : 'Public'}
+                        {t('decks.public')}
                       </span>
                     ) : (
                       <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        {language === 'es' ? 'Privado' : 'Private'}
+                        {t('decks.private')}
                       </span>
                     )}
                   </div>
@@ -500,9 +501,19 @@ const DeckList = () => {
 
                 {/* Deck Info */}
                 <div className="p-4">
-                  <h3 className="font-bold text-gray-900 dark:text-gray-100 truncate mb-1">
-                    {deck.name}
-                  </h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 truncate">
+                      {deck.name}
+                    </h3>
+                    {deck.isOriginal && (
+                      <span
+                        className="flex-shrink-0"
+                        title={t('decks.originalBadge.tooltip')}
+                      >
+                        🏆
+                      </span>
+                    )}
+                  </div>
                   {deck.description && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
                       {deck.description}
@@ -557,7 +568,7 @@ const DeckList = () => {
                 disabled={pagination.page === 1}
                 className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {language === 'es' ? 'Anterior' : 'Previous'}
+                {t('decks.previous')}
               </button>
               <span className="px-4 py-2 text-gray-600 dark:text-gray-400">
                 {pagination.page} / {pagination.pages}
@@ -567,7 +578,7 @@ const DeckList = () => {
                 disabled={pagination.page === pagination.pages}
                 className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {language === 'es' ? 'Siguiente' : 'Next'}
+                {t('decks.next')}
               </button>
             </div>
           )}
@@ -580,7 +591,7 @@ const DeckList = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg">
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {language === 'es' ? 'Importar Mazo' : 'Import Deck'}
+                {t('decks.importModal.title')}
               </h2>
               <button
                 onClick={closeImportModal}
@@ -596,13 +607,13 @@ const DeckList = () => {
               {/* Deck Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {language === 'es' ? 'Nombre del mazo' : 'Deck name'}
+                  {t('decks.importModal.deckName')}
                 </label>
                 <input
                   type="text"
                   value={importName}
                   onChange={(e) => setImportName(e.target.value)}
-                  placeholder={language === 'es' ? 'Mi nuevo mazo' : 'My new deck'}
+                  placeholder={t('decks.importModal.deckNamePlaceholder')}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
@@ -610,20 +621,16 @@ const DeckList = () => {
               {/* Deck List */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {language === 'es' ? 'Lista de cartas' : 'Card list'}
+                  {t('decks.importModal.cardList')}
                 </label>
                 <textarea
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
-                  placeholder={language === 'es'
-                    ? '4 Pikachu SV1 25\n3 Raichu SV1 26\n...'
-                    : '4 Pikachu SV1 25\n3 Raichu SV1 26\n...'}
+                  placeholder={t('decks.importModal.cardListPlaceholder')}
                   className="w-full h-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {language === 'es'
-                    ? 'Formato: "cantidad Nombre SET Numero" o "cantidad SET-Numero"'
-                    : 'Format: "quantity Name SET Number" or "quantity SET-Number"'}
+                  {t('decks.importModal.formatHint')}
                 </p>
               </div>
 
@@ -640,7 +647,7 @@ const DeckList = () => {
                 onClick={closeImportModal}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                {language === 'es' ? 'Cancelar' : 'Cancel'}
+                {t('decks.importModal.cancel')}
               </button>
               <button
                 onClick={handleImportDeck}
@@ -653,7 +660,7 @@ const DeckList = () => {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                 )}
-                {language === 'es' ? 'Importar' : 'Import'}
+                {t('decks.importModal.importBtn')}
               </button>
             </div>
           </div>
