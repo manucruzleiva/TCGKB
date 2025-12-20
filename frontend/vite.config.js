@@ -3,7 +3,13 @@ import react from '@vitejs/plugin-react'
 import { execSync } from 'child_process'
 
 // Get git commit hash at build time
+// Priority: VERCEL_GIT_COMMIT_SHA > git command > 'dev'
 const getGitCommitHash = () => {
+  // Vercel provides this during build
+  if (process.env.VERCEL_GIT_COMMIT_SHA) {
+    return process.env.VERCEL_GIT_COMMIT_SHA.substring(0, 7)
+  }
+
   try {
     return execSync('git rev-parse --short HEAD').toString().trim()
   } catch {
