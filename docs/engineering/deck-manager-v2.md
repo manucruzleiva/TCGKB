@@ -250,3 +250,68 @@ if (tcgSystem) deck.tcgSystem = tcgSystem
   <TypeFilterBar types={ALL_TYPES} activeTypes={activeTypes} ... />
 )}
 ```
+
+---
+
+## Sprint 3 Fixes (2025-12-20)
+
+### #137 - Right-Click Not Working on Deck Cards
+
+**Problem**: Right-click on cards in deck mode didn't reduce quantity when hover overlay was visible.
+
+**Fix**: `frontend/src/components/decks/DeckCardInteractive.jsx`
+```jsx
+{/* Hover controls - onContextMenu to handle right-click on overlay */}
+<div
+  className="absolute inset-0 bg-black/70 ..."
+  onContextMenu={handleContextMenu}  // Added
+>
+```
+
+### #138 - Escape Key for Quantity Input
+
+**Problem**: No way to cancel quantity input without clicking outside.
+
+**Fix**: `frontend/src/components/decks/DeckCardInteractive.jsx`
+```javascript
+const handleQuantityKeyDown = (e) => {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    setShowQuantityInput(false)
+  }
+}
+
+// Added to both inputs
+<input onKeyDown={handleQuantityKeyDown} ... />
+```
+
+### #124 - Header Navigation Refactor
+
+**Problem**: All navigation hidden in hamburger menu, even on desktop.
+
+**Fix**: `frontend/src/components/layout/Header.jsx`
+
+**Desktop (lg+):**
+- Logo is now a direct link to Home
+- Visible nav: Cards, Decks, Roadmap
+- "More" dropdown for secondary links (Artists, Changelog, Relationship Map)
+- Active page highlighting with primary color
+
+**Mobile (<lg):**
+- Hamburger menu with all links
+- Icon changes to X when open
+
+```jsx
+{/* Desktop Navigation */}
+<nav className="hidden lg:flex items-center gap-1">
+  <Link to="/catalog" className={activeStyles}>Cards</Link>
+  <Link to="/decks" className={activeStyles}>Decks</Link>
+  <Link to="/roadmap" className={activeStyles}>Roadmap</Link>
+  <div>More ▼</div>
+</nav>
+
+{/* Mobile Hamburger */}
+<div className="lg:hidden">
+  <button>☰</button>
+</div>
+```
