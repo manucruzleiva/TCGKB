@@ -29,5 +29,8 @@
   },
   "dependencies": {
     "dotenv": "^16.3.1"
+  },
+  "overrides": {
+    "axios": "^1.7.4"
   }
 }
