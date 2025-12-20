@@ -75,7 +75,6 @@ Este documento lista todas las ubicaciones donde se pueden agregar assets person
 |-----------|--------|----------------|
 | Inicio | 🏠 emoji | Icono home custom |
 | Mazos | 🃏 emoji | Icono deck custom |
-| Changelog | 📋 emoji | Icono changelog custom |
 
 **Archivos a modificar:**
 - `frontend/src/components/layout/Navbar.jsx`
@@ -147,23 +146,7 @@ Este documento lista todas las ubicaciones donde se pueden agregar assets person
 
 ---
 
-## 11. CHANGELOG PAGE
-
-| Ubicación | Actual | Asset Sugerido |
-|-----------|--------|----------------|
-| Added badge | ✨ emoji | Icono "nuevo" custom |
-| Fixed badge | 🐛 emoji | Icono "fix" custom |
-| Changed badge | 🔄 emoji | Icono "cambio" custom |
-| Removed badge | 🗑️ emoji | Icono "eliminado" custom |
-| Security badge | 🔒 emoji | Icono "seguridad" custom |
-| Docs badge | 📝 emoji | Icono "docs" custom |
-
-**Archivos a modificar:**
-- `frontend/src/pages/Changelog.jsx`
-
----
-
-## 12. LOADING STATES
+## 11. LOADING STATES
 
 | Ubicación | Actual | Asset Sugerido |
 |-----------|--------|----------------|
@@ -175,7 +158,7 @@ Este documento lista todas las ubicaciones donde se pueden agregar assets person
 
 ---
 
-## 13. EMPTY STATES
+## 12. EMPTY STATES
 
 | Ubicación | Actual | Asset Sugerido |
 |-----------|--------|----------------|
@@ -199,9 +182,8 @@ Este documento lista todas las ubicaciones donde se pueden agregar assets person
 6. Loading spinner custom
 
 ### Baja Prioridad
-7. Badges de changelog
-8. Iconos de menú hamburguesa
-9. Iconos admin panels
+7. Iconos de menú hamburguesa
+8. Iconos admin panels
 
 ---
 

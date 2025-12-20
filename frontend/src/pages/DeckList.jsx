@@ -67,6 +67,13 @@ const TAG_CATEGORIES = {
   strategy: ['meta', 'budget', 'fun', 'competitive', 'casual', 'beginner-friendly']
 }
 
+// Sort options for community tab
+const SORT_OPTIONS = {
+  recent: { es: 'Recientes', en: 'Recent' },
+  popular: { es: 'Populares', en: 'Popular' },
+  copies: { es: 'Más copiados', en: 'Most copied' }
+}
+
 const DeckList = () => {
   const { isAuthenticated } = useAuth()
   const { language, t } = useLanguage()
@@ -98,20 +105,33 @@ const DeckList = () => {
     setPagination(prev => ({ ...prev, page: 1 }))
   }
 
+  // Update URL when tab/sort/page changes
+  useEffect(() => {
+    const params = new URLSearchParams()
+    params.set('tab', activeTab)
+    if (activeTab === 'community') {
+      params.set('sort', sortBy)
+      if (formatFilter) params.set('format', formatFilter)
+    }
+    if (pagination.page > 1) params.set('page', pagination.page.toString())
+    setSearchParams(params, { replace: true })
+  }, [activeTab, sortBy, formatFilter, pagination.page])
+
   useEffect(() => {
     fetchDecks()
-  }, [activeTab, selectedTags, pagination.page, sortBy])
+  }, [activeTab, selectedTags, pagination.page, sortBy, formatFilter])
 
   const fetchDecks = async () => {
     try {
       setLoading(true)
+      let response
 
       if (activeTab === 'mine') {
         // Fetch user's own decks
         const params = {
+          mine: true,
           page: pagination.page,
-          limit: pagination.limit,
-          mine: true
+          limit: pagination.limit
         }
         if (selectedTags.length > 0) {
           params.tags = selectedTags.join(',')
@@ -119,52 +139,33 @@ const DeckList = () => {
         if (searchQuery.trim()) {
           params.search = searchQuery.trim()
         }
-
-        const response = await deckService.getDecks(params)
-        if (response.success) {
-          setDecks(response.data.decks)
-          setPagination(prev => ({
-            ...prev,
-            total: response.data.pagination.total,
-            pages: response.data.pagination.pages
-          }))
-        }
+        response = await deckService.getDecks(params)
       } else {
-        // Fetch community decks using the new endpoint
+        // Fetch community decks with filters 
         const params = {
           page: pagination.page,
           limit: pagination.limit,
           sort: sortBy
         }
+        if (formatFilter) {
+          params.format = formatFilter
+        }
         if (selectedTags.length > 0) {
           params.tags = selectedTags.join(',')
         }
-
-        const response = await deckService.getCommunityDecks(params)
-        if (response.success) {
-          // Map community response to match deck card format
-          const mappedDecks = response.data.map(deck => ({
-            _id: deck.id,
-            name: deck.name,
-            description: deck.description,
-            tags: [...(deck.format ? [deck.format] : []), ...deck.tags],
-            userId: { username: deck.author.username },
-            isPublic: true,
-            cards: [], // Community endpoint doesn't return full card list
-            totalCards: deck.cardCount,
-            views: deck.views,
-            copies: deck.copies,
-            createdAt: deck.createdAt,
-            votes: deck.votes,
-            isOriginal: deck.isOriginal
-          }))
-          setDecks(mappedDecks)
-          setPagination(prev => ({
-            ...prev,
-            total: response.pagination.total,
-            pages: response.pagination.totalPages
-          }))
+        if (searchQuery.trim()) {
+          params.search = searchQuery.trim()
         }
+        response = await deckService.getCommunityDecks(params)
+      }
+
+      if (response.success) {
+        setDecks(response.data.decks)
+        setPagination(prev => ({
+          ...prev,
+          total: response.data.pagination.total,
+          pages: response.data.pagination.pages
+        }))
       }
     } catch (error) {
       console.error('Error fetching decks:', error)
@@ -249,10 +250,14 @@ const DeckList = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
         <div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-            {t('decks.title')}
+            {activeTab === 'mine'
+              ? (language === 'es' ? 'Mis Mazos' : 'My Decks')
+              : (language === 'es' ? 'Mazos de la Comunidad' : 'Community Decks')}
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {t('decks.subtitle')}
+            {activeTab === 'mine'
+              ? (language === 'es' ? 'Gestiona y organiza tus mazos' : 'Manage and organize your decks')
+              : (language === 'es' ? 'Explora mazos compartidos por otros jugadores' : 'Explore decks shared by other players')}
           </p>
         </div>
         {isAuthenticated && (
@@ -304,7 +309,7 @@ const DeckList = () => {
             <div className="flex gap-2">
               {isAuthenticated && (
                 <button
-                  onClick={() => setActiveTab('mine')}
+                  onClick={() => { setActiveTab('mine'); setPagination(p => ({ ...p, page: 1 })) }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === 'mine'
                       ? 'bg-primary-600 text-white'
@@ -315,7 +320,7 @@ const DeckList = () => {
                 </button>
               )}
               <button
-                onClick={() => setActiveTab('community')}
+                onClick={() => { setActiveTab('community'); setPagination(p => ({ ...p, page: 1 })) }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   activeTab === 'community'
                     ? 'bg-primary-600 text-white'
@@ -342,30 +347,61 @@ const DeckList = () => {
             </div>
           </div>
 
-          {/* Sort Options (only for community tab) */}
+          {/* Community Filters (Sort & Format) */}
           {activeTab === 'community' && (
-            <div className="flex items-center gap-2 pt-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {t('decks.sortLabel')}
-              </span>
-              <div className="flex gap-1">
-                {[
-                  { value: 'recent', label: t('decks.sortRecent') },
-                  { value: 'popular', label: t('decks.sortPopular') },
-                  { value: 'votes', label: t('decks.sortVotes') }
-                ].map(option => (
+            <div className="flex flex-wrap gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              {/* Sort By */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {language === 'es' ? 'Ordenar:' : 'Sort:'}
+                </span>
+                <div className="flex gap-1">
+                  {Object.entries(SORT_OPTIONS).map(([key, labels]) => (
+                    <button
+                      key={key}
+                      onClick={() => { setSortBy(key); setPagination(p => ({ ...p, page: 1 })) }}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                        sortBy === key
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {labels[language]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Format Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {language === 'es' ? 'Formato:' : 'Format:'}
+                </span>
+                <div className="flex gap-1">
                   <button
-                    key={option.value}
-                    onClick={() => { setSortBy(option.value); setPagination(p => ({ ...p, page: 1 })) }}
+                    onClick={() => { setFormatFilter(''); setPagination(p => ({ ...p, page: 1 })) }}
                     className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                      sortBy === option.value
-                        ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      !formatFilter
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
-                    {option.label}
+                    {language === 'es' ? 'Todos' : 'All'}
                   </button>
-                ))}
+                  {['standard', 'expanded', 'glc'].map(format => (
+                    <button
+                      key={format}
+                      onClick={() => { setFormatFilter(format); setPagination(p => ({ ...p, page: 1 })) }}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                        formatFilter === format
+                          ? TAG_COLORS[format]
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {TAG_LABELS[format][language]}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

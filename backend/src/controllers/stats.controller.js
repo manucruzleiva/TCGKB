@@ -14,14 +14,8 @@ const MODULE = 'StatsController'
 const GITHUB_OWNER = 'manucruzleiva'
 const GITHUB_REPO = 'TCGKB'
 
-// Simple in-memory cache for GitHub commits (1 hour TTL) - per branch
-const commitsCache = {
-  main: { data: null, timestamp: 0 },
-  stage: { data: null, timestamp: 0 }
-}
-const CACHE_TTL = 60 * 60 * 1000 // 1 hour
-
 // Cache for roadmap (1 hour TTL)
+const CACHE_TTL = 60 * 60 * 1000 // 1 hour
 let roadmapCache = { data: null, timestamp: 0 }
 
 /**

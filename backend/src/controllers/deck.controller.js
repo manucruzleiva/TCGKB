@@ -297,6 +297,101 @@ export const getDecks = async (req, res) => {
 }
 
 /**
+ * Get community decks (public decks with enhanced filtering)
+ * Supports: format, tags, sorting (recent, popular, copies)
+ */
+export const getCommunityDecks = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      sort = 'recent',
+      format,
+      tags,
+      search
+    } = req.query
+
+    // Build query - only public decks
+    const query = { isPublic: true }
+
+    // Format filter (standard, expanded, glc, unlimited)
+    if (format) {
+      const validFormats = ['standard', 'expanded', 'glc', 'unlimited']
+      if (validFormats.includes(format.toLowerCase())) {
+        query.tags = query.tags || {}
+        if (query.tags.$all) {
+          query.tags.$all.push(format.toLowerCase())
+        } else {
+          query.tags = format.toLowerCase()
+        }
+      }
+    }
+
+    // Additional tags filter
+    if (tags) {
+      const tagList = tags.split(',').map(t => t.trim().toLowerCase())
+      if (query.tags) {
+        // Combine with format filter
+        query.tags = { $all: [query.tags, ...tagList] }
+      } else {
+        query.tags = { $all: tagList }
+      }
+    }
+
+    // Text search
+    if (search) {
+      query.$text = { $search: search }
+    }
+
+    // Sort options
+    let sortOption = { createdAt: -1 } // default: recent
+    if (sort === 'popular') sortOption = { views: -1, createdAt: -1 }
+    if (sort === 'copies') sortOption = { copies: -1, createdAt: -1 }
+    if (sort === 'oldest') sortOption = { createdAt: 1 }
+    if (sort === 'name') sortOption = { name: 1 }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const limitNum = Math.min(parseInt(limit), 50) // Cap at 50
+
+    const [decks, total] = await Promise.all([
+      Deck.find(query)
+        .populate('userId', 'username')
+        .sort(sortOption)
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Deck.countDocuments(query)
+    ])
+
+    log.info(MODULE, `Community decks fetched: ${decks.length}/${total}`, { format, tags, sort })
+
+    res.status(200).json({
+      success: true,
+      data: {
+        decks,
+        pagination: {
+          page: parseInt(page),
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum)
+        },
+        filters: {
+          format: format || null,
+          tags: tags ? tags.split(',') : [],
+          sort
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get community decks failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get community decks'
+    })
+  }
+}
+
+/**
  * Get a single deck by ID
  */
 export const getDeckById = async (req, res) => {
