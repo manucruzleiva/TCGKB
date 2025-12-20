@@ -1028,6 +1028,146 @@ export const voteDeck = async (req, res) => {
 }
 
 /**
+ * Get community decks (public decks from all users)
+ * GET /api/decks/community
+ *
+ * Query params:
+ * - page, limit (pagination)
+ * - tcg (pokemon | riftbound) - filter by TCG
+ * - format (standard, glc, expanded, etc) - filter by format tag
+ * - tags (comma-separated) - filter by additional tags
+ * - sort (recent, popular, votes) - sort order
+ *
+ * Returns public decks with author info and vote counts
+ */
+export const getCommunityDecks = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      tcg,
+      format,
+      tags,
+      sort = 'recent'
+    } = req.query
+
+    const query = { isPublic: true }
+
+    // Filter by format (it's stored as a tag)
+    const formatTags = ['standard', 'expanded', 'unlimited', 'glc']
+    if (format && formatTags.includes(format)) {
+      query.tags = query.tags ? { $all: [...(query.tags.$all || []), format] } : format
+    }
+
+    // Filter by additional tags
+    if (tags) {
+      const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)
+      if (tagList.length > 0) {
+        if (query.tags) {
+          // Already have format filter
+          if (query.tags.$all) {
+            query.tags.$all.push(...tagList)
+          } else {
+            query.tags = { $all: [query.tags, ...tagList] }
+          }
+        } else {
+          query.tags = { $all: tagList }
+        }
+      }
+    }
+
+    // TODO: TCG filter - requires adding tcg field to Deck model
+    // For now, we skip tcg filtering as the model doesn't have this field yet
+
+    // Sort options
+    let sortOption = { createdAt: -1 } // recent (default)
+    if (sort === 'popular') {
+      sortOption = { views: -1, copies: -1 }
+    } else if (sort === 'votes') {
+      // For votes sorting, we need to calculate score
+      // This will be handled after fetching with a separate sort
+      sortOption = { createdAt: -1 } // Fallback, will re-sort after getting votes
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const limitNum = parseInt(limit)
+
+    // Fetch decks
+    const [decks, total] = await Promise.all([
+      Deck.find(query)
+        .populate('userId', 'username avatar')
+        .sort(sortOption)
+        .skip(skip)
+        .limit(limitNum * 2) // Fetch more if we need to re-sort by votes
+        .lean(),
+      Deck.countDocuments(query)
+    ])
+
+    // Get vote counts for all fetched decks
+    const deckIds = decks.map(d => d._id)
+    const voteCounts = await Vote.getVoteCountsBulk(deckIds)
+
+    // Map decks with vote info
+    let enrichedDecks = decks.map(deck => {
+      const votes = voteCounts[deck._id.toString()] || { up: 0, down: 0 }
+      return {
+        id: deck._id,
+        name: deck.name,
+        description: deck.description ? deck.description.substring(0, 200) : '',
+        tcg: 'pokemon', // Default for now, TODO: add tcg field to model
+        format: deck.tags?.find(t => formatTags.includes(t)) || 'standard',
+        author: {
+          username: deck.userId?.username || 'Unknown',
+          avatar: deck.userId?.avatar || null
+        },
+        votes: {
+          up: votes.up,
+          down: votes.down,
+          score: votes.up - votes.down
+        },
+        cardCount: deck.cards?.reduce((sum, c) => sum + c.quantity, 0) || 0,
+        tags: deck.tags?.filter(t => !formatTags.includes(t)) || [],
+        views: deck.views || 0,
+        copies: deck.copies || 0,
+        isOriginal: deck.isOriginal !== false,
+        createdAt: deck.createdAt
+      }
+    })
+
+    // If sorting by votes, re-sort by score
+    if (sort === 'votes') {
+      enrichedDecks.sort((a, b) => b.votes.score - a.votes.score)
+    }
+
+    // Apply pagination after vote-based sorting
+    if (sort === 'votes') {
+      enrichedDecks = enrichedDecks.slice(0, limitNum)
+    } else {
+      enrichedDecks = enrichedDecks.slice(0, limitNum)
+    }
+
+    log.info(MODULE, `Community decks fetched: ${enrichedDecks.length} of ${total}`)
+
+    res.status(200).json({
+      success: true,
+      data: enrichedDecks,
+      pagination: {
+        page: parseInt(page),
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get community decks failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get community decks'
+    })
+  }
+}
+
+/**
  * Get votes for a deck
  * GET /api/decks/:deckId/votes
  *

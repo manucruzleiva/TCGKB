@@ -209,6 +209,22 @@ export const en = {
 
   // Decks
   decks: {
+    tabs: {
+      myDecks: 'My Decks',
+      community: 'Community'
+    },
+    title: 'Decks',
+    subtitle: 'Explore community decks or create your own',
+    createDeck: 'Create Deck',
+    import: 'Import',
+    search: 'Search decks...',
+    noDecks: 'No decks found',
+    noMyDecks: "You haven't created any decks yet",
+    noCommunityDecks: 'No public decks yet',
+    beFirst: 'Be the first to create a deck',
+    sortRecent: 'Recent',
+    sortPopular: 'Popular',
+    sortVotes: 'Votes',
     vote: {
       upvote: 'Upvote',
       downvote: 'Downvote'

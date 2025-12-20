@@ -57,6 +57,41 @@ voteSchema.statics.getVoteCounts = async function(deckId) {
   return counts
 }
 
+// Static method to get vote counts for multiple decks (bulk)
+voteSchema.statics.getVoteCountsBulk = async function(deckIds) {
+  if (!deckIds || deckIds.length === 0) {
+    return {}
+  }
+
+  const objectIds = deckIds.map(id => new mongoose.Types.ObjectId(id))
+
+  const result = await this.aggregate([
+    { $match: { deckId: { $in: objectIds } } },
+    {
+      $group: {
+        _id: { deckId: '$deckId', vote: '$vote' },
+        count: { $sum: 1 }
+      }
+    }
+  ])
+
+  // Transform to { deckId: { up: X, down: Y } }
+  const counts = {}
+  deckIds.forEach(id => {
+    counts[id.toString()] = { up: 0, down: 0 }
+  })
+
+  result.forEach(r => {
+    const deckId = r._id.deckId.toString()
+    const vote = r._id.vote
+    if (counts[deckId]) {
+      counts[deckId][vote] = r.count
+    }
+  })
+
+  return counts
+}
+
 // Static method to get user's vote for a deck
 voteSchema.statics.getUserVote = async function(deckId, userId, fingerprint) {
   const query = { deckId }
