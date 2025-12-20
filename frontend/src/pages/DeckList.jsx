@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useDateFormat } from '../contexts/DateFormatContext'
@@ -68,16 +68,22 @@ const TAG_CATEGORIES = {
 
 const DeckList = () => {
   const { isAuthenticated } = useAuth()
-  const { language } = useLanguage()
+  const { language, t } = useLanguage()
   const { timeAgo } = useDateFormat()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Get tab from URL, default to 'community' for non-authenticated users
+  const urlTab = searchParams.get('tab')
+  const defaultTab = isAuthenticated ? 'mine' : 'community'
+  const activeTab = urlTab || defaultTab
 
   const [loading, setLoading] = useState(true)
   const [decks, setDecks] = useState([])
-  const [filter, setFilter] = useState('all')
   const [selectedTags, setSelectedTags] = useState([])
   const [showTagFilters, setShowTagFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('recent')
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 })
 
   // Import modal state
@@ -87,36 +93,80 @@ const DeckList = () => {
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState('')
 
+  // Update URL when tab changes
+  const setActiveTab = (tab) => {
+    const newParams = new URLSearchParams(searchParams)
+    newParams.set('tab', tab)
+    setSearchParams(newParams)
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }
+
   useEffect(() => {
     fetchDecks()
-  }, [filter, selectedTags, pagination.page])
+  }, [activeTab, selectedTags, pagination.page, sortBy])
 
   const fetchDecks = async () => {
     try {
       setLoading(true)
-      const params = {
-        page: pagination.page,
-        limit: pagination.limit
-      }
 
-      if (filter === 'mine') {
-        params.mine = true
-      }
-      if (selectedTags.length > 0) {
-        params.tags = selectedTags.join(',')
-      }
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim()
-      }
+      if (activeTab === 'mine') {
+        // Fetch user's own decks
+        const params = {
+          page: pagination.page,
+          limit: pagination.limit,
+          mine: true
+        }
+        if (selectedTags.length > 0) {
+          params.tags = selectedTags.join(',')
+        }
+        if (searchQuery.trim()) {
+          params.search = searchQuery.trim()
+        }
 
-      const response = await deckService.getDecks(params)
-      if (response.success) {
-        setDecks(response.data.decks)
-        setPagination(prev => ({
-          ...prev,
-          total: response.data.pagination.total,
-          pages: response.data.pagination.pages
-        }))
+        const response = await deckService.getDecks(params)
+        if (response.success) {
+          setDecks(response.data.decks)
+          setPagination(prev => ({
+            ...prev,
+            total: response.data.pagination.total,
+            pages: response.data.pagination.pages
+          }))
+        }
+      } else {
+        // Fetch community decks using the new endpoint
+        const params = {
+          page: pagination.page,
+          limit: pagination.limit,
+          sort: sortBy
+        }
+        if (selectedTags.length > 0) {
+          params.tags = selectedTags.join(',')
+        }
+
+        const response = await deckService.getCommunityDecks(params)
+        if (response.success) {
+          // Map community response to match deck card format
+          const mappedDecks = response.data.map(deck => ({
+            _id: deck.id,
+            name: deck.name,
+            description: deck.description,
+            tags: [...(deck.format ? [deck.format] : []), ...deck.tags],
+            userId: { username: deck.author.username },
+            isPublic: true,
+            cards: [], // Community endpoint doesn't return full card list
+            totalCards: deck.cardCount,
+            views: deck.views,
+            copies: deck.copies,
+            createdAt: deck.createdAt,
+            votes: deck.votes
+          }))
+          setDecks(mappedDecks)
+          setPagination(prev => ({
+            ...prev,
+            total: response.pagination.total,
+            pages: response.pagination.totalPages
+          }))
+        }
       }
     } catch (error) {
       console.error('Error fetching decks:', error)
@@ -199,12 +249,10 @@ const DeckList = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
         <div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-            {language === 'es' ? 'Mazos' : 'Decks'}
+            {t('decks.title')}
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {language === 'es'
-              ? 'Explora mazos de la comunidad o crea el tuyo'
-              : 'Explore community decks or create your own'}
+            {t('decks.subtitle')}
           </p>
         </div>
         {isAuthenticated && (
@@ -216,7 +264,7 @@ const DeckList = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-              {language === 'es' ? 'Importar' : 'Import'}
+              {t('decks.import')}
             </button>
             <Link
               to="/decks/new"
@@ -225,7 +273,7 @@ const DeckList = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              {language === 'es' ? 'Crear Mazo' : 'Create Deck'}
+              {t('decks.createDeck')}
             </Link>
           </div>
         )}
@@ -243,7 +291,7 @@ const DeckList = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={language === 'es' ? 'Buscar mazos...' : 'Search decks...'}
+                  placeholder={t('decks.search')}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,30 +300,30 @@ const DeckList = () => {
               </div>
             </form>
 
-            {/* Filter Tabs */}
+            {/* Main Tabs */}
             <div className="flex gap-2">
-              <button
-                onClick={() => { setFilter('all'); setPagination(p => ({ ...p, page: 1 })) }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'all'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {language === 'es' ? 'Todos' : 'All'}
-              </button>
               {isAuthenticated && (
                 <button
-                  onClick={() => { setFilter('mine'); setPagination(p => ({ ...p, page: 1 })) }}
+                  onClick={() => setActiveTab('mine')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    filter === 'mine'
+                    activeTab === 'mine'
                       ? 'bg-primary-600 text-white'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                   }`}
                 >
-                  {language === 'es' ? 'Mis Mazos' : 'My Decks'}
+                  {t('decks.tabs.myDecks')}
                 </button>
               )}
+              <button
+                onClick={() => setActiveTab('community')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'community'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {t('decks.tabs.community')}
+              </button>
               <button
                 onClick={() => setShowTagFilters(!showTagFilters)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
@@ -293,6 +341,34 @@ const DeckList = () => {
               </button>
             </div>
           </div>
+
+          {/* Sort Options (only for community tab) */}
+          {activeTab === 'community' && (
+            <div className="flex items-center gap-2 pt-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {language === 'es' ? 'Ordenar:' : 'Sort:'}
+              </span>
+              <div className="flex gap-1">
+                {[
+                  { value: 'recent', label: t('decks.sortRecent') },
+                  { value: 'popular', label: t('decks.sortPopular') },
+                  { value: 'votes', label: t('decks.sortVotes') }
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => { setSortBy(option.value); setPagination(p => ({ ...p, page: 1 })) }}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      sortBy === option.value
+                        ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
 
           {/* Tag Filters (Expandable) */}
           {showTagFilters && (
@@ -359,12 +435,12 @@ const DeckList = () => {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center">
           <div className="text-6xl mb-4">🃏</div>
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            {language === 'es' ? 'No se encontraron mazos' : 'No decks found'}
+            {t('decks.noDecks')}
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            {filter === 'mine'
-              ? (language === 'es' ? 'Aún no has creado ningún mazo' : "You haven't created any decks yet")
-              : (language === 'es' ? 'Sé el primero en crear un mazo' : 'Be the first to create a deck')}
+            {activeTab === 'mine'
+              ? t('decks.noMyDecks')
+              : t('decks.noCommunityDecks')}
           </p>
           {isAuthenticated && (
             <Link
@@ -374,7 +450,7 @@ const DeckList = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              {language === 'es' ? 'Crear Mazo' : 'Create Deck'}
+              {t('decks.createDeck')}
             </Link>
           )}
         </div>

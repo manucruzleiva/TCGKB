@@ -189,6 +189,22 @@ export const es = {
 
   // Decks
   decks: {
+    tabs: {
+      myDecks: 'Mis Mazos',
+      community: 'Comunidad'
+    },
+    title: 'Mazos',
+    subtitle: 'Explora mazos de la comunidad o crea el tuyo',
+    createDeck: 'Crear Mazo',
+    import: 'Importar',
+    search: 'Buscar mazos...',
+    noDecks: 'No se encontraron mazos',
+    noMyDecks: 'Aún no has creado ningún mazo',
+    noCommunityDecks: 'No hay mazos públicos aún',
+    beFirst: 'Sé el primero en crear un mazo',
+    sortRecent: 'Recientes',
+    sortPopular: 'Popular',
+    sortVotes: 'Votos',
     vote: {
       upvote: 'Me gusta',
       downvote: 'No me gusta'
