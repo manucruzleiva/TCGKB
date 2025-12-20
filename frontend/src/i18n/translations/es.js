@@ -187,6 +187,48 @@ export const es = {
     errorDomainRestriction: '{{current}} carta(s) no coinciden con los dominios del Legend ({{domains}})'
   },
 
+  // Deck Auto Tags
+  deckAutoTags: {
+    title: 'Etiquetas Automáticas',
+    format: {
+      standard: 'Estándar',
+      expanded: 'Expandido',
+      glc: 'GLC',
+      unlimited: 'Ilimitado'
+    },
+    'energy-type': {
+      fire: 'Fuego',
+      water: 'Agua',
+      grass: 'Planta',
+      electric: 'Eléctrico',
+      psychic: 'Psíquico',
+      fighting: 'Lucha',
+      dark: 'Oscuro',
+      steel: 'Acero',
+      dragon: 'Dragón',
+      colorless: 'Incoloro',
+      fairy: 'Hada'
+    },
+    mechanic: {
+      'ex-focused': 'Enfoque ex',
+      'v-focused': 'Enfoque V',
+      'vstar': 'VSTAR',
+      'vmax': 'VMAX',
+      'single-prize': 'Premio Único',
+      'lost-zone': 'Zona Perdida',
+      'rapid-strike': 'Golpe Fluido',
+      'single-strike': 'Golpe Brusco'
+    },
+    domain: {
+      fury: 'Furia',
+      calm: 'Calma',
+      mind: 'Mente',
+      body: 'Cuerpo',
+      order: 'Orden',
+      chaos: 'Caos'
+    }
+  },
+
   // Support / Monetization
   support: {
     footerLink: 'Apoyar',

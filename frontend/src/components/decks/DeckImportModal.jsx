@@ -3,6 +3,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { deckService } from '../../services/deckService'
 import Spinner from '../common/Spinner'
 import DeckValidationIndicator from './DeckValidationIndicator'
+import DeckAutoTags from './DeckAutoTags'
 
 /**
  * DeckImportModal - Modal for importing decks with auto-detection
@@ -203,6 +204,18 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
                   </span>
                 )}
               </div>
+
+              {/* Auto-generated tags */}
+              {parseResult.cards?.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{t('deckAutoTags.title')}:</span>
+                  <DeckAutoTags
+                    cards={parseResult.cards}
+                    tcg={parseResult.tcg}
+                    format={parseResult.format}
+                  />
+                </div>
+              )}
 
               {/* Stats preview */}
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">

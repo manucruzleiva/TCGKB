@@ -207,6 +207,48 @@ export const en = {
     errorDomainRestriction: '{{current}} card(s) don\'t match Legend\'s domains ({{domains}})'
   },
 
+  // Deck Auto Tags
+  deckAutoTags: {
+    title: 'Auto Tags',
+    format: {
+      standard: 'Standard',
+      expanded: 'Expanded',
+      glc: 'GLC',
+      unlimited: 'Unlimited'
+    },
+    'energy-type': {
+      fire: 'Fire',
+      water: 'Water',
+      grass: 'Grass',
+      electric: 'Electric',
+      psychic: 'Psychic',
+      fighting: 'Fighting',
+      dark: 'Dark',
+      steel: 'Steel',
+      dragon: 'Dragon',
+      colorless: 'Colorless',
+      fairy: 'Fairy'
+    },
+    mechanic: {
+      'ex-focused': 'ex Focused',
+      'v-focused': 'V Focused',
+      'vstar': 'VSTAR',
+      'vmax': 'VMAX',
+      'single-prize': 'Single Prize',
+      'lost-zone': 'Lost Zone',
+      'rapid-strike': 'Rapid Strike',
+      'single-strike': 'Single Strike'
+    },
+    domain: {
+      fury: 'Fury',
+      calm: 'Calm',
+      mind: 'Mind',
+      body: 'Body',
+      order: 'Order',
+      chaos: 'Chaos'
+    }
+  },
+
   // Support / Monetization
   support: {
     footerLink: 'Support',
