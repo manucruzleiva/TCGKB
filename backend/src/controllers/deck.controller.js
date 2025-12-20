@@ -901,16 +901,8 @@ export const parseDeck = async (req, res) => {
       enrichmentStats = enrichResult.stats
     }
 
-    // Validate with enriched cards for accurate results
-    // Uses metadata (supertype, subtypes, types, regulationMark) from CardCache
-    let validation
-    if (validate && enrichmentStats?.enriched > 0) {
-      // Use the full validator with enriched metadata
-      validation = validateDeck(cards, result.tcg, result.format)
-    } else {
-      // Fallback to parser's basic validation (text-based)
-      validation = result.validation
-    }
+    // Use the validation from the parser (already includes format-specific rules)
+    const validation = result.validation
 
     log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}${enrichmentStats ? `, Enriched=${enrichmentStats.enriched}/${enrichmentStats.total} in ${enrichmentStats.duration}ms` : ''}`)
 
