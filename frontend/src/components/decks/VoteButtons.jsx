@@ -1,7 +1,7 @@
-import { useState, useEffect, useContext } from 'react'
+import { useState, useEffect } from 'react'
 import { deckService } from '../../services/deckService'
 import { useSocket } from '../../contexts/SocketContext'
-import { LanguageContext } from '../../contexts/LanguageContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 /**
  * Vote buttons component for decks (thumbs up/down)
@@ -9,7 +9,7 @@ import { LanguageContext } from '../../contexts/LanguageContext'
  * @param {boolean} compact - Use compact styling
  */
 const VoteButtons = ({ deckId, compact = false }) => {
-  const { t } = useContext(LanguageContext)
+  const { t } = useLanguage()
   const [counts, setCounts] = useState({ up: 0, down: 0 })
   const [userVote, setUserVote] = useState(null)
   const [loading, setLoading] = useState(false)
