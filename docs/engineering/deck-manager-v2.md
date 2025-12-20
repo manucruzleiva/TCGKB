@@ -372,3 +372,69 @@ Added clickable toggle button on "My Decks" tab:
 ) : (
   <span>{deck.isPublic ? 'Public' : 'Private'}</span>
 )}
+```
+
+### #147 - Cards Display as 'Other' Instead of Correct Category
+
+**Problem**: Cards imported via deck import were all categorized as "other" instead of Pokemon/Trainer/Energy.
+
+**Root Cause**: `parseTCGLiveFormat` skipped section headers instead of tracking which section cards belong to.
+
+**Fix**: Modified both parsers to track section headers:
+
+`backend/src/controllers/deck.controller.js`:
+```javascript
+let currentSection = null // Track current section
+
+// Check for section headers and track the section
+const sectionMatch = trimmed.match(/^(Pokemon|Pokémon|Trainer|Energy|Total):\s*\d*$/i)
+if (sectionMatch) {
+  const sectionName = sectionMatch[1].toLowerCase()
+  if (sectionName === 'pokemon' || sectionName === 'pokémon') {
+    currentSection = 'Pokémon'
+  } else if (sectionName === 'trainer') {
+    currentSection = 'Trainer'
+  } else if (sectionName === 'energy') {
+    currentSection = 'Energy'
+  }
+  continue
+}
+
+// When parsing card, assign supertype from current section
+const card = { cardId, name, quantity }
+if (currentSection) card.supertype = currentSection
+cards.push(card)
+```
+
+`frontend/src/services/deckService.js`:
+- Same section tracking logic added to client-side parser
+
+### #149 - Riftbound Deck Stats Showing Pokemon Structure
+
+**Problem**: When creating a Riftbound deck, the stats window showed Pokemon TCG structure (Pokemon/Trainer/Energy) instead of Riftbound structure.
+
+**Root Cause**: Stats section was hardcoded for Pokemon TCG categories.
+
+**Fix**: `frontend/src/pages/DeckBuilder.jsx`
+
+Added Riftbound-specific stats calculations:
+```javascript
+// Riftbound TCG stats
+const legendCount = cards.filter(c => c.cardType === 'Legend').reduce((sum, c) => sum + c.quantity, 0)
+const battlefieldCount = cards.filter(c => c.name?.toLowerCase().includes('battlefield')).reduce((sum, c) => sum + c.quantity, 0)
+const runeCount = cards.filter(c => c.name?.toLowerCase().includes('rune')).reduce((sum, c) => sum + c.quantity, 0)
+const mainDeckCount = cards.filter(c =>
+  !c.name?.toLowerCase().includes('rune') &&
+  !c.name?.toLowerCase().includes('battlefield') &&
+  c.cardType !== 'Legend'
+).reduce((sum, c) => sum + c.quantity, 0)
+
+// Target deck size based on TCG
+const targetDeckSize = tcgSystem === 'riftbound' ? 56 : 60
+```
+
+Conditional UI rendering:
+- Pokemon TCG: Shows Pokemon/Trainer/Energy counts (60 card target)
+- Riftbound TCG: Shows Main Deck (40), Legend (1), Battlefields (3), Runes (12) (56 card target)
+- Visual bar colors match category colors
+- Green highlight when each section reaches target count
