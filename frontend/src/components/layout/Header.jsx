@@ -201,13 +201,6 @@ const Header = () => {
                 </Link>
                 <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                 <Link
-                  to="/changelog"
-                  onClick={() => setShowMainMenu(false)}
-                  className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  📋 {language === 'es' ? 'Changelog' : 'Changelog'}
-                </Link>
-                <Link
                   to="/roadmap"
                   onClick={() => setShowMainMenu(false)}
                   className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

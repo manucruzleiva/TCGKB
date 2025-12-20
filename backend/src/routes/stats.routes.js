@@ -1,5 +1,5 @@
 import express from 'express'
-import { getStats, getDetailedStats, getGitHubCommits, getRoadmap, getRelationshipMap, addRoadmapItem, getRoadmapSections, getPopularityStats } from '../controllers/stats.controller.js'
+import { getStats, getDetailedStats, getRoadmap, getRelationshipMap, addRoadmapItem, getRoadmapSections, getPopularityStats } from '../controllers/stats.controller.js'
 import { generalLimiter } from '../middleware/rateLimiter.middleware.js'
 import { protect, adminOrDevOnly } from '../middleware/auth.middleware.js'
 
@@ -10,9 +10,6 @@ router.get('/', generalLimiter, getStats)
 
 // Get detailed statistics with distributions
 router.get('/detailed', generalLimiter, getDetailedStats)
-
-// Get GitHub commits for changelog (supports ?branch=main|stage)
-router.get('/commits', generalLimiter, getGitHubCommits)
 
 // Get roadmap parsed from TODO.md
 router.get('/roadmap', generalLimiter, getRoadmap)

@@ -597,8 +597,6 @@ PATCH  /api/test/users/:id      Modify role/restrictions
 |--------|----------|-------------|
 | GET | `/api/github/config` | Check if GitHub is configured |
 | GET | `/api/github/project` | Get project items (roadmap) |
-| GET | `/api/github/changelog` | Get changelog (commits) |
-| GET | `/api/github/commits` | Get commits from branch |
 | POST | `/api/github/issues` | Create bug report issue |
 | POST | `/api/github/classify` | Classify bug (priority, duplicates) |
 | GET | `/api/github/issues` | List issues (auth required) |
@@ -613,7 +611,7 @@ PATCH  /api/test/users/:id      Modify role/restrictions
 | **Pokemon TCG API** | Card data for Pokemon | 20k/day |
 | **Riftbound API** | Card data for Riftbound | TBD |
 | **PokeAPI** | Pokemon sprites | Unlimited |
-| **GitHub API** | Bug reports, changelog | 5k/hour |
+| **GitHub API** | Bug reports, roadmap | 5k/hour |
 
 ---
 
@@ -771,7 +769,7 @@ This project uses Claude Code agents via GitHub Actions for automated developmen
 | **@design** | Architecture, Project items | Human wish/comment |
 | **@dev** | Implementation, bug fixes | Project item ready |
 | **@qa** | Testing, test creation | Push to `claude/*` |
-| **@docs** | Documentation, changelog | QA passes |
+| **@docs** | Documentation | QA passes |
 | **@clean** | Lint, refactor, cleanup | Docs complete |
 
 ### Token Tracking
