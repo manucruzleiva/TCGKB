@@ -315,3 +315,60 @@ const handleQuantityKeyDown = (e) => {
   <button>☰</button>
 </div>
 ```
+
+---
+
+## Sprint 4 Fixes (2025-12-20)
+
+### #144 - Auto-Name Deck on Import
+
+**Problem**: Importing a deck without providing a name showed an error instead of auto-generating one.
+
+**Fix**: `frontend/src/pages/DeckList.jsx`
+```javascript
+// Auto-generate name if not provided (#144)
+const deckName = importName.trim() || (language === 'es' ? 'Mazo sin título' : 'Untitled Deck')
+```
+
+### #145 - Import Only Getting 52/60 Cards
+
+**Problems**:
+1. Parser rejected cards with quantity > 4 (energy cards lost)
+2. Card IDs generated incorrectly (e.g., "gimmighoul-ssp-97" instead of "ssp-97")
+
+**Fixes**: `backend/src/controllers/deck.controller.js`
+
+```javascript
+// 1. Allow up to 60 copies per card (was capped at 4)
+if (quantity > 0 && quantity <= 60 && cardId) {
+  existing.quantity = Math.min(existing.quantity + quantity, 60)
+}
+
+// 2. Properly extract SET-NUMBER format
+// "4 Gimmighoul SSP 97" -> cardId: "ssp-97", name: "Gimmighoul"
+const setNumberMatch = cardInfo.match(/^(.+?)\s+([A-Z]{2,5})\s+(\d{1,4})$/i)
+if (setNumberMatch) {
+  name = setNumberMatch[1].trim()
+  cardId = setNumberMatch[2].toLowerCase() + '-' + setNumberMatch[3]
+}
+```
+
+### #146 - Visibility Toggle Button
+
+**Problem**: No quick way to toggle deck visibility (public/private) from the deck list.
+
+**Fix**: `frontend/src/pages/DeckList.jsx`
+
+Added clickable toggle button on "My Decks" tab:
+- Shows eye icon (open/closed) with Public/Private label
+- Click to toggle visibility without opening deck
+- Uses existing `deckService.updateDeck` API
+
+```jsx
+{activeTab === 'mine' ? (
+  <button onClick={(e) => handleToggleVisibility(e, deck._id, deck.isPublic)}>
+    {deck.isPublic ? '👁 Public' : '🚫 Private'}
+  </button>
+) : (
+  <span>{deck.isPublic ? 'Public' : 'Private'}</span>
+)}

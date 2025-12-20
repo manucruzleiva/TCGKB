@@ -22,23 +22,50 @@ const parseTCGLiveFormat = (deckString) => {
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue
+    // Skip section headers like "Pokemon: 12", "Trainer: 34", "Energy: 11"
+    if (/^(Pokemon|Pokémon|Trainer|Energy|Total):\s*\d*$/i.test(trimmed)) continue
 
     // Match: quantity cardId (e.g., "4 sv7-001" or "2 SVI 001")
     const match = trimmed.match(/^(\d+)\s+(.+)$/)
     if (match) {
       const quantity = parseInt(match[1])
-      let cardId = match[2].trim()
+      const cardInfo = match[2].trim()
+      let cardId = null
+      let name = cardInfo
 
-      // Normalize card ID format (handle "SET NUM" format)
-      cardId = cardId.replace(/\s+/g, '-').toLowerCase()
+      // Try to extract SET-NUMBER format from end of line
+      // Format 1: "Gimmighoul SSP 97" -> cardId: "ssp-97", name: "Gimmighoul"
+      const setNumberMatch = cardInfo.match(/^(.+?)\s+([A-Z]{2,5})\s+(\d{1,4})$/i)
+      if (setNumberMatch) {
+        name = setNumberMatch[1].trim()
+        cardId = setNumberMatch[2].toLowerCase() + '-' + setNumberMatch[3]
+      } else {
+        // Format 2: "Gimmighoul SSP-97" -> cardId: "ssp-97", name: "Gimmighoul"
+        const setDashMatch = cardInfo.match(/^(.+?)\s+([A-Z]{2,5})-(\d{1,4})$/i)
+        if (setDashMatch) {
+          name = setDashMatch[1].trim()
+          cardId = setDashMatch[2].toLowerCase() + '-' + setDashMatch[3]
+        } else {
+          // Format 3: Direct set-number "ssp-97"
+          const directMatch = cardInfo.match(/^([A-Z]{2,5})-(\d{1,4})$/i)
+          if (directMatch) {
+            cardId = cardInfo.toLowerCase()
+            name = cardInfo
+          } else {
+            // Fallback: use full string as card reference (for name lookup)
+            cardId = cardInfo.replace(/\s+/g, '-').toLowerCase()
+          }
+        }
+      }
 
-      if (quantity > 0 && quantity <= 4 && cardId) {
+      // Allow up to 60 copies per card (#145 fix) - Energy cards can have many copies
+      if (quantity > 0 && quantity <= 60 && cardId) {
         // Check if card already exists in list
         const existing = cards.find(c => c.cardId === cardId)
         if (existing) {
-          existing.quantity = Math.min(existing.quantity + quantity, 4)
+          existing.quantity = Math.min(existing.quantity + quantity, 60)
         } else {
-          cards.push({ cardId, quantity: Math.min(quantity, 4) })
+          cards.push({ cardId, name, quantity: Math.min(quantity, 60) })
         }
       }
     }
