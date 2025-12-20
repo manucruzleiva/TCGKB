@@ -7,7 +7,6 @@ import {
   updateIssueState,
   checkConfig,
   getCommits,
-  getChangelog,
   classifyBugReport,
   getProjectItems
 } from '../controllers/github.controller.js'
@@ -19,13 +18,10 @@ const router = express.Router()
 // Check if GitHub integration is configured (public)
 router.get('/config', checkConfig)
 
-// Get changelog - public endpoint for showing what's new
-router.get('/changelog', generalLimiter, getChangelog)
-
 // Get project items - public endpoint for roadmap
 router.get('/project', generalLimiter, getProjectItems)
 
-// Get commits from a branch (public - for changelog page)
+// Get commits from a branch (public)
 router.get('/commits', generalLimiter, getCommits)
 
 // Classify bug report before submission (get suggestions for priority, labels, duplicates)

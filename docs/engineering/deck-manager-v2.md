@@ -627,3 +627,55 @@ On mobile devices, the logo now acts as the hamburger menu trigger instead of ha
 - Preview with validation before creating
 - Consistent UX across both pages
 - Auto-detection of TCG system and format
+
+---
+
+## Sprint 7 Fixes (2025-12-20)
+
+### #155 - Footer Shows 'dev' Instead of Commit Hash in Production
+
+**Problem**: The footer version display showed "dev" instead of the actual git commit hash on production (tcgkb.app).
+
+**Root Cause**: The Vite config's `getGitCommitHash()` function wasn't properly detecting the `VERCEL_GIT_COMMIT_SHA` environment variable during Vercel builds.
+
+**Fix**: `frontend/vite.config.js`
+
+Added debug logging to diagnose the issue and verified the environment variable detection logic:
+```javascript
+const getGitCommitHash = () => {
+  // Debug: Log available Vercel environment variables during build
+  if (process.env.VERCEL) {
+    console.log('[vite-build] Running on Vercel')
+    console.log('[vite-build] VERCEL_GIT_COMMIT_SHA:', process.env.VERCEL_GIT_COMMIT_SHA || 'not set')
+  }
+
+  if (process.env.VERCEL_GIT_COMMIT_SHA) {
+    return process.env.VERCEL_GIT_COMMIT_SHA.substring(0, 7)
+  }
+  // ... git fallback
+}
+```
+
+### #122 - Remove Changelog Endpoints
+
+**Problem**: The changelog feature was removed from navigation but the backend endpoint and frontend page still existed.
+
+**Fix**: Complete removal of changelog feature:
+
+**Files removed:**
+- `frontend/src/pages/Changelog.jsx`
+
+**Files modified:**
+- `frontend/src/App.jsx` - Removed Changelog import and route
+- `backend/src/routes/github.routes.js` - Removed `/changelog` endpoint
+- `backend/src/controllers/github.controller.js` - Removed `getChangelog` function
+- `backend/src/utils/bugClassifier.js` - Removed `/changelog` area mapping
+- `backend/src/controllers/stats.controller.js` - Updated comment
+
+### #125 - Navigation and Changelog Removal Testing
+
+Navigation changes verified:
+- Desktop: Logo links to home, main nav visible (Cards, Decks, Roadmap), "More" dropdown for secondary
+- Mobile: Logo opens hamburger menu with all links
+- Changelog route removed - returns 404
+- No orphan references to changelog in codebase

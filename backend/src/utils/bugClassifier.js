@@ -41,7 +41,6 @@ const PAGE_LABELS = {
   '/admin': 'area:admin',
   '/dev': 'area:dev-dashboard',
   '/roadmap': 'area:roadmap',
-  '/changelog': 'area:changelog',
   '/relationship-map': 'area:relationship-map',
   '/user/': 'area:user-profile'
 }
