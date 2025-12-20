@@ -1,5 +1,6 @@
 import Deck from '../models/Deck.js'
 import Collection from '../models/Collection.js'
+import Vote from '../models/Vote.js'
 import log from '../utils/logger.js'
 import reputationService from '../services/reputation.service.js'
 import { generateDeckHash, findExactDuplicate, findSimilarDecks } from '../utils/deckHash.js'
@@ -916,6 +917,156 @@ export const parseDeck = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to parse deck'
+    })
+  }
+}
+
+/**
+ * Vote on a deck (up or down)
+ * POST /api/decks/:deckId/vote
+ *
+ * Body: { vote: 'up' | 'down' }
+ * Headers: x-fingerprint (for anonymous users)
+ *
+ * Rules:
+ * - One vote per user (up OR down, not both)
+ * - Clicking same vote removes it
+ * - Anonymous users can vote (fingerprint-based)
+ */
+export const voteDeck = async (req, res) => {
+  try {
+    const { deckId } = req.params
+    const { vote } = req.body
+    const fingerprint = req.headers['x-fingerprint']
+
+    // Validate vote type
+    if (!vote || !['up', 'down'].includes(vote)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vote must be "up" or "down"'
+      })
+    }
+
+    // Check deck exists
+    const deck = await Deck.findById(deckId)
+    if (!deck) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deck not found'
+      })
+    }
+
+    // Must have either user or fingerprint
+    const userId = req.user?._id
+    if (!userId && !fingerprint) {
+      return res.status(400).json({
+        success: false,
+        message: 'Authentication or fingerprint required to vote'
+      })
+    }
+
+    // Build query for existing vote
+    const voteQuery = { deckId }
+    if (userId) {
+      voteQuery.userId = userId
+    } else {
+      voteQuery.fingerprint = fingerprint
+    }
+
+    // Check for existing vote
+    const existingVote = await Vote.findOne(voteQuery)
+
+    let action = 'added'
+    let newVote = null
+
+    if (existingVote) {
+      if (existingVote.vote === vote) {
+        // Same vote - remove it (toggle off)
+        await Vote.findByIdAndDelete(existingVote._id)
+        action = 'removed'
+        log.info(MODULE, `Vote ${vote} removed from deck ${deckId} by ${userId || fingerprint}`)
+      } else {
+        // Different vote - update it
+        existingVote.vote = vote
+        await existingVote.save()
+        action = 'changed'
+        newVote = vote
+        log.info(MODULE, `Vote changed to ${vote} on deck ${deckId} by ${userId || fingerprint}`)
+      }
+    } else {
+      // No existing vote - create new
+      await Vote.create({
+        deckId,
+        vote,
+        userId: userId || null,
+        fingerprint: userId ? null : fingerprint
+      })
+      newVote = vote
+      log.info(MODULE, `Vote ${vote} added to deck ${deckId} by ${userId || fingerprint}`)
+    }
+
+    // Get updated counts
+    const counts = await Vote.getVoteCounts(deckId)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        action,
+        userVote: action === 'removed' ? null : newVote,
+        counts
+      },
+      message: action === 'removed' ? 'Vote removed' :
+               action === 'changed' ? 'Vote updated' : 'Vote recorded'
+    })
+  } catch (error) {
+    log.error(MODULE, 'Vote on deck failed', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to vote on deck'
+    })
+  }
+}
+
+/**
+ * Get votes for a deck
+ * GET /api/decks/:deckId/votes
+ *
+ * Returns vote counts and optionally the current user's vote
+ */
+export const getDeckVotes = async (req, res) => {
+  try {
+    const { deckId } = req.params
+    const fingerprint = req.headers['x-fingerprint']
+
+    // Check deck exists
+    const deck = await Deck.findById(deckId)
+    if (!deck) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deck not found'
+      })
+    }
+
+    // Get vote counts
+    const counts = await Vote.getVoteCounts(deckId)
+
+    // Get user's vote if authenticated or has fingerprint
+    const userId = req.user?._id
+    const userVote = await Vote.getUserVote(deckId, userId, fingerprint)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        counts,
+        userVote,
+        score: counts.up - counts.down
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get deck votes failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get votes'
     })
   }
 }

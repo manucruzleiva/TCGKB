@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useDateFormat } from '../contexts/DateFormatContext'
 import { deckService } from '../services/deckService'
 import Spinner from '../components/common/Spinner'
+import VoteButtons from '../components/decks/VoteButtons'
 
 // Tag colors and labels
 const TAG_COLORS = {
@@ -460,6 +461,12 @@ const DeckList = () => {
                       <span>👁 {deck.views || 0}</span>
                       <span>📋 {deck.copies || 0}</span>
                     </span>
+                  </div>
+                  <div
+                    className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <VoteButtons deckId={deck._id} compact />
                   </div>
                 </div>
               </Link>

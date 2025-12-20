@@ -207,6 +207,14 @@ export const en = {
     errorDomainRestriction: '{{current}} card(s) don\'t match Legend\'s domains ({{domains}})'
   },
 
+  // Decks
+  decks: {
+    vote: {
+      upvote: 'Upvote',
+      downvote: 'Downvote'
+    }
+  },
+
   // Deck Auto Tags
   deckAutoTags: {
     title: 'Auto Tags',

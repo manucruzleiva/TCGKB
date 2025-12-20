@@ -6,6 +6,7 @@ import { useDateFormat } from '../contexts/DateFormatContext'
 import { deckService } from '../services/deckService'
 import CommentList from '../components/comments/CommentList'
 import Spinner from '../components/common/Spinner'
+import VoteButtons from '../components/decks/VoteButtons'
 
 const FORMAT_COLORS = {
   standard: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200',
@@ -180,6 +181,9 @@ const DeckDetail = () => {
               <span>📅 {formatDate(deck.createdAt)}</span>
               <span>👁 {deck.views || 0} {language === 'es' ? 'vistas' : 'views'}</span>
               <span>📋 {deck.copies || 0} {language === 'es' ? 'copias' : 'copies'}</span>
+            </div>
+            <div className="mt-3">
+              <VoteButtons deckId={deckId} />
             </div>
           </div>
 
