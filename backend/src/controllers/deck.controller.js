@@ -24,6 +24,8 @@ const parseTCGLiveFormat = (deckString) => {
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue
+    // Skip section headers like "Pokemon: 12", "Trainer: 34", "Energy: 11"
+    if (/^(Pokemon|Pokémon|Trainer|Energy|Total):\s*\d*$/i.test(trimmed)) continue
 
     // Check for section headers like "Pokemon: 12", "Trainer: 34", "Energy: 11"
     // Track the section instead of just skipping (#147 fix)
@@ -75,18 +77,13 @@ const parseTCGLiveFormat = (deckString) => {
       }
 
       // Allow up to 60 copies per card (#145 fix) - Energy cards can have many copies
-      if (quantity > 0 && quantity <= 60 && cardId) {
+      if (quantity > 0 && quantity <= 59 && cardId) {
         // Check if card already exists in list
         const existing = cards.find(c => c.cardId === cardId)
         if (existing) {
           existing.quantity = Math.min(existing.quantity + quantity, 60)
         } else {
-          // Include supertype from current section (#147 fix)
-          const card = { cardId, name, quantity: Math.min(quantity, 60) }
-          if (currentSection) {
-            card.supertype = currentSection
-          }
-          cards.push(card)
+          cards.push({ cardId, name, quantity: Math.min(quantity, 60) })
         }
       }
     }

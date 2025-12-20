@@ -219,6 +219,19 @@ const DeckList = () => {
     e.stopPropagation()
     try {
       const response = await deckService.updateDeck(deckId, { isPublic: !currentVisibility })
+    // Auto-generate name if not provided (#144)
+    const deckName = importName.trim() || (language === 'es' ? 'Mazo sin título' : 'Untitled Deck')
+
+    setImporting(true)
+    setImportError('')
+
+    try {
+      const response = await deckService.createDeck({
+        name: deckName,
+        importString: importText.trim(),
+        isPublic: false
+      })
+
       if (response.success) {
         // Update local state
         setDecks(prev => prev.map(deck =>
