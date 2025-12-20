@@ -303,7 +303,7 @@ export const getDeckById = async (req, res) => {
 export const updateDeck = async (req, res) => {
   try {
     const { deckId } = req.params
-    const { name, description, cards, isPublic, tags, importString } = req.body
+    const { name, description, cards, isPublic, tags, importString, tcgSystem } = req.body
 
     const deck = await Deck.findById(deckId)
 
@@ -327,6 +327,7 @@ export const updateDeck = async (req, res) => {
     if (description !== undefined) deck.description = description
     if (typeof isPublic === 'boolean') deck.isPublic = isPublic
     if (tags !== undefined) deck.tags = tags
+    if (tcgSystem) deck.tcgSystem = tcgSystem
 
     // Handle cards update
     let cardsChanged = false

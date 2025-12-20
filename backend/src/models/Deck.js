@@ -9,7 +9,7 @@ const deckCardSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 1,
-    max: 4
+    max: 60 // Allow up to 60 for Basic Energy cards (enforced by frontend)
   },
   // Cached card info for display
   name: String,

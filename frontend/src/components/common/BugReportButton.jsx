@@ -233,12 +233,12 @@ const BugReportButton = () => {
 
   return (
     <>
-      {/* Floating Bug Report Button - Visible for all users */}
+      {/* Floating Bug Report Button - Visible for all users, z-[60] to be above modals (z-50) */}
       <button
         ref={buttonRef}
         data-bug-button
         onClick={handleOpenModal}
-        className="fixed bottom-4 right-4 z-40 p-3 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all hover:scale-110"
+        className="fixed bottom-4 right-4 z-[60] p-3 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all hover:scale-110"
         title={language === 'es' ? 'Reportar un Bug' : 'Report a Bug'}
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

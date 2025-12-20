@@ -72,6 +72,14 @@ const DeckCardInteractive = ({
     setShowQuantityInput(false)
   }
 
+  // Handle key press in quantity input
+  const handleQuantityKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setShowQuantityInput(false)
+    }
+  }
+
   // Drag handlers
   const handleDragStart = (e) => {
     setIsDragging(true)
@@ -143,7 +151,9 @@ const DeckCardInteractive = ({
                 max={maxQuantity}
                 value={quantityValue}
                 onChange={(e) => setQuantityValue(e.target.value)}
+                onKeyDown={handleQuantityKeyDown}
                 autoFocus
+                onFocus={(e) => e.target.select()}
                 onBlur={() => setShowQuantityInput(false)}
                 className="w-16 px-2 py-1 text-center text-lg font-bold rounded border-2 border-primary-500 focus:outline-none"
               />
@@ -181,8 +191,11 @@ const DeckCardInteractive = ({
           ×{card.quantity}
         </div>
 
-        {/* Hover controls */}
-        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+        {/* Hover controls - onContextMenu to handle right-click on overlay */}
+        <div
+          className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
+          onContextMenu={handleContextMenu}
+        >
           <button
             onClick={(e) => { e.stopPropagation(); onRemove?.(cardId) }}
             className="p-2 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition-colors"
@@ -223,7 +236,9 @@ const DeckCardInteractive = ({
               max={maxQuantity}
               value={quantityValue}
               onChange={(e) => setQuantityValue(e.target.value)}
+              onKeyDown={handleQuantityKeyDown}
               autoFocus
+              onFocus={(e) => e.target.select()}
               onBlur={() => setShowQuantityInput(false)}
               className="w-16 px-2 py-1 text-center text-lg font-bold rounded border-2 border-primary-500 focus:outline-none"
             />
