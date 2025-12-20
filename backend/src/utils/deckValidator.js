@@ -33,6 +33,18 @@ const RADIANT_KEYWORDS = ['radiant']
 // Rule Box Pokemon suffixes
 const RULE_BOX_SUFFIXES = [' ex', ' v', ' vstar', ' vmax', ' gx', ' v-union']
 
+// GLC Special Groups - only 1 total from each group allowed
+const GLC_PROFESSOR_GROUP = [
+  "professor's research", "professor juniper", "professor sycamore"
+]
+
+const GLC_BOSS_GROUP = [
+  "boss's orders", "lysandre"
+]
+
+// Riftbound Domains
+const RIFTBOUND_DOMAINS = ['fury', 'calm', 'mind', 'body', 'order', 'chaos']
+
 /**
  * Check if a card name is a Basic Energy
  */
@@ -205,19 +217,45 @@ export function validatePokemonStandard(cards, options = {}) {
     })
   }
 
-  // 6. Check regulation marks (optional, only if cards have this data)
-  if (options.checkRegulationMarks) {
-    const invalidRegulation = cards.filter(c =>
-      c.regulationMark && !STANDARD_REGULATION_MARKS.includes(c.regulationMark)
+  // 6. Check regulation marks (cards with marks outside G, H, I are not Standard legal)
+  // Exception: If a card has a reprint with a valid mark, all versions are legal
+  const cardGroupsForRegulation = groupCardsByName(cards)
+  const invalidRegulationGroups = []
+
+  Object.values(cardGroupsForRegulation).forEach(group => {
+    // Skip basic energy (always legal)
+    if (group.isBasicEnergy) return
+
+    // Check if ANY card in the group has a valid regulation mark
+    const hasLegalReprint = group.cards.some(c =>
+      c.regulationMark && STANDARD_REGULATION_MARKS.includes(c.regulationMark)
     )
 
-    if (invalidRegulation.length > 0) {
-      warnings.push({
-        type: 'regulation_mark',
-        message: `Some cards may not be legal in Standard (regulation marks: ${invalidRegulation.map(c => c.regulationMark).join(', ')})`,
-        cards: invalidRegulation.map(c => ({ name: c.name, mark: c.regulationMark }))
-      })
+    // If no card in the group has a valid mark, flag all cards in the group
+    if (!hasLegalReprint) {
+      const cardsWithMarks = group.cards.filter(c => c.regulationMark)
+      if (cardsWithMarks.length > 0) {
+        invalidRegulationGroups.push({
+          name: group.name,
+          cards: cardsWithMarks,
+          totalQuantity: cardsWithMarks.reduce((sum, c) => sum + c.quantity, 0)
+        })
+      }
     }
+  })
+
+  if (invalidRegulationGroups.length > 0) {
+    const invalidCount = invalidRegulationGroups.reduce((sum, g) => sum + g.totalQuantity, 0)
+    const allInvalidMarks = [...new Set(
+      invalidRegulationGroups.flatMap(g => g.cards.map(c => c.regulationMark))
+    )]
+    errors.push({
+      type: 'regulation_mark',
+      message: `${invalidCount} card(s) are not legal in Standard (no legal reprint available, marks: ${allInvalidMarks.join(', ')})`,
+      cards: invalidRegulationGroups.flatMap(g => g.cards.map(c => ({ name: c.name, mark: c.regulationMark, quantity: c.quantity }))),
+      current: invalidCount,
+      validMarks: STANDARD_REGULATION_MARKS
+    })
   }
 
   const isValid = errors.length === 0
@@ -336,6 +374,40 @@ export function validatePokemonGLC(cards, options = {}) {
     })
   }
 
+  // 7. Check Professor group (only 1 total from Juniper/Sycamore/Research)
+  const professorCards = cards.filter(c => {
+    const normalizedName = normalizeCardName(c.name)
+    return GLC_PROFESSOR_GROUP.some(prof => normalizedName.includes(prof))
+  })
+  const professorCount = professorCards.reduce((sum, c) => sum + c.quantity, 0)
+
+  if (professorCount > 1) {
+    errors.push({
+      type: 'professor_group_limit',
+      message: `Only 1 Professor card allowed in GLC (Professor's Research, Juniper, or Sycamore). Currently ${professorCount}`,
+      cards: professorCards.map(c => c.name),
+      current: professorCount,
+      limit: 1
+    })
+  }
+
+  // 8. Check Boss group (only 1 total from Boss's Orders/Lysandre)
+  const bossCards = cards.filter(c => {
+    const normalizedName = normalizeCardName(c.name)
+    return GLC_BOSS_GROUP.some(boss => normalizedName.includes(boss))
+  })
+  const bossCount = bossCards.reduce((sum, c) => sum + c.quantity, 0)
+
+  if (bossCount > 1) {
+    errors.push({
+      type: 'boss_group_limit',
+      message: `Only 1 Boss card allowed in GLC (Boss's Orders or Lysandre). Currently ${bossCount}`,
+      cards: bossCards.map(c => c.name),
+      current: bossCount,
+      limit: 1
+    })
+  }
+
   const isValid = errors.length === 0
 
   log.info(MODULE, `GLC validation: ${isValid ? 'VALID' : 'INVALID'} - ${errors.length} errors, ${warnings.length} warnings`)
@@ -439,6 +511,46 @@ export function validateRiftboundConstructed(cards, options = {}) {
     }
   })
 
+  // 6. Check sideboard (optional: 0 or 8 cards)
+  const sideboard = options.sideboard || []
+  const sideboardCount = sideboard.reduce((sum, c) => sum + (c.quantity || 1), 0)
+
+  if (sideboardCount > 0 && sideboardCount !== 8) {
+    errors.push({
+      type: 'sideboard_count',
+      message: `Sideboard must have exactly 8 cards if used (currently ${sideboardCount})`,
+      current: sideboardCount,
+      expected: 8
+    })
+  }
+
+  // 7. Check domain restriction (all cards must match Legend's domains)
+  if (legends.length === 1) {
+    const legend = legends[0]
+    const legendDomains = legend.domains?.map(d => d.toLowerCase()) || []
+
+    if (legendDomains.length > 0) {
+      // Check all non-legend cards match Legend's domains
+      const nonLegendCards = cards.filter(c => c.cardType !== 'Legend')
+      const invalidDomainCards = nonLegendCards.filter(card => {
+        const cardDomains = card.domains?.map(d => d.toLowerCase()) || []
+        // Card is valid if it has no domains (neutral) OR shares at least one domain with Legend
+        if (cardDomains.length === 0) return false
+        return !cardDomains.some(domain => legendDomains.includes(domain))
+      })
+
+      if (invalidDomainCards.length > 0) {
+        errors.push({
+          type: 'domain_restriction',
+          message: `${invalidDomainCards.length} card(s) don't match Legend's domains (${legendDomains.join(', ')})`,
+          cards: invalidDomainCards.map(c => ({ name: c.name, domains: c.domains })),
+          legendDomains,
+          current: invalidDomainCards.length
+        })
+      }
+    }
+  }
+
   const isValid = errors.length === 0
 
   log.info(MODULE, `Riftbound validation: ${isValid ? 'VALID' : 'INVALID'} - ${errors.length} errors, ${warnings.length} warnings`)
@@ -453,6 +565,7 @@ export function validateRiftboundConstructed(cards, options = {}) {
       legends: legendCount,
       battlefields: battlefieldCount,
       runes: runeCount,
+      sideboardCards: sideboardCount,
       totalCards: mainDeckCount + legendCount + battlefieldCount + runeCount
     }
   }

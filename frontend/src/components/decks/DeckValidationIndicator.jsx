@@ -156,6 +156,24 @@ function getLocalizedErrorMessage(error, t) {
       return t('deckValidation.errorRuleBox')
     case 'ace_spec_prohibited':
       return t('deckValidation.errorAceSpecGLC')
+    case 'regulation_mark':
+      return t('deckValidation.errorRegulationMark', { current, validMarks: error.validMarks?.join(', ') || 'G, H, I' })
+    case 'professor_group_limit':
+      return t('deckValidation.errorProfessorGroup', { current })
+    case 'boss_group_limit':
+      return t('deckValidation.errorBossGroup', { current })
+    case 'main_deck_count':
+      return t('deckValidation.errorMainDeckCount', { current, expected })
+    case 'legend_count':
+      return t('deckValidation.errorLegendCount', { current })
+    case 'battlefield_count':
+      return t('deckValidation.errorBattlefieldCount', { current })
+    case 'rune_count':
+      return t('deckValidation.errorRuneCount', { current })
+    case 'sideboard_count':
+      return t('deckValidation.errorSideboardCount', { current })
+    case 'domain_restriction':
+      return t('deckValidation.errorDomainRestriction', { current, domains: error.legendDomains?.join(', ') || '' })
     default:
       return message
   }

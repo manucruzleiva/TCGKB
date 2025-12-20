@@ -195,7 +195,16 @@ export const en = {
     errorAceSpec: 'Deck can only have 1 ACE SPEC card (currently {{current}})',
     errorRadiant: 'Deck can only have 1 Radiant Pokémon (currently {{current}})',
     errorRuleBox: 'Rule Box Pokémon (ex, V, VSTAR, VMAX, Radiant) are not allowed in GLC',
-    errorAceSpecGLC: 'ACE SPEC cards are not allowed in GLC'
+    errorAceSpecGLC: 'ACE SPEC cards are not allowed in GLC',
+    errorRegulationMark: '{{current}} card(s) are not legal in Standard (valid marks: {{validMarks}})',
+    errorProfessorGroup: 'Only 1 Professor card allowed in GLC (Professor\'s Research, Juniper, or Sycamore). Currently {{current}}',
+    errorBossGroup: 'Only 1 Boss card allowed in GLC (Boss\'s Orders or Lysandre). Currently {{current}}',
+    errorMainDeckCount: 'Main deck must have exactly {{expected}} cards (currently {{current}})',
+    errorLegendCount: 'Deck must have exactly 1 Legend (currently {{current}})',
+    errorBattlefieldCount: 'Deck must have exactly 3 Battlefields (currently {{current}})',
+    errorRuneCount: 'Deck must have exactly 12 Runes (currently {{current}})',
+    errorSideboardCount: 'Sideboard must have exactly 8 cards if used (currently {{current}})',
+    errorDomainRestriction: '{{current}} card(s) don\'t match Legend\'s domains ({{domains}})'
   },
 
   // Support / Monetization

@@ -175,7 +175,16 @@ export const es = {
     errorAceSpec: 'El mazo solo puede tener 1 carta ACE SPEC (actualmente {{current}})',
     errorRadiant: 'El mazo solo puede tener 1 Pokémon Radiant (actualmente {{current}})',
     errorRuleBox: 'Los Pokémon Rule Box (ex, V, VSTAR, VMAX, Radiant) no están permitidos en GLC',
-    errorAceSpecGLC: 'Las cartas ACE SPEC no están permitidas en GLC'
+    errorAceSpecGLC: 'Las cartas ACE SPEC no están permitidas en GLC',
+    errorRegulationMark: '{{current}} carta(s) no son legales en Estándar (marcas válidas: {{validMarks}})',
+    errorProfessorGroup: 'Solo 1 carta Profesor permitida en GLC (Professor\'s Research, Juniper o Sycamore). Actualmente {{current}}',
+    errorBossGroup: 'Solo 1 carta Boss permitida en GLC (Boss\'s Orders o Lysandre). Actualmente {{current}}',
+    errorMainDeckCount: 'El mazo principal debe tener exactamente {{expected}} cartas (actualmente {{current}})',
+    errorLegendCount: 'El mazo debe tener exactamente 1 Legend (actualmente {{current}})',
+    errorBattlefieldCount: 'El mazo debe tener exactamente 3 Battlefields (actualmente {{current}})',
+    errorRuneCount: 'El mazo debe tener exactamente 12 Runes (actualmente {{current}})',
+    errorSideboardCount: 'El sideboard debe tener exactamente 8 cartas si se usa (actualmente {{current}})',
+    errorDomainRestriction: '{{current}} carta(s) no coinciden con los dominios del Legend ({{domains}})'
   },
 
   // Support / Monetization
