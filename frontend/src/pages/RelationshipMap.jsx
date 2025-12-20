@@ -216,6 +216,54 @@ const RelationshipMap = () => {
     setIsDragging(false)
   }
 
+  // Touch handlers for mobile support
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 1) {
+      // Single touch - pan
+      const touch = e.touches[0]
+      setIsDragging(true)
+      setDragStart({ x: touch.clientX - transform.x, y: touch.clientY - transform.y })
+      setSelectedEdge(null)
+    } else if (e.touches.length === 2) {
+      // Two finger touch - prepare for pinch zoom
+      const touch1 = e.touches[0]
+      const touch2 = e.touches[1]
+      const distance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY)
+      setDragStart({ x: distance, y: transform.scale })
+    }
+  }
+
+  const handleTouchMove = (e) => {
+    e.preventDefault() // Prevent page scroll while panning
+
+    if (e.touches.length === 1 && isDragging) {
+      // Single touch - pan
+      const touch = e.touches[0]
+      setTransform(prev => ({
+        ...prev,
+        x: touch.clientX - dragStart.x,
+        y: touch.clientY - dragStart.y
+      }))
+    } else if (e.touches.length === 2) {
+      // Pinch zoom
+      const touch1 = e.touches[0]
+      const touch2 = e.touches[1]
+      const distance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY)
+      const initialDistance = dragStart.x
+      const initialScale = dragStart.y
+
+      if (initialDistance > 0) {
+        const scaleChange = distance / initialDistance
+        const newScale = Math.max(0.2, Math.min(3, initialScale * scaleChange))
+        setTransform(prev => ({ ...prev, scale: newScale }))
+      }
+    }
+  }
+
+  const handleTouchEnd = () => {
+    setIsDragging(false)
+  }
+
   // Reset view
   const resetView = () => {
     setTransform({ x: 0, y: 0, scale: 1 })
@@ -274,12 +322,15 @@ const RelationshipMap = () => {
           {/* Full-screen Canvas */}
           <svg
             ref={svgRef}
-            className="flex-1 w-full"
+            className="flex-1 w-full touch-none"
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
           >
             {/* Background */}
