@@ -7,11 +7,19 @@ import DeckAutoTags from './DeckAutoTags'
 
 /**
  * DeckImportModal - Modal for importing decks with auto-detection
+ *
+ * Props:
+ * - isOpen: boolean - Whether modal is open
+ * - onClose: function - Called when modal is closed
+ * - onImport: function - Called with parsed data (for replace mode in DeckBuilder)
+ * - mode: 'import' | 'create' - 'import' replaces current deck, 'create' creates new deck
+ * - onCreateDeck: function - Called with {name, cards, tcg, format} (for create mode in DeckList)
  */
-const DeckImportModal = ({ isOpen, onClose, onImport }) => {
+const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateDeck }) => {
   const { t, language } = useLanguage()
 
   const [deckText, setDeckText] = useState('')
+  const [deckName, setDeckName] = useState('') // For create mode
   const [parseResult, setParseResult] = useState(null)
   const [parsing, setParsing] = useState(false)
   const [parseError, setParseError] = useState(null)
@@ -60,16 +68,30 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
 
     try {
       setImporting(true)
-      onImport({
-        cards: parseResult.cards,
-        tcg: parseResult.tcg,
-        format: parseResult.format,
-        breakdown: parseResult.breakdown,
-        stats: parseResult.stats
-      })
+
+      if (mode === 'create' && onCreateDeck) {
+        // Create mode: call onCreateDeck with name and parsed data
+        const name = deckName.trim() || (language === 'es' ? 'Mazo sin título' : 'Untitled Deck')
+        await onCreateDeck({
+          name,
+          cards: parseResult.cards,
+          tcg: parseResult.tcg,
+          format: parseResult.format,
+          importString: deckText // Also pass raw string for backend storage
+        })
+      } else if (onImport) {
+        // Import mode: call onImport with parsed data (replaces current deck)
+        onImport({
+          cards: parseResult.cards,
+          tcg: parseResult.tcg,
+          format: parseResult.format,
+          breakdown: parseResult.breakdown,
+          stats: parseResult.stats
+        })
+      }
       handleClose()
     } catch (error) {
-      setParseError(t('deckImport.importError'))
+      setParseError(error.message || t('deckImport.importError'))
     } finally {
       setImporting(false)
     }
@@ -77,6 +99,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
 
   const handleClose = () => {
     setDeckText('')
+    setDeckName('')
     setParseResult(null)
     setParseError(null)
     setSelectedFormat(null)
@@ -131,6 +154,22 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <p className="text-sm text-gray-600 dark:text-gray-400">{t('deckImport.instructions')}</p>
+
+          {/* Deck Name - only in create mode */}
+          {mode === 'create' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {language === 'es' ? 'Nombre del mazo' : 'Deck Name'}
+              </label>
+              <input
+                type="text"
+                value={deckName}
+                onChange={(e) => setDeckName(e.target.value)}
+                placeholder={language === 'es' ? 'Ej: Mi Charizard ex' : 'E.g.: My Charizard ex'}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+          )}
 
           {/* Textarea */}
           <div className="relative">
@@ -421,7 +460,12 @@ const DeckImportModal = ({ isOpen, onClose, onImport }) => {
             className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50 flex items-center gap-2 transition-colors"
           >
             {importing && <Spinner size="sm" />}
-            {importing ? t('deckImport.importing') : t('deckImport.importButton')}
+            {importing
+              ? t('deckImport.importing')
+              : mode === 'create'
+                ? (language === 'es' ? 'Crear Mazo' : 'Create Deck')
+                : t('deckImport.importButton')
+            }
           </button>
         </div>
       </div>

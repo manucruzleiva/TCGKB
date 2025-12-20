@@ -14,16 +14,34 @@ const MODULE = 'DeckController'
 /**
  * Parse Pokemon TCG Live deck format
  * Format: "quantity cardId" per line (e.g., "4 sv7-001")
+ * Tracks section headers to assign supertype (#147 fix)
  */
 const parseTCGLiveFormat = (deckString) => {
   const lines = deckString.trim().split('\n')
   const cards = []
+  let currentSection = null // Track current section for supertype assignment
 
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue
     // Skip section headers like "Pokemon: 12", "Trainer: 34", "Energy: 11"
     if (/^(Pokemon|Pokémon|Trainer|Energy|Total):\s*\d*$/i.test(trimmed)) continue
+
+    // Check for section headers like "Pokemon: 12", "Trainer: 34", "Energy: 11"
+    // Track the section instead of just skipping (#147 fix)
+    const sectionMatch = trimmed.match(/^(Pokemon|Pokémon|Trainer|Energy|Total):\s*\d*$/i)
+    if (sectionMatch) {
+      const sectionName = sectionMatch[1].toLowerCase()
+      if (sectionName === 'pokemon' || sectionName === 'pokémon') {
+        currentSection = 'Pokémon'
+      } else if (sectionName === 'trainer') {
+        currentSection = 'Trainer'
+      } else if (sectionName === 'energy') {
+        currentSection = 'Energy'
+      }
+      // Skip 'Total' header - doesn't change section
+      continue
+    }
 
     // Match: quantity cardId (e.g., "4 sv7-001" or "2 SVI 001")
     const match = trimmed.match(/^(\d+)\s+(.+)$/)
@@ -59,7 +77,7 @@ const parseTCGLiveFormat = (deckString) => {
       }
 
       // Allow up to 60 copies per card (#145 fix) - Energy cards can have many copies
-      if (quantity > 0 && quantity <= 60 && cardId) {
+      if (quantity > 0 && quantity <= 59 && cardId) {
         // Check if card already exists in list
         const existing = cards.find(c => c.cardId === cardId)
         if (existing) {

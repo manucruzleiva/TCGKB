@@ -180,8 +180,25 @@ const DeckBuilder = () => {
     return () => clearTimeout(timer)
   }, [searchQuery, tcgSystem])
 
+  // Get max copies allowed based on TCG system (#150 fix)
+  // Pokemon TCG: 4 copies per card (except basic energy: unlimited)
+  // Riftbound TCG: 3 copies per card
+  const getMaxCopies = (card, currentTcg = tcgSystem) => {
+    // Energy cards in Pokemon TCG can have up to 60 copies
+    if (currentTcg !== 'riftbound' && card?.supertype === 'Energy') {
+      return 60
+    }
+    // Riftbound: 3 copies max for all cards
+    if (currentTcg === 'riftbound') {
+      return 3
+    }
+    // Pokemon TCG default: 4 copies
+    return 4
+  }
+
   const addCard = (card, quantity = 1) => {
     const cardId = card.id || card.cardId
+    const cardName = card.name
 
     // Get card's TCG system (default to 'pokemon')
     const cardTcg = card.tcgSystem || 'pokemon'
@@ -207,11 +224,29 @@ const DeckBuilder = () => {
     }
 
     setCards(prev => {
+      const maxQty = getMaxCopies(card)
+
+      // #151 fix: Count total copies of cards with the same NAME (reprint detection)
+      // This applies to all cards except basic energy in Pokemon TCG
+      const isBasicEnergy = card.supertype === 'Energy' && tcgSystem !== 'riftbound'
+      const totalByName = isBasicEnergy
+        ? 0 // Basic energy has no reprint limit
+        : prev.filter(c => c.name?.toLowerCase() === cardName?.toLowerCase())
+            .reduce((sum, c) => sum + c.quantity, 0)
+
+      // Calculate how many more copies can be added
+      const availableSlots = isBasicEnergy ? 60 : maxQty - totalByName
+
+      if (availableSlots <= 0 && !isBasicEnergy) {
+        // Can't add more - limit reached across all reprints
+        return prev
+      }
+
       const existing = prev.find(c => c.cardId === cardId)
       if (existing) {
-        // Increase quantity (max 4 for non-energy, unlimited for energy)
-        const maxQty = card.supertype === 'Energy' ? 60 : 4
-        const newQty = Math.min(maxQty, existing.quantity + quantity)
+        // Increase quantity (respecting reprint limit - #151 fix)
+        const addable = Math.min(quantity, availableSlots)
+        const newQty = existing.quantity + addable
         if (newQty === existing.quantity) return prev
         return prev.map(c =>
           c.cardId === cardId
@@ -219,12 +254,15 @@ const DeckBuilder = () => {
             : c
         )
       }
-      // Add new card
-      const maxQty = card.supertype === 'Energy' ? 60 : 4
+
+      // Add new card (respecting reprint limit - #151 fix)
+      const addable = Math.min(quantity, availableSlots)
+      if (addable <= 0) return prev
+
       return [...prev, {
         cardId: cardId,
-        name: card.name,
-        quantity: Math.min(maxQty, quantity),
+        name: cardName,
+        quantity: addable,
         supertype: card.supertype,
         imageSmall: card.images?.small || card.imageSmall
       }]
@@ -235,8 +273,20 @@ const DeckBuilder = () => {
     setCards(prev => {
       const existing = prev.find(c => c.cardId === cardId)
       if (!existing) return prev
-      const maxQty = existing.supertype === 'Energy' ? 60 : 4
-      const newQty = Math.max(1, Math.min(maxQty, quantity))
+
+      const maxQty = getMaxCopies(existing)
+
+      // #151 fix: Check reprint limit (total copies of same name across all versions)
+      const isBasicEnergy = existing.supertype === 'Energy' && tcgSystem !== 'riftbound'
+      const otherSameNameQty = isBasicEnergy
+        ? 0
+        : prev.filter(c => c.name?.toLowerCase() === existing.name?.toLowerCase() && c.cardId !== cardId)
+            .reduce((sum, c) => sum + c.quantity, 0)
+
+      // Max for this card is limit minus other reprints
+      const effectiveMax = isBasicEnergy ? 60 : maxQty - otherSameNameQty
+      const newQty = Math.max(1, Math.min(effectiveMax, quantity))
+
       return prev.map(c =>
         c.cardId === cardId
           ? { ...c, quantity: newQty }
@@ -425,9 +475,24 @@ const DeckBuilder = () => {
 
   // Calculate deck stats
   const totalCards = cards.reduce((sum, c) => sum + c.quantity, 0)
+
+  // Pokemon TCG stats
   const pokemonCount = cards.filter(c => normalizeType(c.supertype) === 'Pokémon').reduce((sum, c) => sum + c.quantity, 0)
   const trainerCount = cards.filter(c => normalizeType(c.supertype) === 'Trainer').reduce((sum, c) => sum + c.quantity, 0)
   const energyCount = cards.filter(c => normalizeType(c.supertype) === 'Energy').reduce((sum, c) => sum + c.quantity, 0)
+
+  // Riftbound TCG stats (#149 fix)
+  const legendCount = cards.filter(c => c.cardType === 'Legend').reduce((sum, c) => sum + c.quantity, 0)
+  const battlefieldCount = cards.filter(c => c.name?.toLowerCase().includes('battlefield')).reduce((sum, c) => sum + c.quantity, 0)
+  const runeCount = cards.filter(c => c.name?.toLowerCase().includes('rune')).reduce((sum, c) => sum + c.quantity, 0)
+  const mainDeckCount = cards.filter(c =>
+    !c.name?.toLowerCase().includes('rune') &&
+    !c.name?.toLowerCase().includes('battlefield') &&
+    c.cardType !== 'Legend'
+  ).reduce((sum, c) => sum + c.quantity, 0)
+
+  // Target deck size based on TCG
+  const targetDeckSize = tcgSystem === 'riftbound' ? 56 : 60
 
   if (loading) {
     return (
@@ -685,7 +750,7 @@ const DeckBuilder = () => {
                     card={card}
                     mode="search"
                     onAdd={addCard}
-                    maxQuantity={card.supertype === 'Energy' ? 60 : 4}
+                    maxQuantity={getMaxCopies(card)}
                     draggable={true}
                   />
                 ))}
@@ -744,7 +809,7 @@ const DeckBuilder = () => {
                             onRemove={removeCard}
                             onDelete={deleteCard}
                             onSetQuantity={setCardQuantity}
-                            maxQuantity={supertype === 'Energy' ? 60 : 4}
+                            maxQuantity={getMaxCopies(card)}
                           />
                         ))}
                       </div>
@@ -792,26 +857,70 @@ const DeckBuilder = () => {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 dark:text-gray-400">Total</span>
-                <span className={`font-bold ${totalCards === 60 ? 'text-green-600' : totalCards > 60 ? 'text-red-600' : 'text-gray-900 dark:text-gray-100'}`}>
-                  {totalCards}/60
+                <span className={`font-bold ${totalCards === targetDeckSize ? 'text-green-600' : totalCards > targetDeckSize ? 'text-red-600' : 'text-gray-900 dark:text-gray-100'}`}>
+                  {totalCards}/{targetDeckSize}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Pokémon</span>
-                <span className="font-semibold text-blue-600">{pokemonCount}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Trainer</span>
-                <span className="font-semibold text-purple-600">{trainerCount}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Energy</span>
-                <span className="font-semibold text-yellow-600">{energyCount}</span>
-              </div>
+
+              {/* Pokemon TCG Stats */}
+              {tcgSystem !== 'riftbound' && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">Pokémon</span>
+                    <span className="font-semibold text-blue-600">{pokemonCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">Trainer</span>
+                    <span className="font-semibold text-purple-600">{trainerCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">Energy</span>
+                    <span className="font-semibold text-yellow-600">{energyCount}</span>
+                  </div>
+                </>
+              )}
+
+              {/* Riftbound TCG Stats (#149 fix) */}
+              {tcgSystem === 'riftbound' && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'es' ? 'Mazo Principal' : 'Main Deck'}
+                    </span>
+                    <span className={`font-semibold ${mainDeckCount === 40 ? 'text-green-600' : 'text-blue-600'}`}>
+                      {mainDeckCount}/40
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'es' ? 'Leyenda' : 'Legend'}
+                    </span>
+                    <span className={`font-semibold ${legendCount === 1 ? 'text-green-600' : 'text-amber-600'}`}>
+                      {legendCount}/1
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'es' ? 'Campos' : 'Battlefields'}
+                    </span>
+                    <span className={`font-semibold ${battlefieldCount === 3 ? 'text-green-600' : 'text-purple-600'}`}>
+                      {battlefieldCount}/3
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'es' ? 'Runas' : 'Runes'}
+                    </span>
+                    <span className={`font-semibold ${runeCount === 12 ? 'text-green-600' : 'text-cyan-600'}`}>
+                      {runeCount}/12
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* Visual breakdown bar */}
-            {totalCards > 0 && (
+            {/* Visual breakdown bar - Pokemon TCG */}
+            {totalCards > 0 && tcgSystem !== 'riftbound' && (
               <div className="mt-4 h-4 rounded-full overflow-hidden flex bg-gray-200 dark:bg-gray-700">
                 <div
                   className="bg-blue-500"
@@ -824,6 +933,28 @@ const DeckBuilder = () => {
                 <div
                   className="bg-yellow-500"
                   style={{ width: `${(energyCount / totalCards) * 100}%` }}
+                />
+              </div>
+            )}
+
+            {/* Visual breakdown bar - Riftbound TCG (#149 fix) */}
+            {totalCards > 0 && tcgSystem === 'riftbound' && (
+              <div className="mt-4 h-4 rounded-full overflow-hidden flex bg-gray-200 dark:bg-gray-700">
+                <div
+                  className="bg-blue-500"
+                  style={{ width: `${(mainDeckCount / targetDeckSize) * 100}%` }}
+                />
+                <div
+                  className="bg-amber-500"
+                  style={{ width: `${(legendCount / targetDeckSize) * 100}%` }}
+                />
+                <div
+                  className="bg-purple-500"
+                  style={{ width: `${(battlefieldCount / targetDeckSize) * 100}%` }}
+                />
+                <div
+                  className="bg-cyan-500"
+                  style={{ width: `${(runeCount / targetDeckSize) * 100}%` }}
                 />
               </div>
             )}

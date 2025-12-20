@@ -52,7 +52,7 @@ function parsePokemonTCGLive(input) {
       continue
     }
 
-    // Standard format: "4 Pikachu ex SVI 057"
+    // Standard PTCGL format: "4 Pikachu ex SVI 057" (quantity name SET number)
     const cardMatch = line.match(/^(\d+)\s+(.+?)\s+([A-Z]{2,4})\s+(\d{1,4})$/i)
     if (cardMatch) {
       const supertype = currentSection === 'pokemon' ? 'Pokemon' :
@@ -68,20 +68,33 @@ function parsePokemonTCGLive(input) {
         raw: line
       })
     } else {
-      // Try alternative format: "4 Professor's Research SVI-189"
+      // #153 fix: Check for invalid formats and reject them
       const simpleMatch = line.match(/^(\d+)\s+(.+)$/)
       if (simpleMatch) {
-        const setMatch = simpleMatch[2].match(/(.+?)\s+([A-Z]{2,4})[-\s]?(\d{1,4})$/i)
-        if (setMatch) {
+        // Check for "name SET-number" format (e.g., "4 Pikachu SVI-189")
+        const setDashMatch = simpleMatch[2].match(/(.+?)\s+([A-Z]{2,4})-(\d{1,4})$/i)
+        if (setDashMatch) {
+          // This is close to valid - accept with warning
           cards.push({
-            cardId: setMatch[2].toLowerCase() + '-' + setMatch[3],
+            cardId: setDashMatch[2].toLowerCase() + '-' + setDashMatch[3],
             quantity: +simpleMatch[1],
-            name: setMatch[1].trim(),
-            setCode: setMatch[2].toUpperCase(),
-            number: setMatch[3],
+            name: setDashMatch[1].trim(),
+            setCode: setDashMatch[2].toUpperCase(),
+            number: setDashMatch[3],
             raw: line
           })
-        } else {
+          warnings.push({ type: 'format_hint', message: `Line "${line}" uses SET-number format. PTCGL uses "SET number" (with space).` })
+        }
+        // Reject pure "set-number" format (e.g., "4 ssp-97") - #153 fix
+        else if (/^[A-Z]{2,4}-\d{1,4}$/i.test(simpleMatch[2])) {
+          warnings.push({
+            type: 'invalid_format',
+            message: `Invalid format: "${line}". PTCGL requires card name before set code.`
+          })
+          // Don't add the card - it's not valid PTCGL format
+        }
+        // Card name without set info - needs resolution
+        else {
           cards.push({
             cardId: null,
             quantity: +simpleMatch[1],

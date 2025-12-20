@@ -175,7 +175,7 @@ export const getDetailedStats = async (req, res) => {
 }
 
 /**
- * Get GitHub commits for changelog
+ * Get GitHub commits
  * Supports branch parameter to fetch commits from specific branch
  */
 export const getGitHubCommits = async (req, res) => {

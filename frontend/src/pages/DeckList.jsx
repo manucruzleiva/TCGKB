@@ -6,6 +6,7 @@ import { useDateFormat } from '../contexts/DateFormatContext'
 import { deckService } from '../services/deckService'
 import Spinner from '../components/common/Spinner'
 import VoteButtons from '../components/decks/VoteButtons'
+import DeckImportModal from '../components/decks/DeckImportModal'
 
 // Tag colors and labels
 const TAG_COLORS = {
@@ -88,10 +89,6 @@ const DeckList = () => {
 
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false)
-  const [importText, setImportText] = useState('')
-  const [importName, setImportName] = useState('')
-  const [importing, setImporting] = useState(false)
-  const [importError, setImportError] = useState('')
 
   // Update URL when tab changes
   const setActiveTab = (tab) => {
@@ -201,13 +198,27 @@ const DeckList = () => {
     return pokemon?.imageSmall || deck.cards?.[0]?.imageSmall || null
   }
 
-  // Handle import deck
-  const handleImportDeck = async () => {
-    if (!importText.trim()) {
-      setImportError(t('decks.importModal.errorPasteCards'))
-      return
-    }
+  // Handle create deck from import modal
+  const handleCreateDeck = async ({ name, importString }) => {
+    const response = await deckService.createDeck({
+      name,
+      importString,
+      isPublic: false
+    })
 
+    if (response.success) {
+      navigate(`/decks/${response.data._id}/edit`)
+    } else {
+      throw new Error(response.message || (language === 'es' ? 'Error al crear el mazo' : 'Failed to create deck'))
+    }
+  }
+
+  // Toggle deck visibility (#146)
+  const handleToggleVisibility = async (e, deckId, currentVisibility) => {
+    e.preventDefault() // Prevent navigation
+    e.stopPropagation()
+    try {
+      const response = await deckService.updateDeck(deckId, { isPublic: !currentVisibility })
     // Auto-generate name if not provided (#144)
     const deckName = importName.trim() || (language === 'es' ? 'Mazo sin título' : 'Untitled Deck')
 
@@ -221,33 +232,6 @@ const DeckList = () => {
         isPublic: false
       })
 
-      if (response.success) {
-        setShowImportModal(false)
-        setImportText('')
-        setImportName('')
-        navigate(`/decks/${response.data._id}/edit`)
-      }
-    } catch (err) {
-      console.error('Error importing deck:', err)
-      setImportError(err.response?.data?.message || t('decks.importModal.errorImportFailed'))
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  const closeImportModal = () => {
-    setShowImportModal(false)
-    setImportText('')
-    setImportName('')
-    setImportError('')
-  }
-
-  // Toggle deck visibility (#146)
-  const handleToggleVisibility = async (e, deckId, currentVisibility) => {
-    e.preventDefault() // Prevent navigation
-    e.stopPropagation()
-    try {
-      const response = await deckService.updateDeck(deckId, { isPublic: !currentVisibility })
       if (response.success) {
         // Update local state
         setDecks(prev => prev.map(deck =>
@@ -627,87 +611,13 @@ const DeckList = () => {
         </>
       )}
 
-      {/* Import Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {t('decks.importModal.title')}
-              </h2>
-              <button
-                onClick={closeImportModal}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-4 space-y-4">
-              {/* Deck Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('decks.importModal.deckName')}
-                </label>
-                <input
-                  type="text"
-                  value={importName}
-                  onChange={(e) => setImportName(e.target.value)}
-                  placeholder={t('decks.importModal.deckNamePlaceholder')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Deck List */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('decks.importModal.cardList')}
-                </label>
-                <textarea
-                  value={importText}
-                  onChange={(e) => setImportText(e.target.value)}
-                  placeholder={t('decks.importModal.cardListPlaceholder')}
-                  className="w-full h-48 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {t('decks.importModal.formatHint')}
-                </p>
-              </div>
-
-              {/* Error */}
-              {importError && (
-                <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-sm">
-                  {importError}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3 p-4 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={closeImportModal}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                {t('decks.importModal.cancel')}
-              </button>
-              <button
-                onClick={handleImportDeck}
-                disabled={importing}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {importing && (
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                )}
-                {t('decks.importModal.importBtn')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Import Modal - Uses unified DeckImportModal in create mode */}
+      <DeckImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        mode="create"
+        onCreateDeck={handleCreateDeck}
+      />
     </div>
   )
 }
