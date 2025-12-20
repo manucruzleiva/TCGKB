@@ -450,6 +450,29 @@ ReputationLedger
 }
 ```
 
+### Deploy Commands
+```bash
+# Automatic (recommended): Push to branch triggers deploy
+git push origin stage  # → staging.tcgkb.app
+git push origin main   # → tcgkb.app (requires PR)
+
+# Manual CLI deploy
+vercel --prod          # Deploy to production
+vercel                 # Deploy preview
+
+# Verify deployment
+curl https://tcgkb.app/api/health
+vercel logs --follow   # Watch live logs
+```
+
+### Serverless Entry Point
+The `api/index.js` file re-exports the Express app for Vercel serverless:
+```javascript
+// api/index.js - Vercel requires functions in /api/ root
+import app from '../backend/api/index.js'
+export default app
+```
+
 ### Environment Variables
 
 **Backend**:
@@ -465,6 +488,9 @@ ReputationLedger
 - `GITHUB_OWNER` - GitHub username (default: `manucruzleiva`)
 - `GITHUB_REPO` - Repository name (default: `TCGKB`)
 - `GITHUB_PROJECT_NUMBER` - GitHub Project V2 number for roadmap (default: `2`)
+
+**GitHub Actions Secrets**:
+- `SECURITY_PAT` - PAT for security automation (requires `repo`, `security_events` scopes). See [Security Automation](#security-automation).
 
 **Frontend**:
 - `VITE_API_URL` - Backend API URL
@@ -621,6 +647,76 @@ Project items use cost estimate labels: `cost-5000`, `cost-10000`, `cost-25000`
 - **Helmet**: Security headers
 - **Input validation**: validator library
 - **Role-based access**: Middleware checks for admin/mod routes
+
+### Security Automation
+
+Automated workflow that converts Dependabot security alerts into tracked GitHub Issues.
+
+**Workflow**: `.github/workflows/security-check.yml`
+
+#### Features
+| Feature | Description |
+|---------|-------------|
+| **Auto-Issue Creation** | Creates GitHub Issue for each new Dependabot alert |
+| **Priority Labels** | Assigns P0-P3 labels based on severity |
+| **Duplicate Detection** | Skips alerts that already have an issue |
+| **Daily Schedule** | Runs at 8:00 AM UTC daily |
+| **Manual Trigger** | Can be run on-demand via workflow_dispatch |
+
+#### Priority Mapping
+| Severity | Label | Color | SLA |
+|----------|-------|-------|-----|
+| Critical | `P0-Critical` | Red | Immediate |
+| High | `P1-High` | Orange | 24-48h |
+| Medium | `P2-Medium` | Yellow | 1 week |
+| Low | `P3-Low` | Green | 2 weeks |
+
+#### Issue Labels
+Each created issue receives:
+- `security` - For filtering security issues
+- `dependabot` - Source identification
+- `P0-P3` - Priority based on severity
+
+#### Configuration Required
+
+**Secret**: `SECURITY_PAT` (Personal Access Token)
+
+Required scopes:
+- `repo` - Full repository access
+- `security_events` - Read security alerts
+
+**Setup steps:**
+1. Create PAT: https://github.com/settings/tokens/new?scopes=repo,security_events
+2. Add as secret: Repository → Settings → Secrets → Actions → `SECURITY_PAT`
+
+#### Manual Execution
+```bash
+# Trigger workflow manually
+gh workflow run security-check.yml
+
+# Check run status
+gh run list --workflow=security-check.yml --limit 1
+```
+
+#### Flow Diagram
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 SECURITY ALERT AUTOMATION                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   Dependabot ────▶ GitHub Action ────▶ Issue Created            │
+│     Alert              │              with Priority Label        │
+│                        │                                         │
+│   Schedule: 8am UTC    │                                         │
+│   Manual: workflow_dispatch                                      │
+│                        │                                         │
+│                        ▼                                         │
+│              @bob reviews ──▶ @raj implements fix                │
+│                                                                  │
+│   ⚠️ Security issues are filtered from public roadmap           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -1107,6 +1203,57 @@ import DeckValidationIndicator from '../components/decks/DeckValidationIndicator
 />
 ```
 
+### DeckCardInteractive Component
+
+**Component**: `frontend/src/components/decks/DeckCardInteractive.jsx`
+
+Interactive card component for deck building with full mouse and drag support.
+
+#### Features
+| Interaction | Mode: Search | Mode: Deck |
+|-------------|--------------|------------|
+| Left Click | Add 1 copy | Show hover controls |
+| Right Click | - | Remove 1 copy |
+| Ctrl + Click | Set quantity modal | Set quantity modal |
+| Drag | Start drag | - |
+
+#### Props
+| Prop | Type | Description |
+|------|------|-------------|
+| `card` | Object | Card data with id, name, images, supertype, quantity |
+| `mode` | String | `'search'` or `'deck'` |
+| `onAdd` | Function | `(card, quantity) => void` |
+| `onRemove` | Function | `(cardId) => void` |
+| `onDelete` | Function | `(cardId) => void` |
+| `onSetQuantity` | Function | `(cardId, quantity) => void` |
+| `maxQuantity` | Number | Max copies allowed (default: 4, 60 for energy) |
+| `draggable` | Boolean | Enable drag (default: true) |
+
+#### Usage
+```jsx
+import DeckCardInteractive, { DeckDropZone } from '../components/decks/DeckCardInteractive'
+
+// Search results (draggable cards)
+<DeckCardInteractive
+  card={searchResult}
+  mode="search"
+  onAdd={handleAdd}
+  draggable={true}
+/>
+
+// Deck cards (with controls)
+<DeckDropZone onDrop={handleDrop}>
+  <DeckCardInteractive
+    card={deckCard}
+    mode="deck"
+    onAdd={handleAdd}
+    onRemove={handleRemove}
+    onDelete={handleDelete}
+    onSetQuantity={handleSetQty}
+  />
+</DeckDropZone>
+```
+
 ### API Endpoints (New)
 
 | Method | Endpoint | Description | Auth |
@@ -1334,6 +1481,498 @@ Without metadata, these validations **CANNOT** work:
 |-------|-------------|
 | [#36](https://github.com/manucruzleiva/TCGKB/issues/36) | DM-V2-21: Card Enrichment Service implementation |
 | [#37](https://github.com/manucruzleiva/TCGKB/issues/37) | DM-V2-22: Real-time validation in DeckImportModal |
+
+---
+
+## Progressive Web App (PWA)
+
+TCGKB is a fully offline-capable Progressive Web App with mobile-first design.
+
+### PWA Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              PWA ARCHITECTURE                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────┐   │
+│  │   React App     │────▶│  Service Worker │────▶│    Cache API        │   │
+│  │  (UI Layer)     │◀────│  (sw.js)        │◀────│  (Static + Dynamic) │   │
+│  └────────┬────────┘     └────────┬────────┘     └─────────────────────┘   │
+│           │                       │                                         │
+│           ▼                       ▼                                         │
+│  ┌─────────────────┐     ┌─────────────────┐                               │
+│  │ Connectivity    │     │   IndexedDB     │                               │
+│  │ Context         │     │  (Card Cache)   │                               │
+│  │ (online/offline)│     │  (Deck Cache)   │                               │
+│  └─────────────────┘     └─────────────────┘                               │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                        CACHE STRATEGIES                              │   │
+│  ├──────────────────┬──────────────────┬───────────────────────────────┤   │
+│  │ Cache-First      │ Network-First    │ Stale-While-Revalidate       │   │
+│  │ (Static assets)  │ (API calls)      │ (Card images)                 │   │
+│  └──────────────────┴──────────────────┴───────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Offline Mode UX
+
+#### Core Principle
+**"Always available, clearly communicated"** - Users can access cached content anytime with clear visual feedback about connectivity status.
+
+#### Offline Banner
+
+When offline, a persistent banner appears at the top of the screen:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ⚡ Sin conexión - Mostrando contenido guardado                    [Retry]   │
+└─────────────────────────────────────────────────────────────────────────────┘
+│                                HEADER                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                CONTENT                                       │
+```
+
+**Banner States:**
+| State | Color | Icon | Message (ES) | Message (EN) |
+|-------|-------|------|--------------|--------------|
+| Offline | `bg-yellow-500` | ⚡ | Sin conexión - Mostrando contenido guardado | Offline - Showing cached content |
+| Reconnecting | `bg-blue-500` | 🔄 | Reconectando... | Reconnecting... |
+| Back Online | `bg-green-500` | ✅ | Conexión restaurada | Connection restored |
+
+**Behavior:**
+- Banner appears immediately when connection is lost
+- "Back Online" banner auto-dismisses after 3 seconds
+- Retry button triggers manual reconnection attempt
+- Banner is sticky at top, above header (z-index: 50)
+
+#### Visual Indicators for Offline Features
+
+All UI elements that require connectivity show clear visual cues:
+
+```
+┌────────────────────────────────────────────────────┐
+│  💬 Comentarios                                     │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ (Modo offline: solo lectura)                 │  │  ← Gray overlay when offline
+│  │                                              │  │
+│  │  📝 Escribir comentario...  [Deshabilitado]  │  │  ← Disabled input
+│  │                                              │  │
+│  │  💬 Comentario cacheado 1                    │  │  ← Cached comments visible
+│  │  💬 Comentario cacheado 2                    │  │
+│  └──────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────┘
+```
+
+**Feature Availability Matrix:**
+
+| Feature | Online | Offline | Offline Behavior |
+|---------|--------|---------|------------------|
+| **View cards** | ✅ | ✅ | From IndexedDB cache |
+| **Search cards** | ✅ | ✅ | Local search in cached cards |
+| **View decks** | ✅ | ✅ | From IndexedDB cache |
+| **Edit my decks** | ✅ | ✅ | Local edits, sync when online |
+| **View comments** | ✅ | ✅ | Cached comments only |
+| **Write comments** | ✅ | ❌ | Disabled with tooltip |
+| **Add reactions** | ✅ | ❌ | Disabled, show cached counts |
+| **Login/Register** | ✅ | ❌ | Redirect to offline notice |
+| **View settings** | ✅ | ✅ | Full access |
+| **Change settings** | ✅ | ✅ | Local save, sync when online |
+| **Import deck** | ✅ | ⚠️ | Parse works, validation limited |
+
+**Disabled Element Styling:**
+```css
+/* Offline-disabled elements */
+.offline-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  position: relative;
+}
+
+.offline-disabled::after {
+  content: "Requires internet";
+  position: absolute;
+  /* tooltip styling */
+}
+```
+
+### ConnectivityContext
+
+New React context to manage connectivity state across the app.
+
+**Location**: `frontend/src/contexts/ConnectivityContext.jsx`
+
+**API:**
+```jsx
+const {
+  isOnline,           // boolean - current connection state
+  wasOffline,         // boolean - was offline in this session (for sync)
+  lastOnline,         // Date - timestamp of last online state
+  reconnect,          // () => void - manual reconnection attempt
+  pendingChanges,     // number - count of changes to sync
+  syncStatus          // 'idle' | 'syncing' | 'error' | 'success'
+} = useConnectivity()
+```
+
+**Usage Example:**
+```jsx
+import { useConnectivity } from '../contexts/ConnectivityContext'
+
+const CommentComposer = () => {
+  const { isOnline } = useConnectivity()
+
+  return (
+    <textarea
+      disabled={!isOnline}
+      className={!isOnline ? 'offline-disabled' : ''}
+      placeholder={isOnline ? 'Escribe un comentario...' : 'Requiere conexión'}
+    />
+  )
+}
+```
+
+### OfflineBanner Component
+
+**Location**: `frontend/src/components/common/OfflineBanner.jsx`
+
+**Props:**
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `showRetry` | boolean | true | Show retry button |
+| `autoDismiss` | boolean | true | Auto-hide "back online" state |
+| `dismissDelay` | number | 3000 | Milliseconds before auto-dismiss |
+
+**Tailwind Classes:**
+```jsx
+// Banner container
+"fixed top-0 left-0 right-0 z-50 transition-all duration-300"
+
+// Offline state
+"bg-yellow-500 text-yellow-900"
+
+// Reconnecting state
+"bg-blue-500 text-white"
+
+// Back online state
+"bg-green-500 text-white"
+```
+
+### Service Worker Enhancement
+
+**Cache Strategies by Resource Type:**
+
+| Resource | Strategy | Cache Name | TTL |
+|----------|----------|------------|-----|
+| App shell (HTML, JS, CSS) | Cache-First | `tcgkb-static-v1` | ∞ (versioned) |
+| Card images | Stale-While-Revalidate | `tcgkb-images-v1` | 30 days |
+| API responses (GET) | Network-First | `tcgkb-api-v1` | 7 days |
+| Fonts | Cache-First | `tcgkb-fonts-v1` | ∞ |
+| User data | IndexedDB | N/A | Persistent |
+
+**New sw.js Features:**
+```javascript
+// Cache versioning for updates
+const CACHE_VERSION = 2
+const STATIC_CACHE = `tcgkb-static-v${CACHE_VERSION}`
+const IMAGE_CACHE = `tcgkb-images-v${CACHE_VERSION}`
+const API_CACHE = `tcgkb-api-v${CACHE_VERSION}`
+
+// Precache list
+const PRECACHE_URLS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/offline.html'  // New: dedicated offline fallback page
+]
+
+// Background sync for pending actions
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-pending-changes') {
+    event.waitUntil(syncPendingChanges())
+  }
+})
+```
+
+### IndexedDB Schema
+
+Local database for offline data persistence.
+
+**Database**: `tcgkb-offline`
+
+**Object Stores:**
+
+| Store | Key | Indexes | Purpose |
+|-------|-----|---------|---------|
+| `cards` | `id` | `name`, `setCode`, `lastAccessed` | Cached card data |
+| `decks` | `id` | `userId`, `lastModified` | User's decks (synced) |
+| `comments` | `id` | `cardId`, `deckId`, `createdAt` | Cached comments |
+| `pendingActions` | `id` | `type`, `createdAt` | Offline mutations to sync |
+| `userPreferences` | `key` | - | Settings and preferences |
+
+**Pending Actions Schema:**
+```javascript
+{
+  id: 'uuid',
+  type: 'CREATE_COMMENT' | 'UPDATE_DECK' | 'ADD_REACTION',
+  payload: { /* action-specific data */ },
+  createdAt: Date,
+  retryCount: 0,
+  status: 'pending' | 'syncing' | 'failed'
+}
+```
+
+### Mobile-First Design
+
+#### Touch Interactions
+
+| Gesture | Action | Where |
+|---------|--------|-------|
+| Swipe down | Refresh content | Any list view |
+| Swipe left on card | Quick add to deck | Card grid |
+| Long press | Context menu | Cards, comments |
+| Pull from edge | Open drawer menu | Mobile only |
+
+#### Responsive Breakpoints (Tailwind)
+
+| Breakpoint | Viewport | Layout Changes |
+|------------|----------|----------------|
+| `xs` (default) | <640px | Single column, bottom nav, larger touch targets |
+| `sm` | ≥640px | Two columns for cards |
+| `md` | ≥768px | Sidebar visible, three columns |
+| `lg` | ≥1024px | Full desktop layout |
+
+#### Mobile-Specific Components
+
+**MobileBottomNav** (visible only on xs):
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🏠 Home    🔍 Search    🃏 Decks    ⚙️ Settings    👤 Profile  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Tailwind Classes:**
+```jsx
+"fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t
+ border-gray-200 dark:border-gray-700 md:hidden z-40 safe-area-inset-bottom"
+```
+
+#### Touch Target Sizes
+
+All interactive elements follow minimum touch target guidelines:
+- Minimum size: 44x44px (WCAG 2.1 AAA)
+- Recommended size: 48x48px
+- Spacing between targets: 8px minimum
+
+### Install Prompt (A2HS)
+
+**InstallPrompt Component**: `frontend/src/components/common/InstallPrompt.jsx`
+
+Shows install prompt for eligible users.
+
+**Display Conditions:**
+1. Browser supports PWA installation
+2. App is not already installed
+3. User has visited at least 2 pages OR spent 30+ seconds
+4. User hasn't dismissed the prompt in last 7 days
+
+**UI (Mobile Bottom Sheet):**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                            [X]  │
+│  ┌──────┐  Instala TCGKB                                       │
+│  │ LOGO │  Accede más rápido y usa sin conexión                │
+│  └──────┘                                                       │
+│                                                                 │
+│  [Ahora no]                                    [Instalar App]   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Tailwind Classes:**
+```jsx
+// Mobile bottom sheet
+"fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800
+ rounded-t-2xl shadow-2xl p-6 z-50 animate-slide-up
+ safe-area-inset-bottom md:bottom-auto md:right-4 md:left-auto
+ md:w-80 md:rounded-lg md:mb-4"
+```
+
+### Push Notifications (Phase 2)
+
+**Note**: Push notifications are planned for Phase 2 implementation.
+
+**Notification Types:**
+| Type | Trigger | Priority |
+|------|---------|----------|
+| New comment reply | Someone replies to user's comment | High |
+| Deck featured | User's deck is featured | Medium |
+| New set release | New card set is available | Low |
+
+### PWA Manifest Updates
+
+**Updated manifest.json:**
+```json
+{
+  "name": "TCG Knowledge Base",
+  "short_name": "TCGKB",
+  "description": "Base de conocimiento para Pokemon TCG y otros juegos de cartas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment", "utilities"],
+  "lang": "es",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Buscar Cartas",
+      "short_name": "Buscar",
+      "url": "/",
+      "icons": [{ "src": "/icons/search-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Mis Mazos",
+      "short_name": "Mazos",
+      "url": "/decks",
+      "icons": [{ "src": "/icons/deck-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Catálogo",
+      "short_name": "Catálogo",
+      "url": "/catalog",
+      "icons": [{ "src": "/icons/catalog-96.png", "sizes": "96x96" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile-home.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshots/desktop-home.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ]
+}
+```
+
+### Implementation Phases
+
+| Phase | Features | Priority |
+|-------|----------|----------|
+| **Phase 1** | ConnectivityContext, OfflineBanner, Service Worker upgrade | High |
+| **Phase 2** | IndexedDB integration, offline deck editing | High |
+| **Phase 3** | Background sync for pending actions | Medium |
+| **Phase 4** | InstallPrompt, improved caching | Medium |
+| **Phase 5** | Push notifications, MobileBottomNav | Low |
+
+### Files to Create/Modify
+
+| File | Action | Description |
+|------|--------|-------------|
+| `frontend/src/contexts/ConnectivityContext.jsx` | CREATE | Connectivity state management |
+| `frontend/src/components/common/OfflineBanner.jsx` | CREATE | Offline notification banner |
+| `frontend/src/components/common/InstallPrompt.jsx` | CREATE | PWA install prompt |
+| `frontend/src/components/layout/MobileBottomNav.jsx` | CREATE | Mobile bottom navigation |
+| `frontend/src/hooks/useOfflineStorage.js` | CREATE | IndexedDB wrapper hook |
+| `frontend/src/services/offlineSync.js` | CREATE | Background sync service |
+| `frontend/public/sw.js` | MODIFY | Enhanced service worker |
+| `frontend/public/manifest.json` | MODIFY | Extended manifest |
+| `frontend/public/offline.html` | CREATE | Offline fallback page |
+| `frontend/src/App.jsx` | MODIFY | Add ConnectivityProvider, OfflineBanner |
+| `frontend/src/i18n/es.json` | MODIFY | Add offline translations |
+| `frontend/src/i18n/en.json` | MODIFY | Add offline translations |
+
+### i18n Keys
+
+```json
+{
+  "offline": {
+    "banner": {
+      "offline": "Sin conexión - Mostrando contenido guardado",
+      "reconnecting": "Reconectando...",
+      "backOnline": "Conexión restaurada",
+      "retry": "Reintentar"
+    },
+    "features": {
+      "readOnly": "Solo lectura sin conexión",
+      "requiresConnection": "Requiere conexión a internet",
+      "pendingSync": "{{count}} cambios pendientes de sincronizar"
+    },
+    "install": {
+      "title": "Instala TCGKB",
+      "description": "Accede más rápido y usa sin conexión",
+      "installButton": "Instalar App",
+      "dismissButton": "Ahora no"
+    }
+  }
+}
+```
+
+### Accessibility Considerations
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Offline banner announced | `role="alert"` + `aria-live="polite"` |
+| Disabled elements | `aria-disabled="true"` + visible tooltip |
+| Install prompt | Focus trap, dismissible with Escape |
+| Touch targets | Minimum 44x44px, 48x48px recommended |
+| Color contrast | 4.5:1 for all text in banners |
 
 ---
 
