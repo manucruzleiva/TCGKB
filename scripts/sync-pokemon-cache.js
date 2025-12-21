@@ -8,12 +8,20 @@
  * Usage:
  *   node scripts/sync-pokemon-cache.js
  *
- * Environment variables required:
- *   - MONGODB_URI: MongoDB connection string
- *   - POKEMON_TCG_API_KEY: Pokemon TCG API key (optional but recommended)
+ * Environment variables (choose one method):
+ *   Method 1 (Recommended - Service User):
+ *     - DB_ENDPOINT: MongoDB cluster endpoint (mongodb+srv://cluster.mongodb.net)
+ *     - DB_CLIENT_ID: Service user username
+ *     - DB_CLIENT_SECRET: Service user password
+ *
+ *   Method 2 (Legacy):
+ *     - MONGODB_URI: Full MongoDB connection string
+ *
+ *   Optional:
+ *     - POKEMON_TCG_API_KEY: Pokemon TCG API key (recommended for higher rate limits)
  *
  * You can create a .env file in the project root or pass them inline:
- *   MONGODB_URI="mongodb+srv://..." POKEMON_TCG_API_KEY="xxx" node scripts/sync-pokemon-cache.js
+ *   DB_ENDPOINT="mongodb+srv://cluster.mongodb.net" DB_CLIENT_ID="user" DB_CLIENT_SECRET="pass" node scripts/sync-pokemon-cache.js
  */
 
 import mongoose from 'mongoose'
@@ -24,7 +32,34 @@ dotenv.config()
 
 const POKEMON_API_BASE = 'https://api.pokemontcg.io/v2'
 const POKEMON_API_KEY = process.env.POKEMON_TCG_API_KEY || ''
-const MONGODB_URI = process.env.MONGODB_URI
+
+/**
+ * Build MongoDB URI from environment variables
+ * Supports both new service user method and legacy MONGODB_URI
+ */
+function buildMongoUri() {
+  const endpoint = process.env.DB_ENDPOINT
+  const clientId = process.env.DB_CLIENT_ID
+  const clientSecret = process.env.DB_CLIENT_SECRET
+  const legacyUri = process.env.MONGODB_URI
+
+  // New system: construct URI from separate components
+  if (endpoint && clientId && clientSecret) {
+    const host = endpoint.replace(/^mongodb\+srv:\/\//, '').replace(/\/$/, '')
+    const encodedId = encodeURIComponent(clientId)
+    const encodedSecret = encodeURIComponent(clientSecret)
+    return `mongodb+srv://${encodedId}:${encodedSecret}@${host}/tcgkb?retryWrites=true&w=majority`
+  }
+
+  // Legacy fallback
+  if (legacyUri) {
+    return legacyUri.trim()
+  }
+
+  return null
+}
+
+const MONGODB_URI = buildMongoUri()
 
 // CardCache schema (inline to make script standalone)
 const cardCacheSchema = new mongoose.Schema({
@@ -145,8 +180,16 @@ async function main() {
 
   // Check environment
   if (!MONGODB_URI) {
-    console.error('ERROR: MONGODB_URI environment variable is required')
-    console.error('Example: MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/dbname" node scripts/sync-pokemon-cache.js')
+    console.error('ERROR: Database connection not configured')
+    console.error('')
+    console.error('Option 1 (Recommended - Service User):')
+    console.error('  DB_ENDPOINT="mongodb+srv://cluster.mongodb.net" \\')
+    console.error('  DB_CLIENT_ID="username" \\')
+    console.error('  DB_CLIENT_SECRET="password" \\')
+    console.error('  node scripts/sync-pokemon-cache.js')
+    console.error('')
+    console.error('Option 2 (Legacy):')
+    console.error('  MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/dbname" node scripts/sync-pokemon-cache.js')
     process.exit(1)
   }
 

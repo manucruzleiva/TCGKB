@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import dotenv from 'dotenv'
 import CardCache from '../models/CardCache.js'
 import log from '../utils/logger.js'
+import { buildMongoUri } from '../utils/mongoUri.js'
 
 // Load environment variables
 dotenv.config()
@@ -18,7 +19,7 @@ const MODULE = 'CacheMegaSVSeries'
 async function cacheMegaAndSVSeries() {
   try {
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI)
+    await mongoose.connect(buildMongoUri())
     log.info(MODULE, 'Connected to MongoDB')
 
     // Fetch all Pokemon sets
