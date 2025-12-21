@@ -115,6 +115,19 @@ const DeckDetail = () => {
   const getTrainerCount = () => deck?.cards?.filter(c => c.supertype === 'Trainer').reduce((sum, c) => sum + c.quantity, 0) || 0
   const getEnergyCount = () => deck?.cards?.filter(c => c.supertype === 'Energy').reduce((sum, c) => sum + c.quantity, 0) || 0
 
+  // Trainer subtype breakdown
+  const getTrainerSubtypeCount = (subtype) => {
+    return deck?.cards?.filter(c =>
+      c.supertype === 'Trainer' &&
+      c.subtypes?.some(st => st.toLowerCase() === subtype.toLowerCase())
+    ).reduce((sum, c) => sum + c.quantity, 0) || 0
+  }
+
+  const getSupporterCount = () => getTrainerSubtypeCount('Supporter')
+  const getItemCount = () => getTrainerSubtypeCount('Item')
+  const getToolCount = () => getTrainerSubtypeCount('Tool')
+  const getStadiumCount = () => getTrainerSubtypeCount('Stadium')
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -384,6 +397,49 @@ const DeckDetail = () => {
                   </span>
                   <span className="font-semibold">{getTrainerCount()}</span>
                 </div>
+
+                {/* Trainer Breakdown */}
+                {getTrainerCount() > 0 && (
+                  <div className="ml-5 pl-3 border-l-2 border-purple-200 dark:border-purple-800 space-y-1 text-xs text-gray-600 dark:text-gray-400">
+                    {getSupporterCount() > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-pink-400"></span>
+                          {t('decks.stats.supporter')}
+                        </span>
+                        <span className="font-medium">{getSupporterCount()}</span>
+                      </div>
+                    )}
+                    {getItemCount() > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-green-400"></span>
+                          {t('decks.stats.item')}
+                        </span>
+                        <span className="font-medium">{getItemCount()}</span>
+                      </div>
+                    )}
+                    {getToolCount() > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+                          {t('decks.stats.tool')}
+                        </span>
+                        <span className="font-medium">{getToolCount()}</span>
+                      </div>
+                    )}
+                    {getStadiumCount() > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                          {t('decks.stats.stadium')}
+                        </span>
+                        <span className="font-medium">{getStadiumCount()}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-yellow-500"></span>

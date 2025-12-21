@@ -1,7 +1,7 @@
 # TCGKB - System Architecture
 
 > **Source of Truth** for system architecture, tech stack, and data models.
-> Last updated: 2025-12-20
+> Last updated: 2025-12-21
 
 ---
 
@@ -256,10 +256,34 @@ user → moderator → dev
 
 | Service | Purpose | Rate Limits |
 |---------|---------|-------------|
-| **Pokemon TCG API** | Card data for Pokemon | 20k/day |
+| **TCGdex API** | Card data for Pokemon | Unlimited (faster) |
 | **Riftbound API** | Card data for Riftbound | TBD |
 | **PokeAPI** | Pokemon sprites | Unlimited |
 | **GitHub API** | Bug reports, changelog, roadmap | 5k/hour |
+
+---
+
+## External Asset Repositories
+
+| Resource | Type | URL | Description |
+|----------|------|-----|-------------|
+| **Riftbound Icons** | Google Drive | [Riftbound Assets](https://drive.google.com/drive/u/0/folders/11V-sIN0JMAT-gADkSoPOhzuavmLwQUqB) | Official Riftbound TCG icon set (domain icons, card types, etc.) |
+| **Bulbapedia TCG** | Wiki | [Pokemon TCG Wiki](https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_Trading_Card_Game) | Pokemon TCG reference, rules, mechanics, card types |
+| **Bulbapedia Energy** | Wiki | [Energy Cards](https://bulbapedia.bulbagarden.net/wiki/Energy_card_(TCG)) | Energy type icons, special energy info |
+| **Bulbapedia Items** | Wiki | [Rare Candy](https://bulbapedia.bulbagarden.net/wiki/Rare_Candy) | Item card reference icons |
+
+### Local Icon Assets
+
+Located in `frontend/public/assets/icons/`:
+
+| Folder | Contents | Source |
+|--------|----------|--------|
+| `pokemon-types/` | 11 energy type SVGs (fire, water, grass, etc.) | Bulbapedia |
+| `pokemon-cardtypes/` | Card type SVGs (Pokemon, Trainer, Item, Stadium) | Bulbapedia |
+| `riftbound-domains/` | 6 domain SVGs (fury, calm, mind, body, order, chaos) | Google Drive |
+| `riftbound-types/` | Card type SVGs (unit, spell, battlefield, item) | Google Drive |
+
+> **Note**: These are external resources not controlled by TCGKB. Always verify availability and licensing before use.
 
 ---
 
@@ -290,6 +314,13 @@ user → moderator → dev
 - Stateless = scales horizontally
 - Works with serverless (no session store needed)
 - 7-day expiration balances security and UX
+
+### Why TCGdex over pokemontcg.io?
+- Faster response times (no rate limiting issues)
+- More reliable uptime (no 504 timeouts)
+- 14 languages supported
+- Includes regulation marks for Standard format filtering
+- Better set coverage (197 sets vs 170)
 
 ---
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Riftbound Battlefield Card Type - Replace with official icon from Google Drive -->
+  <circle cx="50" cy="50" r="48" fill="#059669"/>
+  <rect x="20" y="35" width="60" height="30" rx="3" fill="white"/>
+  <line x1="50" y1="35" x2="50" y2="65" stroke="#059669" stroke-width="2"/>
+  <line x1="20" y1="50" x2="80" y2="50" stroke="#059669" stroke-width="2"/>
+</svg>

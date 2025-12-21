@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pokemon Tool Card Type - Wrench style - Source: Bulbapedia -->
+  <circle cx="50" cy="50" r="48" fill="#6366F1"/>
+  <path d="M35 30c-8 8-8 20 0 28l7-7c-4-4-4-10 0-14s10-4 14 0l7-7c-8-8-20-8-28 0z" fill="white"/>
+  <rect x="52" y="48" width="8" height="30" rx="2" transform="rotate(45 56 63)" fill="white"/>
+</svg>
