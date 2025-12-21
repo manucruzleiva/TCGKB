@@ -92,6 +92,7 @@ const DeckList = () => {
   const [showTagFilters, setShowTagFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('recent')
+  const [formatFilter, setFormatFilter] = useState('')
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 })
 
   // Import modal state
