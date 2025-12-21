@@ -5,6 +5,7 @@ import CardCache from '../models/CardCache.js'
 import User from '../models/User.js'
 import riftboundService from '../services/riftboundTCG.service.js'
 import log from '../utils/logger.js'
+import { buildMongoUri } from '../utils/mongoUri.js'
 
 // Load environment variables
 dotenv.config()
@@ -55,7 +56,7 @@ async function dailyCacheSync() {
 
   try {
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI)
+    await mongoose.connect(buildMongoUri())
     log.info(MODULE, 'Connected to MongoDB')
     log.info(MODULE, '=== Starting daily cache sync ===')
 

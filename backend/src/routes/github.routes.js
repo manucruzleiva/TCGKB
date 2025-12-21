@@ -6,7 +6,6 @@ import {
   addComment,
   updateIssueState,
   checkConfig,
-  getCommits,
   classifyBugReport,
   getProjectItems
 } from '../controllers/github.controller.js'
@@ -20,9 +19,6 @@ router.get('/config', checkConfig)
 
 // Get project items - public endpoint for roadmap
 router.get('/project', generalLimiter, getProjectItems)
-
-// Get commits from a branch (public)
-router.get('/commits', generalLimiter, getCommits)
 
 // Classify bug report before submission (get suggestions for priority, labels, duplicates)
 router.post('/classify', optionalAuth, generalLimiter, classifyBugReport)

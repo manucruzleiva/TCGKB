@@ -1,4 +1,8 @@
 import mongoose from 'mongoose'
+import { buildMongoUri, isDatabaseConfigured } from '../utils/mongoUri.js'
+import log from '../utils/logger.js'
+
+const MODULE = 'Database'
 
 const connectDB = async () => {
   try {
@@ -7,16 +11,22 @@ const connectDB = async () => {
       return mongoose.connection
     }
 
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    // Check if database is configured
+    if (!isDatabaseConfigured()) {
+      throw new Error('Database not configured. Set DB_ENDPOINT + DB_CLIENT_ID + DB_CLIENT_SECRET, or MONGODB_URI')
+    }
+
+    const uri = buildMongoUri()
+    const conn = await mongoose.connect(uri, {
       // Serverless-friendly options
       bufferCommands: false,
       maxPoolSize: 10,
     })
 
-    console.log(`MongoDB Connected: ${conn.connection.host}`)
+    log.info(MODULE, `MongoDB Connected: ${conn.connection.host}`)
     return conn
   } catch (error) {
-    console.error(`MongoDB connection error: ${error.message}`)
+    log.error(MODULE, `MongoDB connection error: ${error.message}`)
     // Don't exit in serverless - throw error instead
     throw error
   }
