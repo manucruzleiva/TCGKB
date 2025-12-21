@@ -3,6 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import mongoose from 'mongoose'
+import { buildMongoUri, isDatabaseConfigured, getConfigType } from '../backend/src/utils/mongoUri.js'
 
 const app = express()
 
@@ -12,10 +13,11 @@ const connectDB = async () => {
   if (mongoose.connection.readyState === 1) {
     return mongoose.connection
   }
-  if (!process.env.MONGODB_URI) {
-    throw new Error('MONGODB_URI environment variable is not set')
+  if (!isDatabaseConfigured()) {
+    throw new Error('Database not configured. Set DB_ENDPOINT + DB_CLIENT_ID + DB_CLIENT_SECRET, or MONGODB_URI')
   }
-  return mongoose.connect(process.env.MONGODB_URI.trim(), {
+  const uri = buildMongoUri()
+  return mongoose.connect(uri, {
     bufferCommands: false,
     maxPoolSize: 10,
     serverSelectionTimeoutMS: 5000,
@@ -61,7 +63,7 @@ app.get('/api/health', async (req, res) => {
     } else if (readyState === 2) {
       dbStatus = { connected: false, message: 'Connecting...' }
     } else if (readyState === 0 || readyState === 3) {
-      if (process.env.MONGODB_URI) {
+      if (isDatabaseConfigured()) {
         try {
           if (!dbPromise) {
             dbPromise = connectDB()
@@ -74,7 +76,7 @@ app.get('/api/health', async (req, res) => {
           dbStatus = { connected: false, message: connError.message || 'Connection failed' }
         }
       } else {
-        dbStatus = { connected: false, message: 'MONGODB_URI not configured' }
+        dbStatus = { connected: false, message: 'Database not configured' }
       }
     }
   } catch (error) {
@@ -130,7 +132,8 @@ app.get('/api/health', async (req, res) => {
   res.json({
     status: dbStatus.connected ? 'ok' : 'degraded',
     env: (process.env.NODE_ENV || '').trim(),
-    hasMongoUri: !!process.env.MONGODB_URI,
+    dbConfigured: isDatabaseConfigured(),
+    dbConfigType: getConfigType(),
     database: dbStatus,
     environments
   })
@@ -145,7 +148,7 @@ app.get('/api/health/sources', async (req, res) => {
   // Check MongoDB
   const mongoStart = Date.now()
   try {
-    if (!dbPromise && process.env.MONGODB_URI) {
+    if (!dbPromise && isDatabaseConfigured()) {
       dbPromise = connectDB()
     }
     if (dbPromise) {
