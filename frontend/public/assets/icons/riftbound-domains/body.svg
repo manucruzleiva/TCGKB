@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Riftbound Body Domain - Replace with official icon from Google Drive -->
+  <circle cx="50" cy="50" r="48" fill="#16A34A"/>
+  <path d="M50 15l-25 10v30c0 15 10 25 25 30 15-5 25-15 25-30v-30z" fill="white"/>
+  <path d="M50 30l-12 5v15c0 8 5 13 12 16 7-3 12-8 12-16v-15z" fill="#16A34A"/>
+</svg>
