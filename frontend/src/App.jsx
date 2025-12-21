@@ -12,7 +12,6 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import ModDashboard from './pages/ModDashboard'
 import Settings from './pages/Settings'
-import Changelog from './pages/Changelog'
 import Roadmap from './pages/Roadmap'
 import RelationshipMap from './pages/RelationshipMap'
 import Catalog from './pages/Catalog'
@@ -47,7 +46,6 @@ function App() {
                       <Route path="/mod" element={<ModDashboard />} />
                       <Route path="/user/:username" element={<UserActivity />} />
                       <Route path="/dev" element={<DevDashboard />} />
-                      <Route path="/changelog" element={<Changelog />} />
                       <Route path="/roadmap" element={<Roadmap />} />
                       <Route path="/relationship-map" element={<RelationshipMap />} />
                       <Route path="/catalog" element={<Catalog />} />

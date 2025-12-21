@@ -6,6 +6,7 @@ import reputationService from '../services/reputation.service.js'
 import { generateDeckHash, findExactDuplicate, findSimilarDecks } from '../utils/deckHash.js'
 import { parseDeckString } from '../services/deckParser.service.js'
 import { validateDeck } from '../utils/deckValidator.js'
+import { enrichDeckCards } from '../services/cardEnricher.service.js'
 import { getIO } from '../config/socket.js'
 
 const MODULE = 'DeckController'
@@ -13,31 +14,76 @@ const MODULE = 'DeckController'
 /**
  * Parse Pokemon TCG Live deck format
  * Format: "quantity cardId" per line (e.g., "4 sv7-001")
+ * Tracks section headers to assign supertype (#147 fix)
  */
 const parseTCGLiveFormat = (deckString) => {
   const lines = deckString.trim().split('\n')
   const cards = []
+  let currentSection = null // Track current section for supertype assignment
 
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue
+    // Skip section headers like "Pokemon: 12", "Trainer: 34", "Energy: 11"
+    if (/^(Pokemon|Pokémon|Trainer|Energy|Total):\s*\d*$/i.test(trimmed)) continue
+
+    // Check for section headers like "Pokemon: 12", "Trainer: 34", "Energy: 11"
+    // Track the section instead of just skipping (#147 fix)
+    const sectionMatch = trimmed.match(/^(Pokemon|Pokémon|Trainer|Energy|Total):\s*\d*$/i)
+    if (sectionMatch) {
+      const sectionName = sectionMatch[1].toLowerCase()
+      if (sectionName === 'pokemon' || sectionName === 'pokémon') {
+        currentSection = 'Pokémon'
+      } else if (sectionName === 'trainer') {
+        currentSection = 'Trainer'
+      } else if (sectionName === 'energy') {
+        currentSection = 'Energy'
+      }
+      // Skip 'Total' header - doesn't change section
+      continue
+    }
 
     // Match: quantity cardId (e.g., "4 sv7-001" or "2 SVI 001")
     const match = trimmed.match(/^(\d+)\s+(.+)$/)
     if (match) {
       const quantity = parseInt(match[1])
-      let cardId = match[2].trim()
+      const cardInfo = match[2].trim()
+      let cardId = null
+      let name = cardInfo
 
-      // Normalize card ID format (handle "SET NUM" format)
-      cardId = cardId.replace(/\s+/g, '-').toLowerCase()
+      // Try to extract SET-NUMBER format from end of line
+      // Format 1: "Gimmighoul SSP 97" -> cardId: "ssp-97", name: "Gimmighoul"
+      const setNumberMatch = cardInfo.match(/^(.+?)\s+([A-Z]{2,5})\s+(\d{1,4})$/i)
+      if (setNumberMatch) {
+        name = setNumberMatch[1].trim()
+        cardId = setNumberMatch[2].toLowerCase() + '-' + setNumberMatch[3]
+      } else {
+        // Format 2: "Gimmighoul SSP-97" -> cardId: "ssp-97", name: "Gimmighoul"
+        const setDashMatch = cardInfo.match(/^(.+?)\s+([A-Z]{2,5})-(\d{1,4})$/i)
+        if (setDashMatch) {
+          name = setDashMatch[1].trim()
+          cardId = setDashMatch[2].toLowerCase() + '-' + setDashMatch[3]
+        } else {
+          // Format 3: Direct set-number "ssp-97"
+          const directMatch = cardInfo.match(/^([A-Z]{2,5})-(\d{1,4})$/i)
+          if (directMatch) {
+            cardId = cardInfo.toLowerCase()
+            name = cardInfo
+          } else {
+            // Fallback: use full string as card reference (for name lookup)
+            cardId = cardInfo.replace(/\s+/g, '-').toLowerCase()
+          }
+        }
+      }
 
-      if (quantity > 0 && quantity <= 4 && cardId) {
+      // Allow up to 60 copies per card (#145 fix) - Energy cards can have many copies
+      if (quantity > 0 && quantity <= 59 && cardId) {
         // Check if card already exists in list
         const existing = cards.find(c => c.cardId === cardId)
         if (existing) {
-          existing.quantity = Math.min(existing.quantity + quantity, 4)
+          existing.quantity = Math.min(existing.quantity + quantity, 60)
         } else {
-          cards.push({ cardId, quantity: Math.min(quantity, 4) })
+          cards.push({ cardId, name, quantity: Math.min(quantity, 60) })
         }
       }
     }
@@ -251,6 +297,101 @@ export const getDecks = async (req, res) => {
 }
 
 /**
+ * Get community decks (public decks with enhanced filtering)
+ * Supports: format, tags, sorting (recent, popular, copies)
+ */
+export const getCommunityDecks = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      sort = 'recent',
+      format,
+      tags,
+      search
+    } = req.query
+
+    // Build query - only public decks
+    const query = { isPublic: true }
+
+    // Format filter (standard, expanded, glc, unlimited)
+    if (format) {
+      const validFormats = ['standard', 'expanded', 'glc', 'unlimited']
+      if (validFormats.includes(format.toLowerCase())) {
+        query.tags = query.tags || {}
+        if (query.tags.$all) {
+          query.tags.$all.push(format.toLowerCase())
+        } else {
+          query.tags = format.toLowerCase()
+        }
+      }
+    }
+
+    // Additional tags filter
+    if (tags) {
+      const tagList = tags.split(',').map(t => t.trim().toLowerCase())
+      if (query.tags) {
+        // Combine with format filter
+        query.tags = { $all: [query.tags, ...tagList] }
+      } else {
+        query.tags = { $all: tagList }
+      }
+    }
+
+    // Text search
+    if (search) {
+      query.$text = { $search: search }
+    }
+
+    // Sort options
+    let sortOption = { createdAt: -1 } // default: recent
+    if (sort === 'popular') sortOption = { views: -1, createdAt: -1 }
+    if (sort === 'copies') sortOption = { copies: -1, createdAt: -1 }
+    if (sort === 'oldest') sortOption = { createdAt: 1 }
+    if (sort === 'name') sortOption = { name: 1 }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const limitNum = Math.min(parseInt(limit), 50) // Cap at 50
+
+    const [decks, total] = await Promise.all([
+      Deck.find(query)
+        .populate('userId', 'username')
+        .sort(sortOption)
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Deck.countDocuments(query)
+    ])
+
+    log.info(MODULE, `Community decks fetched: ${decks.length}/${total}`, { format, tags, sort })
+
+    res.status(200).json({
+      success: true,
+      data: {
+        decks,
+        pagination: {
+          page: parseInt(page),
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum)
+        },
+        filters: {
+          format: format || null,
+          tags: tags ? tags.split(',') : [],
+          sort
+        }
+      }
+    })
+  } catch (error) {
+    log.error(MODULE, 'Get community decks failed', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get community decks'
+    })
+  }
+}
+
+/**
  * Get a single deck by ID
  */
 export const getDeckById = async (req, res) => {
@@ -302,7 +443,7 @@ export const getDeckById = async (req, res) => {
 export const updateDeck = async (req, res) => {
   try {
     const { deckId } = req.params
-    const { name, description, cards, isPublic, tags, importString } = req.body
+    const { name, description, cards, isPublic, tags, importString, tcgSystem } = req.body
 
     const deck = await Deck.findById(deckId)
 
@@ -326,6 +467,7 @@ export const updateDeck = async (req, res) => {
     if (description !== undefined) deck.description = description
     if (typeof isPublic === 'boolean') deck.isPublic = isPublic
     if (tags !== undefined) deck.tags = tags
+    if (tcgSystem) deck.tcgSystem = tcgSystem
 
     // Handle cards update
     let cardsChanged = false
@@ -870,7 +1012,7 @@ export const getDuplicateGroups = async (req, res) => {
  */
 export const parseDeck = async (req, res) => {
   try {
-    const { deckString, format = null, validate = true } = req.body
+    const { deckString, format = null, validate = true, enrich = true } = req.body
 
     if (!deckString) {
       return res.status(400).json({
@@ -890,10 +1032,20 @@ export const parseDeck = async (req, res) => {
       })
     }
 
+    // Enrich cards with metadata from CardCache (for accurate validation)
+    let cards = result.cards
+    let enrichmentStats = null
+
+    if (enrich) {
+      const enrichResult = await enrichDeckCards(result.cards, result.tcg)
+      cards = enrichResult.cards
+      enrichmentStats = enrichResult.stats
+    }
+
     // Use the validation from the parser (already includes format-specific rules)
     const validation = result.validation
 
-    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}`)
+    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}${enrichmentStats ? `, Enriched=${enrichmentStats.enriched}/${enrichmentStats.total} in ${enrichmentStats.duration}ms` : ''}`)
 
     res.status(200).json({
       success: true,
@@ -905,10 +1057,13 @@ export const parseDeck = async (req, res) => {
         formatConfidence: result.formatConfidence,
         formatReasons: result.formatReasons,
         inputFormat: result.inputFormat,
-        cards: result.cards,
+        cards,
         reprintGroups: result.reprintGroups,
         breakdown: result.breakdown,
-        stats: result.stats,
+        stats: {
+          ...result.stats,
+          enrichment: enrichmentStats
+        },
         warnings: result.warnings,
         validation
       }
@@ -1033,146 +1188,6 @@ export const voteDeck = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to vote on deck'
-    })
-  }
-}
-
-/**
- * Get community decks (public decks from all users)
- * GET /api/decks/community
- *
- * Query params:
- * - page, limit (pagination)
- * - tcg (pokemon | riftbound) - filter by TCG
- * - format (standard, glc, expanded, etc) - filter by format tag
- * - tags (comma-separated) - filter by additional tags
- * - sort (recent, popular, votes) - sort order
- *
- * Returns public decks with author info and vote counts
- */
-export const getCommunityDecks = async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 20,
-      tcg,
-      format,
-      tags,
-      sort = 'recent'
-    } = req.query
-
-    const query = { isPublic: true }
-
-    // Filter by format (it's stored as a tag)
-    const formatTags = ['standard', 'expanded', 'unlimited', 'glc']
-    if (format && formatTags.includes(format)) {
-      query.tags = query.tags ? { $all: [...(query.tags.$all || []), format] } : format
-    }
-
-    // Filter by additional tags
-    if (tags) {
-      const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)
-      if (tagList.length > 0) {
-        if (query.tags) {
-          // Already have format filter
-          if (query.tags.$all) {
-            query.tags.$all.push(...tagList)
-          } else {
-            query.tags = { $all: [query.tags, ...tagList] }
-          }
-        } else {
-          query.tags = { $all: tagList }
-        }
-      }
-    }
-
-    // TODO: TCG filter - requires adding tcg field to Deck model
-    // For now, we skip tcg filtering as the model doesn't have this field yet
-
-    // Sort options
-    let sortOption = { createdAt: -1 } // recent (default)
-    if (sort === 'popular') {
-      sortOption = { views: -1, copies: -1 }
-    } else if (sort === 'votes') {
-      // For votes sorting, we need to calculate score
-      // This will be handled after fetching with a separate sort
-      sortOption = { createdAt: -1 } // Fallback, will re-sort after getting votes
-    }
-
-    const skip = (parseInt(page) - 1) * parseInt(limit)
-    const limitNum = parseInt(limit)
-
-    // Fetch decks
-    const [decks, total] = await Promise.all([
-      Deck.find(query)
-        .populate('userId', 'username avatar')
-        .sort(sortOption)
-        .skip(skip)
-        .limit(limitNum * 2) // Fetch more if we need to re-sort by votes
-        .lean(),
-      Deck.countDocuments(query)
-    ])
-
-    // Get vote counts for all fetched decks
-    const deckIds = decks.map(d => d._id)
-    const voteCounts = await Vote.getVoteCountsBulk(deckIds)
-
-    // Map decks with vote info
-    let enrichedDecks = decks.map(deck => {
-      const votes = voteCounts[deck._id.toString()] || { up: 0, down: 0 }
-      return {
-        id: deck._id,
-        name: deck.name,
-        description: deck.description ? deck.description.substring(0, 200) : '',
-        tcg: 'pokemon', // Default for now, TODO: add tcg field to model
-        format: deck.tags?.find(t => formatTags.includes(t)) || 'standard',
-        author: {
-          username: deck.userId?.username || 'Unknown',
-          avatar: deck.userId?.avatar || null
-        },
-        votes: {
-          up: votes.up,
-          down: votes.down,
-          score: votes.up - votes.down
-        },
-        cardCount: deck.cards?.reduce((sum, c) => sum + c.quantity, 0) || 0,
-        tags: deck.tags?.filter(t => !formatTags.includes(t)) || [],
-        views: deck.views || 0,
-        copies: deck.copies || 0,
-        isOriginal: deck.isOriginal !== false,
-        createdAt: deck.createdAt
-      }
-    })
-
-    // If sorting by votes, re-sort by score
-    if (sort === 'votes') {
-      enrichedDecks.sort((a, b) => b.votes.score - a.votes.score)
-    }
-
-    // Apply pagination after vote-based sorting
-    if (sort === 'votes') {
-      enrichedDecks = enrichedDecks.slice(0, limitNum)
-    } else {
-      enrichedDecks = enrichedDecks.slice(0, limitNum)
-    }
-
-    log.info(MODULE, `Community decks fetched: ${enrichedDecks.length} of ${total}`)
-
-    res.status(200).json({
-      success: true,
-      data: enrichedDecks,
-      pagination: {
-        page: parseInt(page),
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum)
-      }
-    })
-  } catch (error) {
-    log.error(MODULE, 'Get community decks failed', error)
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get community decks'
     })
   }
 }

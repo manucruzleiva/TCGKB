@@ -14,14 +14,8 @@ const MODULE = 'StatsController'
 const GITHUB_OWNER = 'manucruzleiva'
 const GITHUB_REPO = 'TCGKB'
 
-// Simple in-memory cache for GitHub commits (1 hour TTL) - per branch
-const commitsCache = {
-  main: { data: null, timestamp: 0 },
-  stage: { data: null, timestamp: 0 }
-}
-const CACHE_TTL = 60 * 60 * 1000 // 1 hour
-
 // Cache for roadmap (1 hour TTL)
+const CACHE_TTL = 60 * 60 * 1000 // 1 hour
 let roadmapCache = { data: null, timestamp: 0 }
 
 /**
@@ -175,7 +169,7 @@ export const getDetailedStats = async (req, res) => {
 }
 
 /**
- * Get GitHub commits for changelog
+ * Get GitHub commits
  * Supports branch parameter to fetch commits from specific branch
  */
 export const getGitHubCommits = async (req, res) => {
