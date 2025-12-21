@@ -262,6 +262,13 @@ export const es = {
         cancel: 'Cancelar',
         confirm: 'Eliminar'
       }
+    },
+    // Stats breakdown
+    stats: {
+      supporter: 'Apoyo',
+      item: 'Objeto',
+      tool: 'Herramienta',
+      stadium: 'Estadio'
     }
   },
 
