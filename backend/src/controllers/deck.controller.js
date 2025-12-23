@@ -8,6 +8,7 @@ import { parseDeckString } from '../services/deckParser.service.js'
 import { validateDeck } from '../utils/deckValidator.js'
 import { enrichDeckCards } from '../services/cardEnricher.service.js'
 import { getIO } from '../config/socket.js'
+import { calculateBreakdown } from '../utils/deckParser.js'
 
 const MODULE = 'DeckController'
 
@@ -1044,8 +1045,16 @@ export const parseDeck = async (req, res) => {
       enrichmentStats = enrichResult.stats
     }
 
-    // Use the validation from the parser (already includes format-specific rules)
-    const validation = result.validation
+    // Re-validate and re-calculate breakdown after enrichment for accurate detection
+    let validation = result.validation
+    let breakdown = result.breakdown
+    if (enrich && result.tcg === 'pokemon') {
+      const revalidated = validateDeck(cards, result.tcg, result.format)
+      validation = revalidated.validation
+      breakdown = calculateBreakdown(cards, result.tcg)
+      log.info(MODULE, `Re-validated after enrichment: ${validation.isValid ? 'Valid' : 'Invalid'} (${validation.errors.length} errors)`)
+      log.info(MODULE, `Re-calculated breakdown: Pokemon=${breakdown.pokemon}, Trainer=${breakdown.trainer}, Energy=${breakdown.energy}`)
+    }
 
     log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}${enrichmentStats ? `, Enriched=${enrichmentStats.enriched}/${enrichmentStats.total} in ${enrichmentStats.duration}ms` : ''}`)
 
@@ -1061,7 +1070,7 @@ export const parseDeck = async (req, res) => {
         inputFormat: result.inputFormat,
         cards,
         reprintGroups: result.reprintGroups,
-        breakdown: result.breakdown,
+        breakdown,
         stats: {
           ...result.stats,
           enrichment: enrichmentStats
