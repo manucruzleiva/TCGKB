@@ -145,6 +145,11 @@ export async function enrichDeckCards(cards, tcg = 'pokemon') {
       enrichedFrom: cardData ? (card.cardId ? 'cardId' : 'name') : null
     }
 
+    // Debug logging for cards not found in cache
+    if (!cardData && card.supertype) {
+      log.info(MODULE, `Card not in cache but has parser supertype: ${card.name} (${card.cardId}) - ${card.supertype}`)
+    }
+
     if (cardData) {
       enrichedCount++
     } else {
