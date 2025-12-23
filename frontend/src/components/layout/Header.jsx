@@ -408,6 +408,7 @@ const Header = () => {
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-700 hover:border-primary-400 dark:hover:border-primary-500 transition-all shadow-sm"
                 aria-label="User menu"
+                data-testid="user-menu-button"
               >
                 {isAuthenticated && user?.avatar ? (
                   <div className={`w-full h-full bg-gradient-to-br ${user?.avatarBackground || 'from-primary-400 to-primary-600'}`}>

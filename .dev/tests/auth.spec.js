@@ -7,7 +7,7 @@ test.describe('Authentication', () => {
 
   test('should navigate to register page via user menu', async ({ page }) => {
     // Click user menu icon
-    await page.getByRole('button', { name: /Switch to/i }).or(page.locator('button').filter({ has: page.locator('svg path[d*="M16 7a4 4 0 11-8 0"]') })).first().click();
+    await page.locator('[data-testid="user-menu-button"]').click();
 
     // Click Register link in dropdown
     await page.getByRole('link', { name: /Registrarse/i }).click();
@@ -16,11 +16,8 @@ test.describe('Authentication', () => {
   });
 
   test('should navigate to login page via user menu', async ({ page }) => {
-    // Click user menu icon (person icon)
-    const userMenuButton = page.locator('button').filter({ hasText: '' }).or(
-      page.locator('button svg path[d*="M16 7a4 4 0 11-8 0"]').locator('..')
-    );
-    await userMenuButton.first().click();
+    // Click user menu icon
+    await page.locator('[data-testid="user-menu-button"]').click();
 
     // Click Login link in dropdown
     await page.getByRole('link', { name: /Iniciar Sesión/i }).click();
@@ -57,10 +54,7 @@ test.describe('Authentication', () => {
     await page.waitForURL('/');
 
     // Click user menu icon to open dropdown
-    const userMenuButton = page.locator('button').filter({ hasText: '' }).or(
-      page.locator('button svg path[d*="M16 7a4 4 0 11-8 0"]').locator('..')
-    );
-    await userMenuButton.first().click();
+    await page.locator('[data-testid="user-menu-button"]').click();
 
     // Should show username in dropdown
     await expect(page.getByText('testuser')).toBeVisible();
@@ -72,7 +66,7 @@ test.describe('Authentication', () => {
     await page.waitForTimeout(500);
 
     // Click user menu again to verify logout
-    await userMenuButton.first().click();
+    await page.locator('[data-testid="user-menu-button"]').click();
 
     // Should show login/register links again in dropdown
     await expect(page.getByRole('link', { name: /Iniciar Sesión/i })).toBeVisible();
