@@ -7,6 +7,7 @@ import { deckService } from '../services/deckService'
 import CommentList from '../components/comments/CommentList'
 import Spinner from '../components/common/Spinner'
 import VoteButtons from '../components/decks/VoteButtons'
+import { TrainerSubtypeIcon } from '../components/icons'
 
 const FORMAT_COLORS = {
   standard: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200',
@@ -404,7 +405,7 @@ const DeckDetail = () => {
                     {getSupporterCount() > 0 && (
                       <div className="flex justify-between items-center">
                         <span className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-pink-400"></span>
+                          <TrainerSubtypeIcon subtype="supporter" size={16} />
                           {t('decks.stats.supporter')}
                         </span>
                         <span className="font-medium">{getSupporterCount()}</span>
@@ -413,7 +414,7 @@ const DeckDetail = () => {
                     {getItemCount() > 0 && (
                       <div className="flex justify-between items-center">
                         <span className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-green-400"></span>
+                          <TrainerSubtypeIcon subtype="item" size={16} />
                           {t('decks.stats.item')}
                         </span>
                         <span className="font-medium">{getItemCount()}</span>
@@ -422,7 +423,7 @@ const DeckDetail = () => {
                     {getToolCount() > 0 && (
                       <div className="flex justify-between items-center">
                         <span className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+                          <TrainerSubtypeIcon subtype="tool" size={16} />
                           {t('decks.stats.tool')}
                         </span>
                         <span className="font-medium">{getToolCount()}</span>
@@ -431,7 +432,7 @@ const DeckDetail = () => {
                     {getStadiumCount() > 0 && (
                       <div className="flex justify-between items-center">
                         <span className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                          <TrainerSubtypeIcon subtype="stadium" size={16} />
                           {t('decks.stats.stadium')}
                         </span>
                         <span className="font-medium">{getStadiumCount()}</span>
