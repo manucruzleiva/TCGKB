@@ -15,6 +15,7 @@ const deckCardSchema = new mongoose.Schema({
   name: String,
   supertype: String, // Pokemon: Pokemon/Trainer/Energy, Riftbound: Legend/Battlefield/Rune/Main Deck
   cardType: String, // Riftbound-specific: Legend, Battlefield, Rune (for categorization)
+  type: String, // Riftbound card type: Unit, Spell, Gear (from Riftcodex API)
   imageSmall: String
 }, { _id: false })
 

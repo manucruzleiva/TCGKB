@@ -135,6 +135,7 @@ export async function enrichDeckCards(cards, tcg = 'pokemon') {
       supertype: cardData?.supertype || card.supertype || null,
       subtypes: cardData?.subtypes || [],
       types: cardData?.types || [],
+      type: cardData?.type || null, // Riftbound: Unit, Spell, Gear
       regulationMark: cardData?.regulationMark || null,
       // Additional useful fields for display
       imageSmall: cardData?.images?.small || null,

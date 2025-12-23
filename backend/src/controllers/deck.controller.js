@@ -675,7 +675,7 @@ export const copyDeck = async (req, res) => {
 export const updateDeckCardInfo = async (req, res) => {
   try {
     const { deckId } = req.params
-    const { cardInfo } = req.body // Array of { cardId, name, supertype, cardType, imageSmall }
+    const { cardInfo } = req.body // Array of { cardId, name, supertype, cardType, type, imageSmall }
 
     const deck = await Deck.findById(deckId)
 
@@ -701,6 +701,7 @@ export const updateDeckCardInfo = async (req, res) => {
         card.name = info.name
         card.supertype = info.supertype
         card.cardType = info.cardType // Riftbound: Legend/Battlefield/Rune
+        card.type = info.type // Riftbound: Unit/Spell/Gear
         card.imageSmall = info.imageSmall
       }
     })
