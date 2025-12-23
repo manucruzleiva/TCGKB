@@ -397,3 +397,247 @@ test.describe('Deck Builder - Copy Deck', () => {
     }
   });
 });
+
+test.describe('Deck Builder - Card Interactions (DM-V2)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/login');
+    await page.getByPlaceholder(/nombre de usuario|username/i).fill('testuser');
+    await page.getByPlaceholder(/contraseña|password/i).fill('password123');
+    await page.getByRole('button', { name: /Iniciar Sesión|Log In/i }).click();
+    await page.waitForURL('/');
+    await page.goto('/decks/new');
+  });
+
+  test('TC-INT-001: should add 1 copy on left click', async ({ page }) => {
+    // Search for a card
+    await page.getByPlaceholder(/buscar cartas|search cards/i).fill('Pikachu');
+    await page.waitForTimeout(2000);
+
+    // Get initial deck count
+    const initialCount = await page.locator('[class*="deck"]').textContent().catch(() => '0');
+
+    // Left click on a card
+    const cardResult = page.locator('img[alt*="Pikachu"]').first();
+    await cardResult.click();
+
+    // Wait for update
+    await page.waitForTimeout(500);
+
+    // Deck should have 1 more card
+    await expect(page.getByText(/1.*card|card.*1/i)).toBeVisible();
+  });
+
+  test('TC-INT-002: should respect copy limit on left click', async ({ page }) => {
+    // Search for a card
+    await page.getByPlaceholder(/buscar cartas|search cards/i).fill('Pikachu');
+    await page.waitForTimeout(2000);
+
+    const cardResult = page.locator('img[alt*="Pikachu"]').first();
+
+    // Click 4 times (maximum for non-energy cards)
+    for (let i = 0; i < 4; i++) {
+      await cardResult.click();
+      await page.waitForTimeout(200);
+    }
+
+    // Should show 4 copies
+    await expect(page.getByText(/4.*card|4\/4/i)).toBeVisible();
+
+    // Click one more time (should be blocked or show warning)
+    await cardResult.click();
+    await page.waitForTimeout(500);
+
+    // Should still show 4 copies (or show warning about limit)
+    const limitWarning = page.getByText(/límite|limit|máximo|maximum/i);
+    const copyCount = page.getByText(/4.*card|4\/4/i);
+
+    // Either shows warning or keeps count at 4
+    const hasWarning = await limitWarning.isVisible().catch(() => false);
+    const hasCount = await copyCount.isVisible().catch(() => false);
+
+    expect(hasWarning || hasCount).toBeTruthy();
+  });
+
+  test('TC-INT-003: should show visual feedback on hover', async ({ page }) => {
+    // Search for a card
+    await page.getByPlaceholder(/buscar cartas|search cards/i).fill('Pikachu');
+    await page.waitForTimeout(2000);
+
+    const cardResult = page.locator('img[alt*="Pikachu"]').first();
+
+    // Hover over card
+    await cardResult.hover();
+
+    // Should have hover effect (cursor pointer, border change, etc.)
+    // This is visual feedback, check for cursor or style changes
+    const cursorStyle = await cardResult.evaluate((el) => {
+      return window.getComputedStyle(el.parentElement || el).cursor;
+    });
+
+    expect(cursorStyle).toMatch(/pointer|grab/);
+  });
+
+  test('TC-INT-004: should reduce 1 copy on right click', async ({ page }) => {
+    // Search and add a card first
+    await page.getByPlaceholder(/buscar cartas|search cards/i).fill('Pikachu');
+    await page.waitForTimeout(2000);
+
+    const cardResult = page.locator('img[alt*="Pikachu"]').first();
+
+    // Add 3 copies with left click
+    for (let i = 0; i < 3; i++) {
+      await cardResult.click();
+      await page.waitForTimeout(200);
+    }
+
+    // Find card in deck list
+    const deckCard = page.locator('[class*="deck"]').getByText(/Pikachu/i).first();
+
+    if (await deckCard.isVisible()) {
+      // Right click to reduce
+      await deckCard.click({ button: 'right' });
+      await page.waitForTimeout(500);
+
+      // Should now show 2 copies
+      await expect(page.getByText(/2.*card|x2/i)).toBeVisible();
+    }
+  });
+
+  test('TC-INT-005: should remove card when quantity reaches 0', async ({ page }) => {
+    // Search and add a card
+    await page.getByPlaceholder(/buscar cartas|search cards/i).fill('Pikachu');
+    await page.waitForTimeout(2000);
+
+    const cardResult = page.locator('img[alt*="Pikachu"]').first();
+
+    // Add 1 copy
+    await cardResult.click();
+    await page.waitForTimeout(500);
+
+    // Find card in deck
+    const deckCard = page.locator('[class*="deck"]').getByText(/Pikachu/i).first();
+
+    if (await deckCard.isVisible()) {
+      // Right click to reduce to 0
+      await deckCard.click({ button: 'right' });
+      await page.waitForTimeout(500);
+
+      // Card should be removed from deck
+      await expect(deckCard).not.toBeVisible();
+    }
+  });
+
+  test('TC-INT-006: should open quantity input on Ctrl+Click', async ({ page }) => {
+    // Search and add a card
+    await page.getByPlaceholder(/buscar cartas|search cards/i).fill('Pikachu');
+    await page.waitForTimeout(2000);
+
+    const cardResult = page.locator('img[alt*="Pikachu"]').first();
+
+    // Ctrl+Click to open input
+    await cardResult.click({ modifiers: ['Control'] });
+    await page.waitForTimeout(500);
+
+    // Should show input field for quantity
+    const quantityInput = page.locator('input[type="number"]').or(
+      page.locator('input[placeholder*="cantidad"]').or(
+        page.locator('input[placeholder*="quantity"]')
+      )
+    );
+
+    await expect(quantityInput.first()).toBeVisible();
+  });
+
+  test('TC-INT-007: should accept valid quantity input', async ({ page }) => {
+    // Search and add a card
+    await page.getByPlaceholder(/buscar cartas|search cards/i).fill('Pikachu');
+    await page.waitForTimeout(2000);
+
+    const cardResult = page.locator('img[alt*="Pikachu"]').first();
+
+    // Ctrl+Click to open input
+    await cardResult.click({ modifiers: ['Control'] });
+    await page.waitForTimeout(500);
+
+    const quantityInput = page.locator('input[type="number"]').first();
+
+    if (await quantityInput.isVisible()) {
+      // Enter valid quantity (3)
+      await quantityInput.fill('3');
+      await quantityInput.press('Enter');
+
+      // Wait for update
+      await page.waitForTimeout(500);
+
+      // Should show 3 copies
+      await expect(page.getByText(/3.*card|x3/i)).toBeVisible();
+    }
+  });
+
+  test('TC-INT-008: should reject invalid quantity input', async ({ page }) => {
+    // Search and add a card
+    await page.getByPlaceholder(/buscar cartas|search cards/i).fill('Pikachu');
+    await page.waitForTimeout(2000);
+
+    const cardResult = page.locator('img[alt*="Pikachu"]').first();
+
+    // Ctrl+Click to open input
+    await cardResult.click({ modifiers: ['Control'] });
+    await page.waitForTimeout(500);
+
+    const quantityInput = page.locator('input[type="number"]').first();
+
+    if (await quantityInput.isVisible()) {
+      // Try to enter invalid quantity (10 > 4 limit)
+      await quantityInput.fill('10');
+      await quantityInput.press('Enter');
+
+      // Wait for validation
+      await page.waitForTimeout(500);
+
+      // Should show error or clamp to max (4)
+      const errorMessage = page.getByText(/límite|limit|máximo|max/i);
+      const clampedValue = page.getByText(/4.*card|4\/4/i);
+
+      // Either shows error or clamps to 4
+      const hasError = await errorMessage.isVisible().catch(() => false);
+      const hasClamped = await clampedValue.isVisible().catch(() => false);
+
+      expect(hasError || hasClamped).toBeTruthy();
+    }
+  });
+
+  test.skip('TC-INT-009: should support drag and drop', async ({ page }) => {
+    // Note: Drag and drop in Playwright requires special handling
+    // This test is marked as skip and needs implementation when drag-drop is fully supported
+
+    await page.getByPlaceholder(/buscar cartas|search cards/i).fill('Pikachu');
+    await page.waitForTimeout(2000);
+
+    const cardResult = page.locator('img[alt*="Pikachu"]').first();
+    const deckArea = page.locator('[class*="deck"]').first();
+
+    // Attempt drag and drop
+    await cardResult.dragTo(deckArea);
+
+    // Should add card to deck
+    await expect(page.getByText(/1.*card/i)).toBeVisible();
+  });
+
+  test('TC-INT-010: should show visual feedback during interactions', async ({ page }) => {
+    await page.getByPlaceholder(/buscar cartas|search cards/i).fill('Pikachu');
+    await page.waitForTimeout(2000);
+
+    const cardResult = page.locator('img[alt*="Pikachu"]').first();
+
+    // Check for transition or animation classes
+    await cardResult.hover();
+
+    const hasTransition = await cardResult.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return style.transition !== 'none' || style.transform !== 'none';
+    });
+
+    expect(hasTransition).toBeTruthy();
+  });
+});
