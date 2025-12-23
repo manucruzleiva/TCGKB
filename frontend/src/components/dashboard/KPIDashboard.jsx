@@ -385,8 +385,16 @@ const KPIDashboard = () => {
                 kpi.hasDetails ? 'cursor-pointer hover:shadow-lg' : ''
               } ${expandedCard === kpi.type || hoverCard === kpi.type ? 'shadow-xl' : 'hover:shadow-md hover:scale-105'}`}
               onClick={() => kpi.hasDetails && toggleCard(kpi.type)}
-              onMouseEnter={() => kpi.hasDetails && !expandedCard && setHoverCard(kpi.type)}
-              onMouseLeave={() => setHoverCard(null)}
+              onMouseEnter={() => {
+                if (kpi.hasDetails && !expandedCard) {
+                  setHoverCard(kpi.type)
+                }
+              }}
+              onMouseLeave={() => {
+                if (hoverCard === kpi.type) {
+                  setHoverCard(null)
+                }
+              }}
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-3xl">{kpi.icon}</span>

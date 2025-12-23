@@ -168,9 +168,107 @@ export const deckService = {
   },
 
   // Format deck to TCG Live export string (standardized format with sections)
-  formatToTCGLive: (cards) => {
+  /**
+   * Format deck cards for TCG-arena (Riftbound)
+   * Order: Champion, Legend, Units, Runes, Battlefields, Spells, Gears, Side Deck
+   *
+   * Uses the `type` field (Unit/Spell/Gear) from Riftbound API
+   *
+   * @param {Array} cards - Array of deck cards
+   * @returns {string} Formatted deck string
+   */
+  formatToTCGArena: (cards) => {
     const lines = []
 
+    // Categorize cards by cardType and type
+    const legend = cards.filter(c => c.cardType === 'Legend')
+    const battlefields = cards.filter(c => c.cardType === 'Battlefield')
+    const runes = cards.filter(c => c.cardType === 'Rune')
+
+    // Main deck cards: filter by type (Unit/Spell/Gear)
+    const mainDeckCards = cards.filter(c => !['Legend', 'Battlefield', 'Rune'].includes(c.cardType))
+    const units = mainDeckCards.filter(c => c.type?.toLowerCase() === 'unit')
+    const spells = mainDeckCards.filter(c => c.type?.toLowerCase() === 'spell')
+    const gears = mainDeckCards.filter(c => c.type?.toLowerCase() === 'gear')
+    const sideDeck = [] // TODO: Implement side deck detection when API supports it
+
+    // Champion: First card (should match legend)
+    // In TCG-arena, champion is the legend but listed separately
+    if (legend.length > 0) {
+      lines.push(`// Champion`)
+      lines.push(`${legend[0].quantity} ${legend[0].name}`)
+      lines.push('')
+    }
+
+    // Legend
+    if (legend.length > 0) {
+      lines.push(`// Legend`)
+      legend.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+      lines.push('')
+    }
+
+    // Units
+    if (units.length > 0) {
+      lines.push(`// Units`)
+      units.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+      lines.push('')
+    }
+
+    // Runes
+    if (runes.length > 0) {
+      lines.push(`// Runes`)
+      runes.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+      lines.push('')
+    }
+
+    // Battlefields (max 3, one copy each)
+    if (battlefields.length > 0) {
+      lines.push(`// Battlefields`)
+      battlefields.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+      lines.push('')
+    }
+
+    // Spells
+    if (spells.length > 0) {
+      lines.push(`// Spells`)
+      spells.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+      lines.push('')
+    }
+
+    // Gears
+    if (gears.length > 0) {
+      lines.push(`// Gears`)
+      gears.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+      lines.push('')
+    }
+
+    // Side Deck (if any cards don't fit other categories)
+    if (sideDeck.length > 0) {
+      lines.push(`// Side Deck`)
+      sideDeck.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+      lines.push('')
+    }
+
+    return lines.join('\n').trim()
+  },
+
+  /**
+   * Format deck cards for export
+   * - Pokemon TCG: TCG Live format with headers (Pokémon:, Trainer:, Energy:)
+   * - Riftbound: TCG-arena format with sections (#172)
+   *
+   * @param {Array} cards - Array of deck cards
+   * @param {string} tcgSystem - 'pokemon' or 'riftbound'
+   */
+  formatToTCGLive: (cards, tcgSystem = 'pokemon') => {
+    const lines = []
+
+    // Riftbound: Use TCG-arena format (#172)
+    if (tcgSystem === 'riftbound') {
+      return deckService.formatToTCGArena(cards)
+    }
+
+    // Pokemon TCG: TCG Live format with headers
     // Helper to normalize supertype
     const normalizeType = (type) => {
       if (!type) return 'other'

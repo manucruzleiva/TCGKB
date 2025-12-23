@@ -255,7 +255,7 @@ function parseRiftbound(text) {
         let cardType = null
         const lowerName = name.toLowerCase()
         if (lowerName.includes('rune')) cardType = 'Rune'
-        else if (lowerName.includes('battlefield')) cardType = 'Battlefield'
+        else if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) cardType = 'Battlefield'
 
         const existing = cards.find(c => c.name?.toLowerCase() === name.toLowerCase())
         if (existing) {
@@ -346,7 +346,7 @@ function detectTCG(text, cards) {
 
   // Check for Riftbound-specific card types
   const hasRunes = cards.some(c => c.cardType === 'Rune' || c.name?.toLowerCase().includes('rune'))
-  const hasBattlefields = cards.some(c => c.cardType === 'Battlefield' || c.name?.toLowerCase().includes('battlefield'))
+  const hasBattlefields = cards.some(c => c.cardType === 'Battlefield' || /battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(c.name || ''))
 
   // Scoring
   let pokemonScore = 0
@@ -422,7 +422,7 @@ function detectPokemonFormat(cards) {
 function detectRiftboundFormat(cards) {
   // Riftbound Constructed: 40 main + 1 legend + 3 battlefield + 12 runes
   const runes = cards.filter(c => c.name?.toLowerCase().includes('rune'))
-  const battlefields = cards.filter(c => c.name?.toLowerCase().includes('battlefield'))
+  const battlefields = cards.filter(c => /battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(c.name || ''))
   const legends = cards.filter(c => c.cardType === 'Legend')
 
   const runeCount = runes.reduce((sum, c) => sum + c.quantity, 0)
@@ -481,10 +481,10 @@ function calculateBreakdown(cards, tcg) {
     }
 
     cards.forEach(card => {
-      const name = card.name?.toLowerCase() || ''
-      if (name.includes('rune')) {
+      const name = card.name || ''
+      if (name.toLowerCase().includes('rune')) {
         breakdown.rune += card.quantity
-      } else if (name.includes('battlefield')) {
+      } else if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) {
         breakdown.battlefield += card.quantity
       } else if (card.cardType === 'Legend') {
         breakdown.legend += card.quantity

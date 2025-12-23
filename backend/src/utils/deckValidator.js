@@ -84,15 +84,54 @@ function isRuleBox(card) {
 
 /**
  * Check if a card is a Basic Pokemon
+ *
+ * Detection strategy:
+ * 1. Check subtypes array for 'Basic' (case-insensitive)
+ * 2. Check evolutionStage field for 'Basic'
+ * 3. Fallback: Check if card has NO evolvesFrom field (likely Basic)
+ *
+ * @param {Object} card - Card object with supertype, subtypes, evolutionStage
+ * @returns {boolean} True if card is a Basic Pokemon
  */
 function isBasicPokemon(card) {
-  const supertype = card.supertype?.toLowerCase() || ''
-  const subtypes = card.subtypes?.map(s => s.toLowerCase()) || []
-  const evolutionStage = card.evolutionStage?.toLowerCase() || ''
+  if (!card) return false
 
+  const supertype = card.supertype?.toLowerCase() || ''
+
+  // Must be a Pokemon
   if (supertype !== 'pokémon' && supertype !== 'pokemon') return false
 
-  return subtypes.includes('basic') || evolutionStage === 'basic'
+  // Strategy 1: Check subtypes array (case-insensitive)
+  if (card.subtypes && Array.isArray(card.subtypes)) {
+    const hasBasicSubtype = card.subtypes.some(subtype =>
+      typeof subtype === 'string' && subtype.toLowerCase() === 'basic'
+    )
+    if (hasBasicSubtype) return true
+  }
+
+  // Strategy 2: Check evolutionStage field
+  const evolutionStage = card.evolutionStage?.toLowerCase() || ''
+  if (evolutionStage === 'basic') return true
+
+  // Strategy 3: Fallback - Basic Pokemon typically have no evolvesFrom
+  // If it's a Pokemon and doesn't evolve from anything, it's likely Basic
+  if (!card.evolvesFrom && !card.evolves_from) {
+    // Additional check: Stage 1/2 cards sometimes lack evolvesFrom in data
+    // Exclude cards with "Stage" or "VMAX" or "ex" in subtypes (these are evolved)
+    if (card.subtypes && Array.isArray(card.subtypes)) {
+      const evolvedTypes = card.subtypes.some(subtype => {
+        const lower = (subtype || '').toLowerCase()
+        return lower.includes('stage') || lower.includes('vmax') ||
+               lower.includes('vstar') || lower === 'ex' || lower === 'gx'
+      })
+      if (evolvedTypes) return false
+    }
+
+    // If no evolves info and no evolved subtype markers, assume Basic
+    return true
+  }
+
+  return false
 }
 
 /**
@@ -444,11 +483,13 @@ export function validateRiftboundConstructed(cards, options = {}) {
 
   // Categorize cards
   const runes = cards.filter(c => c.name?.toLowerCase().includes('rune'))
-  const battlefields = cards.filter(c => c.name?.toLowerCase().includes('battlefield'))
+  const battlefields = cards.filter(c =>
+    /battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(c.name || '')
+  )
   const legends = cards.filter(c => c.cardType === 'Legend')
   const mainDeck = cards.filter(c =>
     !c.name?.toLowerCase().includes('rune') &&
-    !c.name?.toLowerCase().includes('battlefield') &&
+    !/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(c.name || '') &&
     c.cardType !== 'Legend'
   )
 
