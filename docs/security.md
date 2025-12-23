@@ -1,7 +1,8 @@
 # TCGKB - Security Documentation
 
 > **Source of Truth** for security measures, auth flows, and security automation.
-> Last updated: 2025-12-20
+> Last updated: 2025-12-23
+> by @raj
 
 ---
 
@@ -76,12 +77,19 @@
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `MONGODB_URI` | MongoDB connection string | Yes |
+| `DB_ENDPOINT` | MongoDB cluster endpoint (service user) | Yes (recommended) |
+| `DB_CLIENT_ID` | MongoDB service user username | Yes (recommended) |
+| `DB_CLIENT_SECRET` | MongoDB service user password | Yes (recommended) |
+| `MONGODB_URI` | MongoDB connection string (legacy) | Yes (fallback) |
 | `JWT_SECRET` | JWT signing key (min 32 chars) | Yes |
 | `JWT_EXPIRES_IN` | Token expiration | No (default: 7d) |
 | `POKEMON_TCG_API_KEY` | Pokemon TCG API key | Yes |
 | `CORS_ORIGIN` | Allowed origins | Yes |
 | `NODE_ENV` | production/development | Yes |
+
+**Database Connection Methods:**
+- **Service User (Recommended)**: Use `DB_ENDPOINT`, `DB_CLIENT_ID`, `DB_CLIENT_SECRET` for better security and credential rotation
+- **Legacy**: Use `MONGODB_URI` for backward compatibility
 
 ### GitHub Integration
 
@@ -248,6 +256,66 @@ npm audit --json
 # Open security tab
 gh browse -n security
 ```
+
+---
+
+## Security Incident Log
+
+### 2025-12-23: Database Credential Audit (P0-Critical)
+
+**Incident**: Issues #157 and #164 reported potential database credential exposure and staging environment showing 0 statistics.
+
+**Investigation Results:**
+- ✅ **No credentials exposed** in git history
+- ✅ All `.env` files properly gitignored
+- ✅ Git log audit clean (only placeholder examples found)
+- ✅ Staging environment **WORKING** (1751 cards, database connected)
+- ✅ Production environment **HEALTHY** (1751 cards, database connected)
+- ✅ Service user authentication active on both environments
+
+**Technical Details:**
+```json
+// Staging Health Check (2025-12-23)
+{
+  "status": "ok",
+  "dbConfigured": true,
+  "dbConfigType": "service-user",
+  "database": { "connected": true }
+}
+
+// Stats Endpoint (2025-12-23)
+{
+  "totalCards": 1751,
+  "pokemonCards": 1095,
+  "riftboundCards": 656,
+  "totalComments": 1,
+  "totalReactions": 2,
+  "totalUsers": 2
+}
+```
+
+**Root Cause Analysis:**
+- Issue #157: False alarm - no actual credential exposure detected
+- Issue #164: Likely user error or cached/stale page view - live verification shows correct data
+
+**Actions Taken:**
+1. ✅ Comprehensive git history audit using `git log -p -S`
+2. ✅ Verified `.gitignore` properly excludes `.env` files
+3. ✅ Tested staging and production health endpoints
+4. ✅ Confirmed service user authentication working correctly
+5. ✅ Updated security documentation with service user credentials
+
+**Recommendations:**
+1. ✅ **IMPLEMENTED**: Service user authentication (DB_ENDPOINT + DB_CLIENT_ID + DB_CLIENT_SECRET)
+2. 🔄 **TODO**: Add pre-commit hook with `gitleaks` to prevent future exposure
+3. 🔄 **TODO**: Implement secrets scanning in CI/CD pipeline
+4. ✅ **DOCUMENTED**: Update security.md with new credential system
+
+**Status**: ✅ RESOLVED - No security breach, environments healthy
+
+**Investigated by**: @raj (Developer)
+**Date**: 2025-12-23
+**Duration**: ~30 minutes
 
 ---
 
