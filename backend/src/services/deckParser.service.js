@@ -17,7 +17,7 @@ function detectTCG(input) {
 
   // Riftbound indicators
   if (/rune/i.test(input)) riftboundScore += 3
-  if (/battlefield/i.test(input)) riftboundScore += 2
+  if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(input)) riftboundScore += 2
   for (const domain of RIFTBOUND_DOMAINS) {
     if (input.toLowerCase().includes(domain)) riftboundScore++
   }
@@ -164,7 +164,7 @@ function parseRiftbound(input) {
 
       // Detect card type from name
       if (/rune$/i.test(name)) cardType = 'Rune'
-      else if (/battlefield|grove/i.test(name)) cardType = 'Battlefield'
+      else if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) cardType = 'Battlefield'
       else if (+match[1] === 1 && cards.length === 0) cardType = 'Legend'
 
       // Detect domains

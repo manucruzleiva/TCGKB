@@ -444,11 +444,13 @@ export function validateRiftboundConstructed(cards, options = {}) {
 
   // Categorize cards
   const runes = cards.filter(c => c.name?.toLowerCase().includes('rune'))
-  const battlefields = cards.filter(c => c.name?.toLowerCase().includes('battlefield'))
+  const battlefields = cards.filter(c =>
+    /battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(c.name || '')
+  )
   const legends = cards.filter(c => c.cardType === 'Legend')
   const mainDeck = cards.filter(c =>
     !c.name?.toLowerCase().includes('rune') &&
-    !c.name?.toLowerCase().includes('battlefield') &&
+    !/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(c.name || '') &&
     c.cardType !== 'Legend'
   )
 
