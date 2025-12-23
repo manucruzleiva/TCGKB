@@ -188,7 +188,11 @@ const DeckBuilder = () => {
     if (currentTcg !== 'riftbound' && card?.supertype === 'Energy') {
       return 60
     }
-    // Riftbound: 3 copies max for all cards
+    // Riftbound Runes: up to 12 total (no per-card limit)
+    if (currentTcg === 'riftbound' && card?.cardType === 'Rune') {
+      return 12 // Total pool limit, not per-card
+    }
+    // Riftbound: 3 copies max for non-rune cards
     if (currentTcg === 'riftbound') {
       return 3
     }
@@ -227,18 +231,29 @@ const DeckBuilder = () => {
       const maxQty = getMaxCopies(card)
 
       // #151 fix: Count total copies of cards with the same NAME (reprint detection)
-      // This applies to all cards except basic energy in Pokemon TCG
+      // This applies to all cards except basic energy in Pokemon TCG and runes in Riftbound
       const isBasicEnergy = card.supertype === 'Energy' && tcgSystem !== 'riftbound'
-      const totalByName = isBasicEnergy
-        ? 0 // Basic energy has no reprint limit
+      const isRune = tcgSystem === 'riftbound' && card.cardType === 'Rune'
+
+      // For runes, check TOTAL runes count (not per-card limit)
+      const totalByName = isBasicEnergy || isRune
+        ? 0 // No per-card limit for basic energy and runes
         : prev.filter(c => c.name?.toLowerCase() === cardName?.toLowerCase())
             .reduce((sum, c) => sum + c.quantity, 0)
 
-      // Calculate how many more copies can be added
-      const availableSlots = isBasicEnergy ? 60 : maxQty - totalByName
+      // For runes, calculate available slots based on total rune count
+      let availableSlots
+      if (isBasicEnergy) {
+        availableSlots = 60
+      } else if (isRune) {
+        const totalRunes = prev.filter(c => c.cardType === 'Rune').reduce((sum, c) => sum + c.quantity, 0)
+        availableSlots = 12 - totalRunes
+      } else {
+        availableSlots = maxQty - totalByName
+      }
 
       if (availableSlots <= 0 && !isBasicEnergy) {
-        // Can't add more - limit reached across all reprints
+        // Can't add more - limit reached
         return prev
       }
 
@@ -279,13 +294,22 @@ const DeckBuilder = () => {
 
       // #151 fix: Check reprint limit (total copies of same name across all versions)
       const isBasicEnergy = existing.supertype === 'Energy' && tcgSystem !== 'riftbound'
-      const otherSameNameQty = isBasicEnergy
-        ? 0
-        : prev.filter(c => c.name?.toLowerCase() === existing.name?.toLowerCase() && c.cardId !== cardId)
-            .reduce((sum, c) => sum + c.quantity, 0)
+      const isRune = tcgSystem === 'riftbound' && existing.cardType === 'Rune'
 
-      // Max for this card is limit minus other reprints
-      const effectiveMax = isBasicEnergy ? 60 : maxQty - otherSameNameQty
+      let effectiveMax
+      if (isBasicEnergy) {
+        effectiveMax = 60
+      } else if (isRune) {
+        // For runes, max is based on total pool of 12
+        const otherRunesQty = prev.filter(c => c.cardType === 'Rune' && c.cardId !== cardId)
+          .reduce((sum, c) => sum + c.quantity, 0)
+        effectiveMax = 12 - otherRunesQty
+      } else {
+        const otherSameNameQty = prev.filter(c => c.name?.toLowerCase() === existing.name?.toLowerCase() && c.cardId !== cardId)
+          .reduce((sum, c) => sum + c.quantity, 0)
+        effectiveMax = maxQty - otherSameNameQty
+      }
+
       const newQty = Math.max(1, Math.min(effectiveMax, quantity))
 
       return prev.map(c =>
