@@ -168,9 +168,35 @@ export const deckService = {
   },
 
   // Format deck to TCG Live export string (standardized format with sections)
-  formatToTCGLive: (cards) => {
+  /**
+   * Format deck cards for export
+   * - Pokemon TCG: TCG Live format with headers (Pokémon:, Trainer:, Energy:)
+   * - Riftbound: Simple format "<qty> <card name>" without headers
+   *
+   * @param {Array} cards - Array of deck cards
+   * @param {string} tcgSystem - 'pokemon' or 'riftbound'
+   */
+  formatToTCGLive: (cards, tcgSystem = 'pokemon') => {
     const lines = []
 
+    // Riftbound: Simple format without headers (#174)
+    if (tcgSystem === 'riftbound') {
+      // Order: Legend, Main Deck, Battlefields, Runes
+      const legend = cards.filter(c => c.cardType === 'Legend')
+      const battlefields = cards.filter(c => c.cardType === 'Battlefield')
+      const runes = cards.filter(c => c.cardType === 'Rune')
+      const mainDeck = cards.filter(c => !['Legend', 'Battlefield', 'Rune'].includes(c.cardType))
+
+      // Format: "qty name"
+      legend.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+      mainDeck.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+      battlefields.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+      runes.forEach(c => lines.push(`${c.quantity} ${c.name}`))
+
+      return lines.join('\n').trim()
+    }
+
+    // Pokemon TCG: TCG Live format with headers
     // Helper to normalize supertype
     const normalizeType = (type) => {
       if (!type) return 'other'

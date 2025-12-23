@@ -447,7 +447,7 @@ const DeckBuilder = () => {
   }
 
   const handleExport = () => {
-    const exportText = deckService.formatToTCGLive(cards)
+    const exportText = deckService.formatToTCGLive(cards, tcgSystem)
     navigator.clipboard.writeText(exportText)
     alert(language === 'es' ? 'Copiado al portapapeles' : 'Copied to clipboard')
   }
