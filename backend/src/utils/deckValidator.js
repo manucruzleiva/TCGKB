@@ -98,6 +98,11 @@ function isBasicPokemon(card) {
 
   const supertype = card.supertype?.toLowerCase() || ''
 
+  // Debug logging for cards without supertype
+  if (!card.supertype) {
+    log.warn(MODULE, `Card missing supertype in Basic Pokemon check: ${card.name} (${card.cardId})`)
+  }
+
   // Must be a Pokemon
   if (supertype !== 'pokémon' && supertype !== 'pokemon') return false
 
@@ -128,9 +133,11 @@ function isBasicPokemon(card) {
     }
 
     // If no evolves info and no evolved subtype markers, assume Basic
+    log.info(MODULE, `Strategy 3: Detected Basic Pokemon (no evolvesFrom): ${card.name} (${card.cardId})`)
     return true
   }
 
+  log.info(MODULE, `Not detected as Basic Pokemon: ${card.name} (${card.cardId}) - has evolvesFrom or failed checks`)
   return false
 }
 
