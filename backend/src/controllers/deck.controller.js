@@ -1044,8 +1044,13 @@ export const parseDeck = async (req, res) => {
       enrichmentStats = enrichResult.stats
     }
 
-    // Use the validation from the parser (already includes format-specific rules)
-    const validation = result.validation
+    // Re-validate after enrichment for accurate Basic Pokemon detection
+    let validation = result.validation
+    if (enrich && result.tcg === 'pokemon') {
+      const revalidated = validateDeck(cards, result.tcg, result.format)
+      validation = revalidated.validation
+      log.info(MODULE, `Re-validated after enrichment: ${validation.isValid ? 'Valid' : 'Invalid'} (${validation.errors.length} errors)`)
+    }
 
     log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}${enrichmentStats ? `, Enriched=${enrichmentStats.enriched}/${enrichmentStats.total} in ${enrichmentStats.duration}ms` : ''}`)
 
