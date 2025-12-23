@@ -192,22 +192,55 @@ export function hasRuleBox(card) {
 
 /**
  * Check if a card is a Basic Pokemon.
- * Uses enriched subtypes for accurate detection.
+ * Uses multiple detection strategies for robustness.
  *
- * @param {Object} card - Enriched card with supertype and subtypes
+ * Detection strategy:
+ * 1. Check subtypes array for 'Basic' (case-insensitive)
+ * 2. Check evolutionStage field for 'Basic'
+ * 3. Fallback: Check if card has NO evolvesFrom field (likely Basic)
+ *
+ * @param {Object} card - Enriched card with supertype, subtypes, evolutionStage
  * @returns {boolean}
  */
 export function isBasicPokemon(card) {
   if (!card) return false
 
+  const supertype = card.supertype?.toLowerCase() || ''
+
   // Must be a Pokemon
-  if (card.supertype?.toLowerCase() !== 'pokémon' &&
-      card.supertype?.toLowerCase() !== 'pokemon') {
+  if (supertype !== 'pokémon' && supertype !== 'pokemon') {
     return false
   }
 
-  const subtypes = card.subtypes || []
-  return subtypes.includes('Basic')
+  // Strategy 1: Check subtypes array (case-insensitive)
+  if (card.subtypes && Array.isArray(card.subtypes)) {
+    const hasBasicSubtype = card.subtypes.some(subtype =>
+      typeof subtype === 'string' && subtype.toLowerCase() === 'basic'
+    )
+    if (hasBasicSubtype) return true
+  }
+
+  // Strategy 2: Check evolutionStage field
+  const evolutionStage = card.evolutionStage?.toLowerCase() || ''
+  if (evolutionStage === 'basic') return true
+
+  // Strategy 3: Fallback - Basic Pokemon typically have no evolvesFrom
+  if (!card.evolvesFrom && !card.evolves_from) {
+    // Exclude evolved Pokemon that might lack evolvesFrom in data
+    if (card.subtypes && Array.isArray(card.subtypes)) {
+      const evolvedTypes = card.subtypes.some(subtype => {
+        const lower = (subtype || '').toLowerCase()
+        return lower.includes('stage') || lower.includes('vmax') ||
+               lower.includes('vstar') || lower === 'ex' || lower === 'gx'
+      })
+      if (evolvedTypes) return false
+    }
+
+    // If no evolves info and no evolved subtype markers, assume Basic
+    return true
+  }
+
+  return false
 }
 
 /**
