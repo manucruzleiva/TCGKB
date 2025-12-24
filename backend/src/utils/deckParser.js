@@ -446,7 +446,7 @@ function detectRiftboundFormat(cards) {
 /**
  * Calculate deck breakdown by card type
  */
-function calculateBreakdown(cards, tcg) {
+export function calculateBreakdown(cards, tcg) {
   if (tcg === 'pokemon') {
     const breakdown = {
       pokemon: 0,
