@@ -1062,8 +1062,7 @@ export const parseDeck = async (req, res) => {
     // STEP 5: validateDeck() - Format & legality validation
     let validation = null
     if (validate) {
-      const validateResult = validateDeck(cards, result.tcg, result.format)
-      validation = validateResult.validation
+      validation = validateDeck(cards, result.tcg, result.format)
       log.info(MODULE, `STEP 5 (validateDeck): ${validation.isValid ? 'Valid' : 'Invalid'} (${validation.errors.length} errors, ${validation.warnings.length} warnings)`)
     }
 
@@ -1112,7 +1111,9 @@ export const parseDeck = async (req, res) => {
     log.error(MODULE, 'Parse deck failed', error)
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to parse deck'
+      message: process.env.NODE_ENV === 'production'
+        ? 'Failed to parse deck'
+        : error.message || 'Failed to parse deck'
     })
   }
 }
