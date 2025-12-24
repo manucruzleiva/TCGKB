@@ -94,11 +94,16 @@ class RiftboundTCGService {
   transformCard(card) {
     // Handle domain - can be array or string
     let domainValue = null
+    let domainsArray = []
+
     if (card.classification?.domain) {
       if (Array.isArray(card.classification.domain)) {
+        domainsArray = card.classification.domain
         domainValue = card.classification.domain.join(', ')
       } else {
         domainValue = card.classification.domain
+        // Convert string "Mind, Chaos" to array ["Mind", "Chaos"]
+        domainsArray = domainValue.split(',').map(d => d.trim())
       }
     }
 
@@ -122,7 +127,8 @@ class RiftboundTCGService {
       rarity: card.classification?.rarity || 'Common',
       type: card.classification?.type || 'Unknown',
       supertype: card.classification?.supertype || null,
-      domain: domainValue,
+      domain: domainValue, // String format "Mind, Chaos"
+      domains: domainsArray, // Array format ["Mind", "Chaos"] for filter compatibility
       attributes: {
         energy: card.attributes?.energy,
         might: card.attributes?.might,
