@@ -64,7 +64,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
   }
 
   const handleImport = async () => {
-    if (!parseResult || parseResult.cards.length === 0) return
+    if (!parseResult || !parseResult.cards || parseResult.cards.length === 0) return
 
     try {
       setImporting(true)
@@ -244,13 +244,13 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
                 </span>
 
                 {/* Input validation badge */}
-                {parseResult.inputValidation && (
+                {parseResult?.inputValidation && typeof parseResult.inputValidation.isValid !== 'undefined' && (
                   <span className={`px-2 py-0.5 rounded text-xs ${
-                    parseResult.inputValidation.isValid
+                    parseResult.inputValidation.isValid === true
                       ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
                       : 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300'
-                  }`} title={parseResult.inputValidation.isValid ? 'Input format valid' : `${parseResult.inputValidation.errors?.length || 0} validation errors`}>
-                    {parseResult.inputValidation.isValid ? '✓ Valid Input' : `⚠ ${parseResult.inputValidation.errors?.length || 0} errors`}
+                  }`} title={parseResult.inputValidation.isValid === true ? 'Input format valid' : `${parseResult.inputValidation.errors?.length || 0} validation errors`}>
+                    {parseResult.inputValidation.isValid === true ? '✓ Valid Input' : `⚠ ${parseResult.inputValidation.errors?.length || 0} errors`}
                   </span>
                 )}
               </div>
@@ -275,7 +275,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
               )}
 
               {/* Input Validation Errors (NEW) */}
-              {parseResult.inputValidation && !parseResult.inputValidation.isValid && parseResult.inputValidation.errors?.length > 0 && (
+              {parseResult?.inputValidation && parseResult.inputValidation.isValid === false && parseResult.inputValidation.errors?.length > 0 && (
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
                   <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
                     {language === 'es' ? 'Errores de formato de entrada' : 'Input Format Errors'}
@@ -314,7 +314,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
               {/* Stats preview */}
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                  {t('deckImport.preview')}: {parseResult.stats.totalCards} {t('deckImport.cards')}
+                  {t('deckImport.preview')}: {parseResult?.stats?.totalCards || 0} {t('deckImport.cards')}
                 </h3>
 
                 {/* Pokemon breakdown */}
@@ -348,16 +348,16 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
                     )}
 
                     {/* Visual bar */}
-                    {parseResult.stats.totalCards > 0 && (
+                    {(parseResult?.stats?.totalCards || 0) > 0 && (
                       <div className="mt-2 h-3 rounded-full overflow-hidden flex bg-gray-200 dark:bg-gray-600">
-                        {parseResult.breakdown.pokemon > 0 && (
-                          <div className="bg-blue-500" style={{ width: `${(parseResult.breakdown.pokemon / parseResult.stats.totalCards) * 100}%` }} />
+                        {(parseResult?.breakdown?.pokemon || 0) > 0 && (
+                          <div className="bg-blue-500" style={{ width: `${((parseResult?.breakdown?.pokemon || 0) / (parseResult?.stats?.totalCards || 1)) * 100}%` }} />
                         )}
-                        {parseResult.breakdown.trainer > 0 && (
-                          <div className="bg-purple-500" style={{ width: `${(parseResult.breakdown.trainer / parseResult.stats.totalCards) * 100}%` }} />
+                        {(parseResult?.breakdown?.trainer || 0) > 0 && (
+                          <div className="bg-purple-500" style={{ width: `${((parseResult?.breakdown?.trainer || 0) / (parseResult?.stats?.totalCards || 1)) * 100}%` }} />
                         )}
-                        {parseResult.breakdown.energy > 0 && (
-                          <div className="bg-yellow-500" style={{ width: `${(parseResult.breakdown.energy / parseResult.stats.totalCards) * 100}%` }} />
+                        {(parseResult?.breakdown?.energy || 0) > 0 && (
+                          <div className="bg-yellow-500" style={{ width: `${((parseResult?.breakdown?.energy || 0) / (parseResult?.stats?.totalCards || 1)) * 100}%` }} />
                         )}
                       </div>
                     )}
@@ -511,7 +511,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
           </button>
           <button
             onClick={handleImport}
-            disabled={!parseResult || parseResult.cards.length === 0 || importing || parsing}
+            disabled={!parseResult || !parseResult?.cards || parseResult.cards.length === 0 || importing || parsing}
             className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50 flex items-center gap-2 transition-colors"
           >
             {importing && <Spinner size="sm" />}
