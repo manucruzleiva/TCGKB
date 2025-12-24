@@ -675,6 +675,13 @@ export function parseDeckString(deckString) {
       error: 'No deck string provided',
       tcg: null,
       format: null,
+      inputFormat: null,
+      inputValidation: {
+        isValid: false,
+        errors: [{ line: '', error: 'No deck string provided' }],
+        inputFormat: 'unknown',
+        stats: { validLines: 0, totalLines: 0 }
+      },
       cards: [],
       errors: []
     }
@@ -687,6 +694,13 @@ export function parseDeckString(deckString) {
       error: 'Empty deck string',
       tcg: null,
       format: null,
+      inputFormat: null,
+      inputValidation: {
+        isValid: false,
+        errors: [{ line: '', error: 'Empty deck string' }],
+        inputFormat: 'unknown',
+        stats: { validLines: 0, totalLines: 0 }
+      },
       cards: [],
       errors: []
     }
@@ -712,8 +726,11 @@ export function parseDeckString(deckString) {
       success: false,
       error: 'Could not parse any cards from the input',
       tcg,
+      tcgConfidence,
+      tcgReasons,
       format: null,
       inputFormat: validation.inputFormat,
+      inputValidation: validation,
       cards: [],
       errors: [...validation.errors, ...parseErrors]
     }
