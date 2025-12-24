@@ -41,15 +41,39 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
         setParseError(null)
         const response = await deckService.parseDeck(deckText, selectedFormat)
 
+        // Normalize response data to always have inputValidation
+        const normalizedData = response.data ? {
+          ...response.data,
+          inputValidation: response.data.inputValidation || {
+            isValid: false,
+            errors: [],
+            inputFormat: 'unknown',
+            stats: { validLines: 0, totalLines: 0 }
+          }
+        } : null
+
         if (response.success) {
-          setParseResult(response.data)
+          setParseResult(normalizedData)
         } else {
           setParseError(response.message || t('deckImport.parseError'))
-          setParseResult(null)
+          setParseResult(normalizedData) // Keep partial data even on error
         }
       } catch (error) {
-        setParseError(error.response?.data?.message || t('deckImport.parseError'))
-        setParseResult(null)
+        const errorData = error.response?.data
+
+        // Normalize error response data
+        const normalizedData = errorData?.data ? {
+          ...errorData.data,
+          inputValidation: errorData.data.inputValidation || {
+            isValid: false,
+            errors: [],
+            inputFormat: 'unknown',
+            stats: { validLines: 0, totalLines: 0 }
+          }
+        } : null
+
+        setParseError(errorData?.message || error.message || t('deckImport.parseError'))
+        setParseResult(normalizedData) // Keep partial data even on error
       } finally {
         setParsing(false)
       }
@@ -244,13 +268,13 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
                 </span>
 
                 {/* Input validation badge */}
-                {parseResult?.inputValidation && typeof parseResult.inputValidation.isValid !== 'undefined' && (
+                {parseResult?.inputValidation && (
                   <span className={`px-2 py-0.5 rounded text-xs ${
-                    parseResult.inputValidation.isValid === true
+                    parseResult.inputValidation.isValid
                       ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
                       : 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300'
-                  }`} title={parseResult.inputValidation.isValid === true ? 'Input format valid' : `${parseResult.inputValidation.errors?.length || 0} validation errors`}>
-                    {parseResult.inputValidation.isValid === true ? '✓ Valid Input' : `⚠ ${parseResult.inputValidation.errors?.length || 0} errors`}
+                  }`} title={parseResult.inputValidation.isValid ? 'Input format valid' : `${parseResult.inputValidation.errors?.length || 0} validation errors`}>
+                    {parseResult.inputValidation.isValid ? '✓ Valid Input' : `⚠ ${parseResult.inputValidation.errors?.length || 0} errors`}
                   </span>
                 )}
               </div>
@@ -275,7 +299,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
               )}
 
               {/* Input Validation Errors (NEW) */}
-              {parseResult?.inputValidation && parseResult.inputValidation.isValid === false && parseResult.inputValidation.errors?.length > 0 && (
+              {parseResult?.inputValidation && !parseResult.inputValidation.isValid && parseResult.inputValidation.errors?.length > 0 && (
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
                   <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
                     {language === 'es' ? 'Errores de formato de entrada' : 'Input Format Errors'}
