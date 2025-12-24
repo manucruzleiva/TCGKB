@@ -423,7 +423,7 @@ function detectRiftboundFormat(cards) {
   // Riftbound Constructed: 40 main + 1 legend + 3 battlefield + 12 runes
   const runes = cards.filter(c => c.name?.toLowerCase().includes('rune'))
   const battlefields = cards.filter(c => /battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(c.name || ''))
-  const legends = cards.filter(c => c.cardType === 'Legend')
+  const legends = cards.filter(c => (c.type || c.cardType) === 'Legend')
 
   const runeCount = runes.reduce((sum, c) => sum + c.quantity, 0)
   const battlefieldCount = battlefields.reduce((sum, c) => sum + c.quantity, 0)
@@ -482,14 +482,25 @@ export function calculateBreakdown(cards, tcg) {
 
     cards.forEach(card => {
       const name = card.name || ''
-      if (name.toLowerCase().includes('rune')) {
-        breakdown.rune += card.quantity
-      } else if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) {
-        breakdown.battlefield += card.quantity
-      } else if (card.cardType === 'Legend') {
+      const cardType = card.type || card.cardType // Use enriched 'type' field or fallback to 'cardType'
+
+      if (cardType === 'Legend') {
         breakdown.legend += card.quantity
-      } else {
+      } else if (cardType === 'Rune' || name.toLowerCase().includes('rune')) {
+        breakdown.rune += card.quantity
+      } else if (cardType === 'Battlefield' || /battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) {
+        breakdown.battlefield += card.quantity
+      } else if (cardType === 'Unit' || cardType === 'Spell' || cardType === 'Gear') {
         breakdown.mainDeck += card.quantity
+      } else {
+        // If no type detected, use name-based fallback
+        if (name.toLowerCase().includes('rune')) {
+          breakdown.rune += card.quantity
+        } else if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) {
+          breakdown.battlefield += card.quantity
+        } else {
+          breakdown.mainDeck += card.quantity
+        }
       }
     })
 
