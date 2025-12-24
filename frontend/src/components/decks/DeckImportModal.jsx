@@ -44,12 +44,23 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
         if (response.success) {
           setParseResult(response.data)
         } else {
+          // Even on failure, we might have partial data (tcg, inputFormat, errors)
+          if (response.data) {
+            setParseResult(response.data)
+          } else {
+            setParseResult(null)
+          }
           setParseError(response.message || t('deckImport.parseError'))
-          setParseResult(null)
         }
       } catch (error) {
-        setParseError(error.response?.data?.message || t('deckImport.parseError'))
-        setParseResult(null)
+        // Handle API error response - might contain partial parse data
+        const errorData = error.response?.data
+        if (errorData?.data) {
+          setParseResult(errorData.data)
+        } else {
+          setParseResult(null)
+        }
+        setParseError(errorData?.message || error.response?.data?.message || t('deckImport.parseError'))
       } finally {
         setParsing(false)
       }
@@ -244,7 +255,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
                 </span>
 
                 {/* Input validation badge */}
-                {parseResult.inputValidation && (
+                {parseResult?.inputValidation && (
                   <span className={`px-2 py-0.5 rounded text-xs ${
                     parseResult.inputValidation.isValid
                       ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
@@ -256,7 +267,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
               </div>
 
               {/* TCG Detection Reasons (NEW) */}
-              {parseResult.tcgReasons && parseResult.tcgReasons.length > 0 && (
+              {parseResult?.tcgReasons && parseResult.tcgReasons.length > 0 && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
                   <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
                     {language === 'es' ? 'Detección de TCG' : 'TCG Detection'}
@@ -266,7 +277,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
                       <li key={idx}>• {reason}</li>
                     ))}
                   </ul>
-                  {parseResult.formatReason && (
+                  {parseResult?.formatReason && (
                     <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                       <strong>{language === 'es' ? 'Formato:' : 'Format:'}</strong> {parseResult.formatReason}
                     </p>
@@ -275,7 +286,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
               )}
 
               {/* Input Validation Errors (NEW) */}
-              {parseResult.inputValidation && !parseResult.inputValidation.isValid && parseResult.inputValidation.errors?.length > 0 && (
+              {parseResult?.inputValidation && !parseResult.inputValidation.isValid && parseResult.inputValidation.errors?.length > 0 && (
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
                   <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
                     {language === 'es' ? 'Errores de formato de entrada' : 'Input Format Errors'}
