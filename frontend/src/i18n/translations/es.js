@@ -387,16 +387,6 @@ export const es = {
       installButton: 'Instalar App',
       dismissButton: 'Ahora no'
     }
-  },
-
-  // PWA Updates
-  pwa: {
-    update: {
-      title: '¡Nueva versión disponible!',
-      description: 'Actualiza para obtener las últimas mejoras y correcciones',
-      updateButton: 'Actualizar ahora',
-      dismissButton: 'Más tarde'
-    }
   }
 }
 

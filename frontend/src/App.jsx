@@ -9,7 +9,6 @@ import Header from './components/layout/Header'
 import Footer from './components/layout/Footer'
 import OfflineBanner from './components/common/OfflineBanner'
 import InstallPrompt from './components/common/InstallPrompt'
-import UpdatePrompt from './components/common/UpdatePrompt'
 import Home from './pages/Home'
 import CardDetails from './pages/CardDetails'
 import Login from './pages/Login'
@@ -41,7 +40,6 @@ function App() {
                   <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 transition-colors">
                     <OfflineBanner />
                     <InstallPrompt />
-                    <UpdatePrompt />
                     <Header />
                     <main className="flex-1 container mx-auto px-4 py-8">
                       <Routes>

@@ -8,141 +8,82 @@
 
 ## Summary
 
-Sistema completo de actualización de PWA con notificaciones al usuario y diferenciación entre entorno de producción y staging.
+Sistema completo de actualización automática de PWA y diferenciación entre entorno de producción y staging.
 
 **Características:**
-- UpdatePrompt component para notificar actualizaciones
-- Control manual de actualizaciones (no auto-update)
+- Actualizaciones automáticas transparentes (auto skipWaiting)
+- Sin notificaciones al usuario (actualizaciones en background)
 - Manifest diferenciado para staging (nombre, color, iconos)
 - Scripts para generar iconos en grayscale
-- Soporte i18n completo (ES/EN)
+- Instalación y actualizaciones completamente automáticas
 
 ---
 
 ## 1. Cómo Funcionan las Actualizaciones de PWA
 
-### Flujo Completo
+### Flujo Completo (Auto-Update)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. Usuario Abre PWA Instalada                                   │
+│    - Usuario navega normalmente                                 │
+│    - No ve ningún banner o notificación                         │
 └──────────────────┬──────────────────────────────────────────────┘
                    │
                    v
 ┌─────────────────────────────────────────────────────────────────┐
-│ 2. Navegador Revisa sw.js en el Servidor                        │
+│ 2. Navegador Revisa sw.js en el Servidor (Background)           │
 │    - Compara byte-por-byte con SW instalado                     │
 │    - Detecta cambio en CACHE_VERSION                            │
+│    - Descarga nuevo sw.js                                       │
 └──────────────────┬──────────────────────────────────────────────┘
                    │
                    v
 ┌─────────────────────────────────────────────────────────────────┐
-│ 3. Nuevo SW Descargado → Estado "waiting"                       │
-│    - SW antiguo sigue activo                                    │
-│    - Nuevo SW espera permiso para activarse                     │
+│ 3. Nuevo SW Instalado → skipWaiting() Automático                │
+│    - self.skipWaiting() se ejecuta en install event             │
+│    - Nuevo SW toma control inmediatamente                       │
+│    - NO espera que usuario cierre pestañas                      │
 └──────────────────┬──────────────────────────────────────────────┘
                    │
                    v
 ┌─────────────────────────────────────────────────────────────────┐
-│ 4. UpdatePrompt Detecta Nuevo SW                                │
-│    - Escucha evento 'updatefound'                               │
-│    - Muestra banner: "¡Nueva versión disponible!"               │
+│ 4. Activate Event → clients.claim()                             │
+│    - Nuevo SW limpia caches antiguos                            │
+│    - Toma control de todas las páginas abiertas                 │
 └──────────────────┬──────────────────────────────────────────────┘
                    │
-          ┌────────┴────────┐
-          │                 │
-          v                 v
-    ┌─────────┐       ┌──────────┐
-    │ Usuario │       │ Usuario  │
-    │ Click   │       │ Dismiss  │
-    │ Update  │       │          │
-    └────┬────┘       └─────┬────┘
-         │                  │
-         v                  v
-┌──────────────────┐  ┌──────────────────┐
-│ 5a. postMessage  │  │ 5b. No Action    │
-│ SKIP_WAITING     │  │ - SW sigue       │
-│                  │  │   esperando      │
-└────────┬─────────┘  │ - Banner se      │
-         │            │   oculta 24h     │
-         v            └──────────────────┘
-┌──────────────────┐
-│ 6. SW.skipWaiting│
-│    clients.claim │
-└────────┬─────────┘
-         │
-         v
-┌──────────────────┐
-│ 7. controllerchange
-│    → Page Reload │
-└────────┬─────────┘
-         │
-         v
-┌──────────────────┐
-│ 8. App Actualizada
-│    SW v1.2.0    │
-└──────────────────┘
+                   v
+┌─────────────────────────────────────────────────────────────────┐
+│ 5. Navegación Siguiente                                         │
+│    - Usuario hace click en link o recarga página               │
+│    - Nueva versión se carga automáticamente                     │
+│    - Proceso es transparente, sin interrupciones                │
+└──────────────────┬──────────────────────────────────────────────┘
+                   │
+                   v
+┌─────────────────────────────────────────────────────────────────┐
+│ 6. App Actualizada Silenciosamente ✨                           │
+│    - Usuario usa nueva versión sin darse cuenta                 │
+│    - SW v1.2.0 → v1.3.0 de forma transparente                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Diferencias con Auto-Update
+### Ventajas del Auto-Update
 
-| Aspecto | Auto-Update (skipWaiting) | Manual Update (Nuestra Implementación) |
-|---------|---------------------------|----------------------------------------|
-| **Activación** | Inmediata al detectar | Espera confirmación del usuario |
-| **Control** | Ninguno | Usuario decide cuándo |
-| **UX** | Posibles errores si HTML/JS no coinciden | Actualización controlada |
-| **Banner** | No se muestra | UpdatePrompt visible |
-| **Timing** | Al reabrir app (todas las pestañas cerradas) | Cuando usuario hace click |
+| Aspecto | Beneficio |
+|---------|-----------|
+| **Transparente** | Usuario no ve banners ni notificaciones |
+| **Automático** | Siempre tiene la última versión sin intervención |
+| **Simple** | No requiere componente UpdatePrompt ni UI adicional |
+| **Rápido** | Actualización inmediata sin esperar cierre de pestañas |
+| **UX Limpia** | Sin interrupciones visuales o decisiones que tomar |
 
 ---
 
 ## 2. Componentes del Sistema
 
-### 2.1 UpdatePrompt Component
-
-**Archivo:** [frontend/src/components/common/UpdatePrompt.jsx](../../frontend/src/components/common/UpdatePrompt.jsx)
-
-**Responsabilidades:**
-1. Detectar nuevos Service Workers
-2. Mostrar banner de notificación
-3. Enviar mensaje SKIP_WAITING
-4. Recargar página al activarse nuevo SW
-
-**API:**
-
-```javascript
-// Detectar update disponible
-navigator.serviceWorker.getRegistration().then(reg => {
-  reg.addEventListener('updatefound', () => {
-    const newWorker = reg.installing
-    newWorker.addEventListener('statechange', () => {
-      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-        setUpdateAvailable(true) // Mostrar banner
-      }
-    })
-  })
-})
-
-// Activar actualización
-registration.waiting.postMessage({ type: 'SKIP_WAITING' })
-
-// Recargar cuando nuevo SW toma control
-navigator.serviceWorker.addEventListener('controllerchange', () => {
-  window.location.reload()
-})
-```
-
-**Estados:**
-- `updateAvailable: false` - Sin actualización, banner oculto
-- `updateAvailable: true` - Actualización detectada, banner visible
-- Después de click "Update" - Banner oculto, recarga automática
-
-**Cooldown:**
-- Dismiss guarda timestamp en localStorage
-- No vuelve a mostrar por 24 horas
-- Permite que usuarios pospongan la actualización
-
-### 2.2 Service Worker Message Handler
+### 2.1 Service Worker con Auto-Update
 
 **Archivo:** [frontend/public/sw.js](../../frontend/public/sw.js)
 
@@ -151,20 +92,35 @@ navigator.serviceWorker.addEventListener('controllerchange', () => {
 ```javascript
 // install event (línea 26)
 self.addEventListener('install', (event) => {
-  // NO hace skipWaiting() aquí
-  // Espera mensaje del UpdatePrompt
-})
+  console.log('[SW] Installing service worker', CACHE_VERSION);
 
-// message event (línea ~275)
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting() // Activa el nuevo SW
-  }
+  event.waitUntil(
+    caches.open(STATIC_CACHE).then((cache) => {
+      return cache.addAll(STATIC_ASSETS);
+    })
+  );
+
+  // Auto-activate new service worker immediately
+  self.skipWaiting(); // ✨ Clave para auto-update
 })
 
 // activate event (línea 41)
 self.addEventListener('activate', (event) => {
-  self.clients.claim() // Toma control inmediatamente
+  console.log('[SW] Activating service worker', CACHE_VERSION);
+
+  // Cleanup old caches
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((name) => name.startsWith('tcgkb-') && !name.includes(CACHE_VERSION))
+          .map((name) => caches.delete(name))
+      );
+    })
+  );
+
+  // Take control immediately of all pages
+  self.clients.claim(); // ✨ Clave para tomar control sin recargar
 })
 ```
 
@@ -180,23 +136,28 @@ const FONTS_CACHE = `tcgkb-fonts-v${CACHE_VERSION}`;
 
 Cada vez que se incrementa `CACHE_VERSION`, el navegador detecta cambio y descarga el nuevo SW.
 
-### 2.3 App Integration
+### 2.2 Registro del Service Worker
 
-**Archivo:** [frontend/src/App.jsx](../../frontend/src/App.jsx)
+**Archivo:** [frontend/src/main.jsx](../../frontend/src/main.jsx)
+
+El Service Worker se registra al cargar la aplicación:
 
 ```javascript
-import UpdatePrompt from './components/common/UpdatePrompt'
-
-<div className="min-h-screen">
-  <OfflineBanner />
-  <InstallPrompt />
-  <UpdatePrompt /> {/* Nuevo */}
-  <Header />
-  // ...
-</div>
+// Register service worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        console.log('[PWA] Service Worker registered');
+      })
+      .catch(error => {
+        console.error('[PWA] Service Worker registration failed:', error);
+      });
+  });
+}
 ```
 
-El UpdatePrompt se monta al inicio y escucha eventos del Service Worker durante toda la sesión.
+Con `skipWaiting()` y `clients.claim()`, no se requiere ningún componente UI adicional.
 
 ---
 

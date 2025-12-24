@@ -33,8 +33,8 @@ self.addEventListener('install', (event) => {
     })
   );
 
-  // Don't auto-activate - wait for user confirmation via UpdatePrompt
-  // self.skipWaiting() is now triggered by message event
+  // Auto-activate new service worker immediately
+  self.skipWaiting();
 });
 
 // Activate event - cleanup old caches
