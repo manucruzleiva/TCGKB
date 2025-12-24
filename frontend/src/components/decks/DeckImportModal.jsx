@@ -244,13 +244,13 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
                 </span>
 
                 {/* Input validation badge */}
-                {parseResult.inputValidation && (
+                {parseResult?.inputValidation && typeof parseResult.inputValidation.isValid !== 'undefined' && (
                   <span className={`px-2 py-0.5 rounded text-xs ${
-                    parseResult.inputValidation.isValid
+                    parseResult.inputValidation.isValid === true
                       ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
                       : 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300'
-                  }`} title={parseResult.inputValidation.isValid ? 'Input format valid' : `${parseResult.inputValidation.errors?.length || 0} validation errors`}>
-                    {parseResult.inputValidation.isValid ? '✓ Valid Input' : `⚠ ${parseResult.inputValidation.errors?.length || 0} errors`}
+                  }`} title={parseResult.inputValidation.isValid === true ? 'Input format valid' : `${parseResult.inputValidation.errors?.length || 0} validation errors`}>
+                    {parseResult.inputValidation.isValid === true ? '✓ Valid Input' : `⚠ ${parseResult.inputValidation.errors?.length || 0} errors`}
                   </span>
                 )}
               </div>
@@ -275,7 +275,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
               )}
 
               {/* Input Validation Errors (NEW) */}
-              {parseResult.inputValidation && !parseResult.inputValidation.isValid && parseResult.inputValidation.errors?.length > 0 && (
+              {parseResult?.inputValidation && parseResult.inputValidation.isValid === false && parseResult.inputValidation.errors?.length > 0 && (
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
                   <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
                     {language === 'es' ? 'Errores de formato de entrada' : 'Input Format Errors'}
