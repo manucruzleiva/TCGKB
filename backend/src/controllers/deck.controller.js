@@ -1024,18 +1024,24 @@ export const parseDeck = async (req, res) => {
       })
     }
 
-    // Parse with optional format override
+    // NEW 5-STEP FLOW:
+    // STEP 1: checkTCG() - Already done in parseDeckString
+    // STEP 2: validateInput() - Already done in parseDeckString
+    // STEP 3: parseCards() - Already done in parseDeckString
     const result = parseDeckString(deckString, format)
 
     if (!result.success) {
       return res.status(400).json({
         success: false,
         message: result.error,
-        errors: result.errors
+        errors: result.errors,
+        tcg: result.tcg,
+        inputFormat: result.inputFormat,
+        inputValidation: result.inputValidation
       })
     }
 
-    // Enrich cards with metadata from CardCache (for accurate validation)
+    // STEP 4: categorizeCards() - Enrich with metadata from CardCache
     let cards = result.cards
     let enrichmentStats = null
 
@@ -1043,47 +1049,63 @@ export const parseDeck = async (req, res) => {
       const enrichResult = await enrichDeckCards(result.cards, result.tcg)
       cards = enrichResult.cards
       enrichmentStats = enrichResult.stats
+      log.info(MODULE, `STEP 4 (categorizeCards): Enriched ${enrichmentStats.enriched}/${enrichmentStats.total} cards in ${enrichmentStats.duration}ms`)
     }
 
-    // Re-validate and re-calculate breakdown after enrichment for accurate detection
-    let validation = result.validation
+    // Re-calculate breakdown after enrichment for accurate categorization
     let breakdown = result.breakdown
-
     if (enrich) {
-      // Re-calculate breakdown with enriched data (always, for all TCGs)
       breakdown = calculateBreakdown(cards, result.tcg)
-
-      // Re-validate with enriched data (Pokemon only, for accurate Basic Pokemon detection)
-      if (result.tcg === 'pokemon') {
-        const revalidated = validateDeck(cards, result.tcg, result.format)
-        validation = revalidated.validation
-        log.info(MODULE, `Re-validated after enrichment: ${validation.isValid ? 'Valid' : 'Invalid'} (${validation.errors.length} errors)`)
-      }
-
       log.info(MODULE, `Re-calculated breakdown after enrichment: ${JSON.stringify(breakdown)}`)
     }
 
-    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}${enrichmentStats ? `, Enriched=${enrichmentStats.enriched}/${enrichmentStats.total} in ${enrichmentStats.duration}ms` : ''}`)
+    // STEP 5: validateDeck() - Format & legality validation
+    let validation = null
+    if (validate) {
+      const validateResult = validateDeck(cards, result.tcg, result.format)
+      validation = validateResult.validation
+      log.info(MODULE, `STEP 5 (validateDeck): ${validation.isValid ? 'Valid' : 'Invalid'} (${validation.errors.length} errors, ${validation.warnings.length} warnings)`)
+    }
+
+    log.info(MODULE, `Deck parsed successfully: ${result.stats.uniqueCards} cards (${result.stats.totalCards} total), TCG=${result.tcg} (${result.tcgConfidence}%), Format=${result.format} (${result.formatConfidence}%), InputFormat=${result.inputFormat}, Valid=${validation?.isValid ?? 'N/A'}`)
 
     res.status(200).json({
       success: true,
       data: {
+        // TCG Detection (Step 1)
         tcg: result.tcg,
+        tcgConfidence: result.tcgConfidence,
+        tcgReasons: result.tcgReasons,
+
+        // Format Detection
         format: result.format,
-        autoDetectedFormat: result.autoDetectedFormat,
-        isFormatOverride: result.isFormatOverride,
         formatConfidence: result.formatConfidence,
-        formatReasons: result.formatReasons,
+        formatReason: result.formatReason,
+
+        // Input Validation (Step 2)
         inputFormat: result.inputFormat,
+        inputValidation: result.inputValidation,
+
+        // Parsed & Enriched Cards (Step 3 & 4)
         cards,
-        reprintGroups: result.reprintGroups,
+
+        // Categorization (Step 4)
         breakdown,
+
+        // Validation (Step 5)
+        validation,
+
+        // Stats
         stats: {
-          ...result.stats,
+          totalCards: result.stats.totalCards,
+          uniqueCards: result.stats.uniqueCards,
+          validLines: result.stats.validLines,
+          totalLines: result.stats.totalLines,
           enrichment: enrichmentStats
         },
-        warnings: result.warnings,
-        validation
+
+        // Errors from parsing
+        errors: result.errors
       }
     })
   } catch (error) {

@@ -1,8 +1,8 @@
 // Service Worker for TCG Knowledge Base PWA
-// Version: 1.1.0
+// Version: 1.2.0
 
 // Cache names
-const CACHE_VERSION = '1.1.0';
+const CACHE_VERSION = '1.2.0';
 const STATIC_CACHE = `tcgkb-static-v${CACHE_VERSION}`;
 const IMAGES_CACHE = `tcgkb-images-v${CACHE_VERSION}`;
 const API_CACHE = `tcgkb-api-v${CACHE_VERSION}`;
@@ -33,7 +33,7 @@ self.addEventListener('install', (event) => {
     })
   );
 
-  // Force immediate activation
+  // Auto-activate new service worker immediately
   self.skipWaiting();
 });
 

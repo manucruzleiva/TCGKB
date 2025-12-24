@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pokemon TCG Metal Energy - Source: Bulbapedia -->
+  <circle cx="50" cy="50" r="48" fill="#B8B8D0"/>
+  <polygon points="50,15 25,35 25,65 50,85 75,65 75,35" fill="white"/>
+  <polygon points="50,30 35,42 35,58 50,70 65,58 65,42" fill="#B8B8D0"/>
+</svg>
