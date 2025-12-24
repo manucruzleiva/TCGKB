@@ -263,6 +263,452 @@
 
 ---
 
+## Data Flow Diagrams
+
+### Deck Import Flow (Detailed)
+
+Este diagrama muestra el flujo completo del proceso de importación de mazos, desde el input del usuario hasta la validación final.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        DECK IMPORT FLOW (DETAILED)                           │
+│                        parseDeck() Controller Function                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+INPUT: deckString (user paste)
+│
+├─────────────────────────────────────────────────────────────────────────────┤
+│ STEP 1: checkTCG() - TCG Detection                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Analyzes raw input text to determine Pokemon TCG vs Riftbound              │
+│                                                                              │
+│  Detection Methods:                                                          │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ 1. Keyword Analysis                                                    │ │
+│  │    Pokemon Keywords:                                                   │ │
+│  │      • 'pikachu', 'charizard', 'pokemon', 'trainer', 'energy'         │ │
+│  │      • 'supporter', 'item', 'stadium', 'basic', 'stage 1'             │ │
+│  │      • 'ex', 'vstar', 'vmax', 'gx', 'radiant', 'ace spec'             │ │
+│  │                                                                         │ │
+│  │    Riftbound Keywords:                                                 │ │
+│  │      • 'rune', 'legend', 'battlefield'                                 │ │
+│  │      • 'fury', 'calm', 'mind', 'body', 'order', 'chaos' (domains)     │ │
+│  │      • 'leona', 'clockwork'                                            │ │
+│  │                                                                         │ │
+│  │ 2. Format Structure Detection                                          │ │
+│  │    Pokemon TCG Live: Section headers (Pokémon:, Trainer:, Energy:)   │ │
+│  │    Pokemon Pocket: "Card Name x2" format                               │ │
+│  │    Riftbound: "1 Card Name" or "3 x Card Name" format                 │ │
+│  │                                                                         │ │
+│  │ 3. Scoring System                                                      │ │
+│  │    pokemonScore += 3 if has Pokemon keywords                           │ │
+│  │    riftboundScore += 3 if has Riftbound keywords                       │ │
+│  │    pokemonScore += 4 if has section headers                            │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  OUTPUT: tcg = 'pokemon' | 'riftbound'                                      │
+│          confidence: 0-100                                                   │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ STEP 2: validateInput() - Input Format Validation                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Validates that input conforms to expected TCG format patterns               │
+│                                                                              │
+│  For Pokemon TCG:                                                            │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ TCG Live Format:                                                       │ │
+│  │   ✅ Must have section headers (Pokémon:, Trainer:, Energy:)         │ │
+│  │   ✅ Lines must match: "quantity name setCode number"                │ │
+│  │   ✅ Example: "4 Pikachu ex SVI 057"                                  │ │
+│  │                                                                         │ │
+│  │ TCG Pocket Format:                                                     │ │
+│  │   ✅ Lines must match: "Name x#" or "Name (Set) x#"                   │ │
+│  │   ✅ Example: "Pikachu ex x2" or "Raichu (A1) x3"                     │ │
+│  │   ✅ At least 60% of lines must match pattern                         │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  For Riftbound TCG:                                                          │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ Riftbound Format:                                                      │ │
+│  │   ✅ Lines must match: "quantity Name" or "quantity x Name"           │ │
+│  │   ✅ Example: "1 Leona, Determined" or "3 x Clockwork Keeper"         │ │
+│  │   ✅ Should contain Rune/Battlefield/Legend cards                     │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  ERRORS:                                                                     │
+│    • "Line does not match expected format"                                  │
+│    • "Invalid quantity (must be 1-60)"                                      │
+│    • "Missing card name"                                                    │
+│    • "Unrecognized format for [TCG]"                                        │
+│                                                                              │
+│  OUTPUT: validationResult = { isValid, errors: [] }                         │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ STEP 3: parseCards() - Extract Card Data                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Extracts all card information from validated input                          │
+│                                                                              │
+│  Parsing Logic by Format:                                                   │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ Pokemon TCG Live Parser:                                               │ │
+│  │   Input:  "4 Pikachu ex SVI 057"                                       │ │
+│  │   Output: {                                                            │ │
+│  │     cardId: "svi-057",                                                 │ │
+│  │     name: "Pikachu ex",                                                │ │
+│  │     quantity: 4,                                                       │ │
+│  │     setCode: "svi",                                                    │ │
+│  │     setNumber: "057",                                                  │ │
+│  │     supertype: "Pokémon",  // From section header                     │ │
+│  │     originalLine: "4 Pikachu ex SVI 057"                               │ │
+│  │   }                                                                    │ │
+│  │                                                                         │ │
+│  │ Pokemon Pocket Parser:                                                 │ │
+│  │   Input:  "Pikachu ex (A1) x2"                                         │ │
+│  │   Output: {                                                            │ │
+│  │     cardId: "pikachu-ex-a1",                                           │ │
+│  │     name: "Pikachu ex",                                                │ │
+│  │     quantity: 2,                                                       │ │
+│  │     setCode: "A1",                                                     │ │
+│  │     supertype: null,  // Unknown in Pocket format                     │ │
+│  │     originalLine: "Pikachu ex (A1) x2"                                 │ │
+│  │   }                                                                    │ │
+│  │                                                                         │ │
+│  │ Riftbound Parser:                                                      │ │
+│  │   Input:  "1 Leona, Determined"                                        │ │
+│  │   Output: {                                                            │ │
+│  │     cardId: "riftbound-leona-determined",                              │ │
+│  │     name: "Leona, Determined",                                         │ │
+│  │     quantity: 1,                                                       │ │
+│  │     cardType: null,  // Will be enriched later                        │ │
+│  │     originalLine: "1 Leona, Determined"                                │ │
+│  │   }                                                                    │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  Duplicate Handling:                                                         │
+│    • If same cardId appears multiple times, quantities are COMBINED         │
+│    • Example: "2 Pikachu SVI 057" + "2 Pikachu SVI 057" = quantity: 4      │
+│                                                                              │
+│  OUTPUT: cards = [{ cardId, name, quantity, ... }]                          │
+│          parseErrors = [{ line, error }]                                    │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ STEP 4: categorizeCards() - Detailed Card Categorization                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Enriches cards with metadata from CardCache database for accurate typing    │
+│                                                                              │
+│  For Pokemon TCG:                                                            │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ Enrichment Process (enrichDeckCards):                                  │ │
+│  │   1. Extract all unique cardIds from parsed cards                      │ │
+│  │   2. Query CardCache: CardCache.find({ id: { $in: cardIds } })        │ │
+│  │   3. Match cached data to cards by fuzzy name matching                │ │
+│  │                                                                         │ │
+│  │ Enriched Fields:                                                       │ │
+│  │   • supertype: "Pokémon" | "Trainer" | "Energy"                       │ │
+│  │   • subtypes: ["Basic", "ex"] or ["Supporter"] or ["Basic"]           │ │
+│  │   • types: ["Electric"] (Pokemon type)                                 │ │
+│  │   • hp: 120 (for Pokemon)                                              │ │
+│  │   • attacks: [{ name, cost, damage }]                                  │ │
+│  │   • abilities: [{ name, text }]                                        │ │
+│  │   • regulationMark: "G" | "H" | "F" (for Standard validation)         │ │
+│  │   • imageSmall: "https://..."                                          │ │
+│  │                                                                         │ │
+│  │ Categorization Details:                                                │ │
+│  │   Pokemon Cards:                                                       │ │
+│  │     • Basic Pokemon: subtypes includes "Basic"                         │ │
+│  │     • Evolution: Stage 1, Stage 2                                      │ │
+│  │     • Special: ex, V, VSTAR, VMAX, GX, Radiant                        │ │
+│  │     • ACE SPEC: supertype="ACE SPEC" or name includes "ACE SPEC"      │ │
+│  │                                                                         │ │
+│  │   Trainer Cards:                                                       │ │
+│  │     • Supporter: subtypes includes "Supporter"                         │ │
+│  │     • Item: subtypes includes "Item"                                   │ │
+│  │     • Tool: subtypes includes "Tool" or "Pokémon Tool"                │ │
+│  │     • Stadium: subtypes includes "Stadium"                             │ │
+│  │                                                                         │ │
+│  │   Energy Cards:                                                        │ │
+│  │     • Basic Energy: name matches "Fire Energy", "Water Energy", etc.  │ │
+│  │     • Special Energy: All other Energy cards                           │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  For Riftbound TCG:                                                          │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ Enrichment Process (enrichDeckCards):                                  │ │
+│  │   1. Extract all unique cardIds                                        │ │
+│  │   2. Query CardCache: CardCache.find({ id: { $in: cardIds } })        │ │
+│  │   3. Match cached data to cards by fuzzy name matching                │ │
+│  │                                                                         │ │
+│  │ Enriched Fields:                                                       │ │
+│  │   • type: "Unit" | "Spell" | "Gear" (main deck card type)            │ │
+│  │   • cardType: "Legend" | "Battlefield" | "Rune"                       │ │
+│  │   • domains: ["Fury", "Calm"] (for Legend cards)                      │ │
+│  │   • cost: 3 (mana cost)                                                │ │
+│  │   • power: 4 (for Units)                                               │ │
+│  │   • imageSmall: "https://..."                                          │ │
+│  │                                                                         │ │
+│  │ Categorization Details:                                                │ │
+│  │   Main Deck Cards:                                                     │ │
+│  │     • Unit: type="Unit" (creatures with power/health)                 │ │
+│  │     • Spell: type="Spell" (instant/sorcery effects)                   │ │
+│  │     • Gear: type="Gear" (equipment/attachments)                       │ │
+│  │                                                                         │ │
+│  │   Special Cards:                                                       │ │
+│  │     • Legend: cardType="Legend" (1 per deck, defines domains)         │ │
+│  │     • Battlefield: cardType="Battlefield" (3 per deck)                │ │
+│  │     • Rune: cardType="Rune" (12 per deck, like mana)                  │ │
+│  │                                                                         │ │
+│  │   Domain Detection:                                                    │ │
+│  │     • Extract domains from Legend card                                 │ │
+│  │     • Example: Leona has ["Fury", "Order"]                            │ │
+│  │     • All main deck cards MUST match Legend's domains                 │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  Categorization Stats:                                                       │
+│    • enriched: 45/50 (number of cards found in cache)                       │
+│    • notFound: ["card-1", "card-2"] (cards not in database)                │
+│    • duration: 120ms (enrichment time)                                      │
+│                                                                              │
+│  OUTPUT: enrichedCards = [{ ...card, supertype, subtypes, types, ... }]    │
+│          enrichmentStats = { enriched, notFound, duration }                 │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ STEP 5: validateDeck() - Format & Legality Validation                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Validates deck against TCG format rules and detects game mode               │
+│                                                                              │
+│  Pokemon TCG Validation:                                                     │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ Format Detection (detectPokemonFormat):                                │ │
+│  │   • Analyzes deck composition to determine format                      │ │
+│  │                                                                         │ │
+│  │   Standard Format:                                                     │ │
+│  │     ✅ 60 cards total (minimum)                                       │ │
+│  │     ✅ Max 4 copies per card (60 for basic energy)                    │ │
+│  │     ✅ Valid regulation marks: F, G, H (changes per rotation)         │ │
+│  │     ✅ At least 1 Basic Pokemon                                       │ │
+│  │     ✅ Max 1 ACE SPEC card                                            │ │
+│  │     ✅ Max 1 Radiant Pokemon                                          │ │
+│  │                                                                         │ │
+│  │   Expanded Format:                                                     │ │
+│  │     ✅ 60 cards total (minimum)                                       │ │
+│  │     ✅ Max 4 copies per card (60 for basic energy)                    │ │
+│  │     ✅ All regulation marks valid (no rotation)                       │ │
+│  │     ✅ At least 1 Basic Pokemon                                       │ │
+│  │                                                                         │ │
+│  │   GLC (Gym Leader Challenge):                                          │ │
+│  │     ✅ Exactly 60 cards                                               │ │
+│  │     ✅ Singleton (1 copy per card, except basic energy)               │ │
+│  │     ✅ NO Rule Box Pokemon (ex, V, VSTAR, VMAX, Radiant)             │ │
+│  │     ✅ NO ACE SPEC cards                                              │ │
+│  │     ✅ Max 1 Professor card (Research/Juniper/Sycamore)              │ │
+│  │     ✅ Max 1 Boss card (Boss's Orders/Lysandre)                      │ │
+│  │                                                                         │ │
+│  │ Reprint Groups (Copy Limit Validation):                                │ │
+│  │   • Groups cards with same name (different prints)                     │ │
+│  │   • Example: "Pikachu ex SVI 057" + "Pikachu ex OBF 234"              │ │
+│  │   • Combined quantity must not exceed 4 (or format limit)             │ │
+│  │   • Basic Energy has unlimited copies (special exception)             │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  Riftbound TCG Validation:                                                   │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ Format Detection (detectRiftboundFormat):                              │ │
+│  │   • Currently only "Constructed" format supported                      │ │
+│  │                                                                         │ │
+│  │   Constructed Format:                                                  │ │
+│  │     ✅ Exactly 56 cards total:                                        │ │
+│  │        • 40 main deck (Units/Spells/Gear)                             │ │
+│  │        • 1 Legend                                                      │ │
+│  │        • 3 Battlefields                                                │ │
+│  │        • 12 Runes                                                      │ │
+│  │     ✅ Max 3 copies per non-rune card                                 │ │
+│  │     ✅ Singleton Legend (exactly 1)                                   │ │
+│  │     ✅ Domain restriction: All main deck cards must match            │ │
+│  │        Legend's domains                                                │ │
+│  │        Example: If Legend is Leona (Fury, Order), all cards           │ │
+│  │        must have Fury OR Order domain                                  │ │
+│  │                                                                         │ │
+│  │ Domain Validation:                                                     │ │
+│  │   1. Find Legend card in deck                                          │ │
+│  │   2. Extract Legend's domains (e.g., ["Fury", "Order"])              │ │
+│  │   3. For each main deck card:                                          │ │
+│  │      • Check if card.domains includes at least one Legend domain      │ │
+│  │      • Runes and Battlefields are exempt from domain check            │ │
+│  │   4. Report violations: cards that don't match Legend domains         │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  Validation Errors:                                                          │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ Pokemon Errors:                                                        │ │
+│  │   • errorCardCount: "Deck must have exactly 60 cards (currently 58)" │ │
+│  │   • errorCopyLimit: "Pikachu ex exceeds 4 copy limit (5/4)"          │ │
+│  │   • errorNoBasic: "Deck must have at least 1 Basic Pokémon"          │ │
+│  │   • errorAceSpec: "Deck can only have 1 ACE SPEC card (currently 2)" │ │
+│  │   • errorRadiant: "Deck can only have 1 Radiant Pokémon (2)"         │ │
+│  │   • errorRuleBox: "Rule Box Pokemon not allowed in GLC"               │ │
+│  │   • errorRegulationMark: "3 cards not legal in Standard (valid: F,G,H)│ │
+│  │                                                                         │ │
+│  │ Riftbound Errors:                                                      │ │
+│  │   • errorMainDeckCount: "Main deck must have 40 cards (currently 38)"│ │
+│  │   • errorLegendCount: "Deck must have exactly 1 Legend (currently 0)"│ │
+│  │   • errorBattlefieldCount: "Must have exactly 3 Battlefields (2)"    │ │
+│  │   • errorRuneCount: "Must have exactly 12 Runes (currently 10)"      │ │
+│  │   • errorCopyLimit: "Clockwork Keeper exceeds 3 copy limit (4/3)"    │ │
+│  │   • errorDomainRestriction: "5 cards don't match Legend's domains    │ │
+│  │     (Fury, Order)"                                                     │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  OUTPUT: validation = {                                                      │
+│            isValid: boolean,                                                 │
+│            errors: [...],                                                    │
+│            warnings: [...],                                                  │
+│            format: 'standard' | 'expanded' | 'glc' | 'constructed',        │
+│            confidence: 0-100,                                                │
+│            reason: "Why this format was detected"                            │
+│          }                                                                   │
+│                                                                              │
+│          breakdown = {                                                       │
+│            // Pokemon                                                        │
+│            pokemon: 12, trainer: 36, energy: 12, unknown: 0                 │
+│            // Riftbound                                                      │
+│            mainDeck: 40, legend: 1, battlefield: 3, rune: 12, unknown: 0   │
+│          }                                                                   │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ FINAL OUTPUT                                                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Response JSON:                                                              │
+│  {                                                                           │
+│    success: true,                                                            │
+│    data: {                                                                   │
+│      tcg: 'pokemon' | 'riftbound',                                          │
+│      format: 'standard' | 'expanded' | 'glc' | 'constructed',               │
+│      autoDetectedFormat: 'standard',  // What was auto-detected              │
+│      isFormatOverride: false,         // If user forced a format             │
+│      formatConfidence: 85,            // 0-100                               │
+│      formatReasons: ["60 cards", "Standard regulation marks"],               │
+│      inputFormat: 'pokemon-tcg-live', // Input parsing format                │
+│      cards: [                         // Enriched cards with metadata        │
+│        {                                                                     │
+│          cardId: "svi-057",                                                  │
+│          name: "Pikachu ex",                                                 │
+│          quantity: 4,                                                        │
+│          supertype: "Pokémon",                                              │
+│          subtypes: ["Basic", "ex"],                                          │
+│          types: ["Electric"],                                                │
+│          hp: 120,                                                            │
+│          imageSmall: "https://...",                                          │
+│          regulationMark: "G"                                                 │
+│        }                                                                     │
+│      ],                                                                      │
+│      reprintGroups: [                 // Cards grouped by name               │
+│        {                                                                     │
+│          name: "Pikachu ex",                                                 │
+│          cards: ["svi-057", "obf-234"],                                      │
+│          totalQuantity: 4,                                                   │
+│          exceedsLimit: false                                                 │
+│        }                                                                     │
+│      ],                                                                      │
+│      breakdown: {                     // Categorization summary              │
+│        pokemon: 12,                                                          │
+│        trainer: 36,                                                          │
+│        energy: 12                                                            │
+│      },                                                                      │
+│      stats: {                                                                │
+│        totalCards: 60,                                                       │
+│        uniqueCards: 15,                                                      │
+│        enrichment: {                                                         │
+│          enriched: 15,                                                       │
+│          notFound: 0,                                                        │
+│          duration: 120                                                       │
+│        }                                                                     │
+│      },                                                                      │
+│      validation: {                    // Final validation result             │
+│        isValid: true,                                                        │
+│        errors: [],                                                           │
+│        warnings: []                                                          │
+│      }                                                                       │
+│    }                                                                         │
+│  }                                                                           │
+│                                                                              │
+│  ERROR Response (if validation fails):                                       │
+│  {                                                                           │
+│    success: true,  // Parsing succeeded                                      │
+│    data: {                                                                   │
+│      ...all above fields...,                                                 │
+│      validation: {                                                           │
+│        isValid: false,                                                       │
+│        errors: [                                                             │
+│          {                                                                   │
+│            type: 'errorCardCount',                                           │
+│            message: 'Deck must have exactly 60 cards (currently 58)',       │
+│            current: 58,                                                      │
+│            expected: 60                                                      │
+│          },                                                                  │
+│          {                                                                   │
+│            type: 'errorCopyLimit',                                           │
+│            message: '"Pikachu ex" exceeds 4 copy limit (5/4)',              │
+│            card: 'Pikachu ex',                                               │
+│            current: 5,                                                       │
+│            limit: 4                                                          │
+│          }                                                                   │
+│        ],                                                                    │
+│        warnings: [                                                           │
+│          "Card 'Unknown Card' not found in database"                         │
+│        ]                                                                     │
+│      }                                                                       │
+│    }                                                                         │
+│  }                                                                           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Import Flow - Visual Summary
+
+```
+User Input (deckString)
+        │
+        ▼
+┌───────────────────┐
+│  1. checkTCG()    │  → Detect Pokemon vs Riftbound
+└─────────┬─────────┘     Keywords, structure, scoring
+          │
+          ▼
+┌───────────────────┐
+│ 2. validateInput()│  → Validate format patterns
+└─────────┬─────────┘     Check line formats, quantities
+          │
+          ▼
+┌───────────────────┐
+│ 3. parseCards()   │  → Extract card data
+└─────────┬─────────┘     cardId, name, quantity, set info
+          │
+          ▼
+┌───────────────────┐
+│4. categorizeCards()│ → Enrich with metadata
+└─────────┬─────────┘     Query CardCache, add types/domains
+          │
+          ▼
+┌───────────────────┐
+│ 5. validateDeck() │  → Format rules & legality
+└─────────┬─────────┘     Detect format, check copy limits,
+          │                validate composition
+          ▼
+    Final Response
+    {
+      tcg, format, cards,
+      breakdown, validation
+    }
+```
+
+---
+
 ## Architecture Overview
 
 ### System Components
