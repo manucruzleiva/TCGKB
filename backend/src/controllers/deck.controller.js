@@ -1048,12 +1048,19 @@ export const parseDeck = async (req, res) => {
     // Re-validate and re-calculate breakdown after enrichment for accurate detection
     let validation = result.validation
     let breakdown = result.breakdown
-    if (enrich && result.tcg === 'pokemon') {
-      const revalidated = validateDeck(cards, result.tcg, result.format)
-      validation = revalidated.validation
+
+    if (enrich) {
+      // Re-calculate breakdown with enriched data (always, for all TCGs)
       breakdown = calculateBreakdown(cards, result.tcg)
-      log.info(MODULE, `Re-validated after enrichment: ${validation.isValid ? 'Valid' : 'Invalid'} (${validation.errors.length} errors)`)
-      log.info(MODULE, `Re-calculated breakdown: Pokemon=${breakdown.pokemon}, Trainer=${breakdown.trainer}, Energy=${breakdown.energy}`)
+
+      // Re-validate with enriched data (Pokemon only, for accurate Basic Pokemon detection)
+      if (result.tcg === 'pokemon') {
+        const revalidated = validateDeck(cards, result.tcg, result.format)
+        validation = revalidated.validation
+        log.info(MODULE, `Re-validated after enrichment: ${validation.isValid ? 'Valid' : 'Invalid'} (${validation.errors.length} errors)`)
+      }
+
+      log.info(MODULE, `Re-calculated breakdown after enrichment: ${JSON.stringify(breakdown)}`)
     }
 
     log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}${enrichmentStats ? `, Enriched=${enrichmentStats.enriched}/${enrichmentStats.total} in ${enrichmentStats.duration}ms` : ''}`)
