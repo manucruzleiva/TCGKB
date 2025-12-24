@@ -1,4 +1,5 @@
 import { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react'
+import offlineDb from '../services/offlineDb'
 
 const ConnectivityContext = createContext()
 
@@ -11,6 +12,24 @@ export const ConnectivityProvider = ({ children }) => {
 
   // Ref to prevent multiple sync operations
   const syncInProgress = useRef(false)
+
+  // Initialize IndexedDB and load pending count
+  useEffect(() => {
+    const initializeDb = async () => {
+      try {
+        await offlineDb.init()
+        console.log('[Connectivity] IndexedDB initialized')
+
+        // Load pending actions count
+        const pendingActions = await offlineDb.getPendingActions()
+        setPendingChanges(pendingActions.length)
+      } catch (error) {
+        console.error('[Connectivity] Failed to initialize IndexedDB:', error)
+      }
+    }
+
+    initializeDb()
+  }, [])
 
   // Handle online event
   const handleOnline = useCallback(() => {
@@ -69,7 +88,7 @@ export const ConnectivityProvider = ({ children }) => {
     }
   }, [pendingChanges])
 
-  // Sync pending changes (to be implemented in Phase 3)
+  // Sync pending changes
   const syncPendingChanges = useCallback(async () => {
     if (syncInProgress.current) {
       console.log('[Connectivity] Sync already in progress')
@@ -81,12 +100,29 @@ export const ConnectivityProvider = ({ children }) => {
     console.log('[Connectivity] Syncing pending changes:', pendingChanges)
 
     try {
-      // TODO Phase 3: Implement actual sync logic
+      // Get all pending actions from IndexedDB
+      const pendingActions = await offlineDb.getPendingActions()
+
+      if (pendingActions.length === 0) {
+        console.log('[Connectivity] No pending actions to sync')
+        setPendingChanges(0)
+        setSyncStatus('idle')
+        syncInProgress.current = false
+        return
+      }
+
+      console.log(`[Connectivity] Syncing ${pendingActions.length} pending actions`)
+
+      // TODO Phase 3: Implement actual API sync
       // For now, just simulate a sync
       await new Promise(resolve => setTimeout(resolve, 1000))
 
+      // Clear pending actions after successful sync
+      await offlineDb.clearPendingActions()
       setPendingChanges(0)
       setSyncStatus('success')
+
+      console.log('[Connectivity] Sync completed successfully')
 
       // Reset status after showing success
       setTimeout(() => {
@@ -106,14 +142,31 @@ export const ConnectivityProvider = ({ children }) => {
   }, [pendingChanges])
 
   // Add a pending change (to be called by offline operations)
-  const addPendingChange = useCallback(() => {
-    setPendingChanges(prev => prev + 1)
+  const addPendingChange = useCallback(async (action) => {
+    try {
+      // Store action in IndexedDB
+      await offlineDb.addPendingAction(action)
+
+      // Update count
+      const pendingActions = await offlineDb.getPendingActions()
+      setPendingChanges(pendingActions.length)
+
+      console.log('[Connectivity] Pending action added:', action.type)
+    } catch (error) {
+      console.error('[Connectivity] Failed to add pending action:', error)
+    }
   }, [])
 
   // Clear all pending changes (for error recovery)
-  const clearPendingChanges = useCallback(() => {
-    setPendingChanges(0)
-    setSyncStatus('idle')
+  const clearPendingChanges = useCallback(async () => {
+    try {
+      await offlineDb.clearPendingActions()
+      setPendingChanges(0)
+      setSyncStatus('idle')
+      console.log('[Connectivity] All pending changes cleared')
+    } catch (error) {
+      console.error('[Connectivity] Failed to clear pending changes:', error)
+    }
   }, [])
 
   const value = {
