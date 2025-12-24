@@ -395,10 +395,24 @@ const DeckBuilder = () => {
     setActiveDomains(ALL_DOMAINS)
   }
 
+  // Detect TCG from search results (for deck creation without locked TCG)
+  const detectedTcg = useMemo(() => {
+    if (tcgSystem) return tcgSystem // Use locked TCG if exists
+    if (searchResults.length === 0) return null
+    // Check if results contain Riftbound cards
+    const hasRiftbound = searchResults.some(card => card.tcgSystem === 'riftbound')
+    const hasPokemon = searchResults.some(card => card.tcgSystem === 'pokemon' || !card.tcgSystem)
+    // If only one TCG in results, use that
+    if (hasRiftbound && !hasPokemon) return 'riftbound'
+    if (hasPokemon && !hasRiftbound) return 'pokemon'
+    // Mixed results - default to pokemon
+    return 'pokemon'
+  }, [searchResults, tcgSystem])
+
   // Filter search results by active types/domains
   const filteredSearchResults = useMemo(() => {
     // For Pokemon: filter by types
-    if (tcgSystem === 'pokemon' || !tcgSystem) {
+    if (detectedTcg === 'pokemon' || !detectedTcg) {
       if (activeTypes.length === ALL_TYPES.length) {
         return searchResults
       }
@@ -408,7 +422,7 @@ const DeckBuilder = () => {
       })
     }
     // For Riftbound: filter by domains
-    if (tcgSystem === 'riftbound') {
+    if (detectedTcg === 'riftbound') {
       if (activeDomains.length === ALL_DOMAINS.length) {
         return searchResults
       }
@@ -418,7 +432,7 @@ const DeckBuilder = () => {
       })
     }
     return searchResults
-  }, [searchResults, activeTypes, activeDomains, tcgSystem])
+  }, [searchResults, activeTypes, activeDomains, detectedTcg])
 
   // Handle import from DeckImportModal
   const handleImport = (importData) => {
@@ -734,13 +748,13 @@ const DeckBuilder = () => {
               )}
             </div>
 
-            {/* Type/Domain Filters - Switch based on TCG system */}
+            {/* Type/Domain Filters - Switch based on detected TCG from results */}
             {searchResults.length > 0 && (
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
                   {language === 'es' ? 'Filtrar:' : 'Filter:'}
                 </span>
-                {tcgSystem === 'riftbound' ? (
+                {detectedTcg === 'riftbound' ? (
                   <DomainFilterBar
                     domains={ALL_DOMAINS}
                     activeDomains={activeDomains}
@@ -755,8 +769,8 @@ const DeckBuilder = () => {
                     size={24}
                   />
                 )}
-                {((tcgSystem === 'riftbound' && activeDomains.length < ALL_DOMAINS.length) ||
-                  (tcgSystem !== 'riftbound' && activeTypes.length < ALL_TYPES.length)) && (
+                {((detectedTcg === 'riftbound' && activeDomains.length < ALL_DOMAINS.length) ||
+                  (detectedTcg !== 'riftbound' && activeTypes.length < ALL_TYPES.length)) && (
                   <button
                     onClick={resetFilters}
                     className="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:underline"
