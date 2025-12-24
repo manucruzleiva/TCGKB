@@ -53,8 +53,75 @@
 | **Backend** | Express.js | REST API |
 | **Database** | MongoDB + Mongoose | Data persistence |
 | **Auth** | JWT | Stateless authentication |
+| **PWA** | Service Worker + Cache API | Offline support, installability |
 | **Deploy** | Vercel | Serverless hosting |
 | **Testing** | Playwright | E2E tests |
+
+---
+
+## PWA Architecture
+
+TCGKB is a Progressive Web App with offline-first capabilities:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              PWA ARCHITECTURE                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────┐   │
+│  │   React App     │────▶│  Service Worker │────▶│    Cache API        │   │
+│  │  (UI Layer)     │◀────│  (sw.js v1.1.0) │◀────│  (Multi-strategy)   │   │
+│  └────────┬────────┘     └────────┬────────┘     └─────────────────────┘   │
+│           │                       │                                         │
+│           ▼                       ▼                                         │
+│  ┌─────────────────┐     ┌─────────────────┐                               │
+│  │ Connectivity    │     │   Cache Stores  │                               │
+│  │ Context         │     │  - static-v1.1  │                               │
+│  │ (online/offline)│     │  - images-v1.1  │                               │
+│  └─────────────────┘     │  - api-v1.1     │                               │
+│                          │  - fonts-v1.1   │                               │
+│                          └─────────────────┘                               │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                        CACHE STRATEGIES                              │   │
+│  ├──────────────────┬──────────────────┬───────────────────────────────┤   │
+│  │ Cache-First      │ Network-First    │ Stale-While-Revalidate       │   │
+│  │ (Static assets)  │ (API calls)      │ (Card images)                 │   │
+│  │ (Fonts)          │                  │                               │   │
+│  └──────────────────┴──────────────────┴───────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Implemented Features (Phase 1 + Phase 4)
+
+| Feature | Status | Location |
+|---------|--------|----------|
+| **Service Worker** | ✅ Implemented | `/frontend/public/sw.js` |
+| **Manifest** | ✅ Implemented | `/frontend/public/manifest.json` |
+| **ConnectivityContext** | ✅ Implemented | `/frontend/src/contexts/ConnectivityContext.jsx` |
+| **OfflineBanner** | ✅ Implemented | `/frontend/src/components/common/OfflineBanner.jsx` |
+| **InstallPrompt** | ✅ Implemented | `/frontend/src/components/common/InstallPrompt.jsx` |
+| **Offline Fallback** | ✅ Implemented | `/frontend/public/offline.html` |
+| **Cache Strategies** | ✅ Implemented | Static, Images, API, Fonts |
+| **IndexedDB** | ⏳ Pending | Phase 2 |
+| **Background Sync** | ⏳ Pending | Phase 3 |
+
+### Cache Strategy Details
+
+| Resource Type | Strategy | Cache Name | TTL |
+|---------------|----------|------------|-----|
+| HTML, JS, CSS | Cache-First | `tcgkb-static-v1.1.0` | Versioned |
+| Card Images | Stale-While-Revalidate | `tcgkb-images-v1.1.0` | 30 days |
+| API (GET) | Network-First with fallback | `tcgkb-api-v1.1.0` | 7 days |
+| Web Fonts | Cache-First | `tcgkb-fonts-v1.1.0` | Versioned |
+
+### Service Worker Lifecycle
+
+1. **Install**: Precache static assets (`/`, `/index.html`, `/manifest.json`, icons, `/offline.html`)
+2. **Activate**: Clean up old cache versions (anything not `v1.1.0`)
+3. **Fetch**: Route requests to appropriate cache strategy based on resource type
+4. **Update**: Automatic service worker update detection and activation
 
 ---
 

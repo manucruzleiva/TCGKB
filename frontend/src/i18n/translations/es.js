@@ -366,6 +366,27 @@ export const es = {
       title: 'Gracias a nuestros supporters',
       description: 'Estas personas hacen posible que TCGKB siga creciendo'
     }
+  },
+
+  // PWA / Offline
+  offline: {
+    banner: {
+      offline: 'Sin conexión - Mostrando contenido guardado',
+      reconnecting: 'Reconectando...',
+      backOnline: 'Conexión restaurada',
+      retry: 'Reintentar'
+    },
+    features: {
+      readOnly: 'Solo lectura sin conexión',
+      requiresConnection: 'Requiere conexión a internet',
+      pendingSync: '{{count}} cambios pendientes de sincronizar'
+    },
+    install: {
+      title: 'Instala TCGKB',
+      description: 'Accede más rápido y usa sin conexión',
+      installButton: 'Instalar App',
+      dismissButton: 'Ahora no'
+    }
   }
 }
 
