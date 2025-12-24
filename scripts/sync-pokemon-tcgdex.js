@@ -242,21 +242,33 @@ async function main() {
 
       // Fetch all cards from this set
       const cards = []
+      let cardErrors = 0
       for (const cardRef of set.cards) {
         try {
-          const card = await tcgdex.fetch('cards', set.id, cardRef.localId)
+          // Use full card ID (e.g., 'base1-1') instead of separate parameters
+          const cardId = cardRef.id || `${set.id}-${cardRef.localId}`
+          const card = await tcgdex.fetch('cards', cardId)
           if (card) {
             const transformed = transformCard(card, set)
             if (transformed) {
               cards.push(transformed)
             }
+          } else {
+            cardErrors++
           }
         } catch (cardError) {
-          // Skip individual card errors
+          cardErrors++
+          if (cardErrors <= 3) {
+            console.log(`    Warning: Failed to fetch card ${cardRef.id || cardRef.localId}: ${cardError.message}`)
+          }
         }
 
         // Small delay between cards to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 50))
+      }
+
+      if (cardErrors > 3) {
+        console.log(`    Warning: ${cardErrors} cards failed to fetch`)
       }
 
       totalCards += cards.length
