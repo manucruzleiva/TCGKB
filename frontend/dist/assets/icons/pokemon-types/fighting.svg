@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pokemon TCG Fighting Energy - Source: Bulbapedia -->
+  <circle cx="50" cy="50" r="48" fill="#C03028"/>
+  <path d="M50 15c-15 0-28 10-28 25 0 15 13 25 28 25v20l10-10 10 10v-20c15 0 15-10 15-25 0-15-20-25-35-25zm0 35c-6 0-10-4-10-10s4-10 10-10 10 4 10 10-4 10-10 10z" fill="white"/>
+</svg>
