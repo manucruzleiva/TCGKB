@@ -15,8 +15,10 @@
  */
 
 import log from './logger.js'
+import deckValidator from './deckValidator.js'
 
 const MODULE = 'DeckParser'
+const { isBasicPokemon } = deckValidator
 
 // Pokemon TCG Live section headers (multiple languages)
 const POKEMON_SECTIONS = {
@@ -602,6 +604,8 @@ export function calculateBreakdown(cards, tcg) {
   if (tcg === 'pokemon') {
     const breakdown = {
       pokemon: 0,
+      basic: 0,
+      evolution: 0,
       trainer: 0,
       energy: 0,
       unknown: 0
@@ -611,6 +615,13 @@ export function calculateBreakdown(cards, tcg) {
       const supertype = card.supertype?.toLowerCase()
       if (supertype === 'pokémon' || supertype === 'pokemon') {
         breakdown.pokemon += card.quantity
+
+        // Check if Basic or Evolution
+        if (isBasicPokemon(card)) {
+          breakdown.basic += card.quantity
+        } else {
+          breakdown.evolution += card.quantity
+        }
       } else if (supertype === 'trainer') {
         breakdown.trainer += card.quantity
       } else if (supertype === 'energy') {
