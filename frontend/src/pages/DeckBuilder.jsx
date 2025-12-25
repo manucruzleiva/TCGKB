@@ -421,14 +421,20 @@ const DeckBuilder = () => {
         return card.types.some(type => activeTypes.includes(type.toLowerCase()))
       })
     }
-    // For Riftbound: filter by domains
+    // For Riftbound: filter by domains AND tags
     if (detectedTcg === 'riftbound') {
       if (activeDomains.length === ALL_DOMAINS.length) {
         return searchResults
       }
       return searchResults.filter(card => {
-        if (!card.domains || card.domains.length === 0) return true
-        return card.domains.some(domain => activeDomains.includes(domain.toLowerCase()))
+        // Show card if it has no domains/tags
+        if ((!card.domains || card.domains.length === 0) && (!card.tags || card.tags.length === 0)) {
+          return true
+        }
+        // Check if card's domains or tags match active filters
+        const matchesDomain = card.domains?.some(domain => activeDomains.includes(domain.toLowerCase()))
+        const matchesTag = card.tags?.some(tag => activeDomains.includes(tag.toLowerCase()))
+        return matchesDomain || matchesTag
       })
     }
     return searchResults
