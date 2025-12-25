@@ -11,6 +11,73 @@ import log from '../utils/logger.js'
 const MODULE = 'CardEnricherService'
 
 /**
+ * Pokemon deck abbreviation to TCGdex set code mapping.
+ * Maps common deck list abbreviations (SSP, PAR, etc.) to TCGdex codes (sv08, sv04, etc.)
+ */
+const DECK_CODE_TO_TCGDEX = {
+  // Scarlet & Violet era
+  'SSP': 'sv08',    // Surging Sparks
+  'PAR': 'sv04',    // Paradox Rift
+  'MEG': 'sv10',    // Mega (custom set)
+  'SFA': 'sv06',    // Shrouded Fable
+  'BLK': 'sv09',    // Battle Partners
+  'JTG': 'sv09',    // Journey Together (same as BLK)
+  'OBF': 'sv03',    // Obsidian Flames
+  'TWM': 'sv06',    // Twilight Masquerade
+  'PAL': 'sv02',    // Paldea Evolved
+  'SVI': 'sv01',    // Scarlet & Violet Base
+  'TEF': 'sv05',    // Temporal Forces
+  'MEE': 'sv04.5',  // Paldean Fates (energy set)
+
+  // Sword & Shield era
+  'CRZ': 'swsh12.5', // Crown Zenith
+  'SIT': 'swsh12',   // Silver Tempest
+  'LOR': 'swsh11',   // Lost Origin
+  'PGO': 'swsh11.5', // Pokemon GO
+  'ASR': 'swsh10',   // Astral Radiance
+  'BRS': 'swsh9',    // Brilliant Stars
+  'FST': 'swsh8',    // Fusion Strike
+  'CEL': 'swsh7.5',  // Celebrations
+  'EVS': 'swsh7',    // Evolving Skies
+  'CRE': 'swsh6',    // Chilling Reign
+  'BST': 'swsh5',    // Battle Styles
+  'SHF': 'swsh4.5',  // Shining Fates
+  'VIV': 'swsh4',    // Vivid Voltage
+  'CPA': 'swsh3.5',  // Champion's Path
+  'DAA': 'swsh3',    // Darkness Ablaze
+  'RCL': 'swsh2',    // Rebel Clash
+  'SSH': 'swsh1',    // Sword & Shield Base
+}
+
+/**
+ * Normalizes a card ID by converting deck abbreviations to TCGdex codes.
+ * Example: "ssp-97" -> "sv08-97"
+ *
+ * @param {string} cardId - Original card ID from deck string
+ * @returns {Array<string>} - Array of possible cardId variations to try
+ */
+function getNormalizedCardIds(cardId) {
+  if (!cardId) return []
+
+  const variations = [cardId.toLowerCase()] // Try original first
+
+  // Extract set code and number
+  const match = cardId.match(/^([a-z]+)-(.+)$/i)
+  if (match) {
+    const [, setCode, number] = match
+    const upperSetCode = setCode.toUpperCase()
+
+    // Check if there's a TCGdex mapping
+    if (DECK_CODE_TO_TCGDEX[upperSetCode]) {
+      const tcgdexCode = DECK_CODE_TO_TCGDEX[upperSetCode]
+      variations.push(`${tcgdexCode}-${number}`)
+    }
+  }
+
+  return variations
+}
+
+/**
  * Enriches an array of parsed cards with metadata from CardCache.
  * Uses batch query for performance (<500ms for 60 cards).
  *
@@ -38,10 +105,19 @@ export async function enrichDeckCards(cards, tcg = 'pokemon') {
   const cardsByCardId = cards.filter(c => c.cardId && !c.needsResolution)
   const cardsByName = cards.filter(c => !c.cardId || c.needsResolution)
 
-  // Get unique card IDs for batch query
-  const uniqueCardIds = [...new Set(cardsByCardId.map(c => c.cardId))]
+  // Get unique card IDs for batch query - include all variations
+  const allCardIdVariations = []
+  const cardIdToVariations = new Map() // Track which variations belong to which original ID
 
-  log.info(MODULE, `Enriching ${cards.length} cards (${uniqueCardIds.length} unique IDs, ${cardsByName.length} by name)`)
+  for (const card of cardsByCardId) {
+    const variations = getNormalizedCardIds(card.cardId)
+    cardIdToVariations.set(card.cardId, variations)
+    allCardIdVariations.push(...variations)
+  }
+
+  const uniqueCardIds = [...new Set(allCardIdVariations)]
+
+  log.info(MODULE, `Enriching ${cards.length} cards (${uniqueCardIds.length} unique IDs including variations, ${cardsByName.length} by name)`)
 
   // Batch query CardCache by cardId using $in
   let cachedByCardId = new Map()
@@ -52,11 +128,20 @@ export async function enrichDeckCards(cards, tcg = 'pokemon') {
         tcgSystem: tcg
       }).lean()
 
+      // Map found cards back to all their variation IDs
       for (const cached of cachedCards) {
+        // Store by the TCGdex ID that was found
         cachedByCardId.set(cached.cardId, cached.data)
+
+        // Also map original card IDs that resolve to this TCGdex ID
+        for (const [originalId, variations] of cardIdToVariations) {
+          if (variations.includes(cached.cardId)) {
+            cachedByCardId.set(originalId.toLowerCase(), cached.data)
+          }
+        }
       }
 
-      log.info(MODULE, `Found ${cachedByCardId.size}/${uniqueCardIds.length} cards in cache`)
+      log.info(MODULE, `Found ${cachedCards.length} cards in cache (${cachedByCardId.size} total mappings)`)
     } catch (error) {
       log.error(MODULE, 'CardCache batch query failed', error)
     }
