@@ -50,4 +50,57 @@ router.post('/fix-cache', async (req, res) => {
   }
 })
 
+/**
+ * GET /api/admin/test-card/:cardId
+ * Test fetching a single card from Pokemon TCG SDK
+ *
+ * Security: Requires ADMIN_SECRET in query params
+ */
+router.get('/test-card/:cardId', async (req, res) => {
+  try {
+    const { secret } = req.query
+
+    if (!secret || secret !== process.env.ADMIN_SECRET) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized - invalid or missing secret'
+      })
+    }
+
+    const { cardId } = req.params
+    const pokemon = (await import('pokemontcgsdk')).default
+    pokemon.configure({ apiKey: process.env.POKEMON_TCG_API_KEY })
+
+    log.info(MODULE, `Testing card fetch for: ${cardId}`)
+
+    let result = { cardId, apiKey: process.env.POKEMON_TCG_API_KEY ? 'SET' : 'NOT SET' }
+
+    try {
+      const card = await pokemon.card.find(cardId)
+      result.success = true
+      result.card = {
+        id: card.id,
+        name: card.name,
+        supertype: card.supertype,
+        subtypes: card.subtypes,
+        set: card.set?.name
+      }
+    } catch (error) {
+      result.success = false
+      result.error = error.message
+      result.errorStack = error.stack
+    }
+
+    res.json(result)
+
+  } catch (error) {
+    log.error(MODULE, 'Test card failed:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    })
+  }
+})
+
 export default router
