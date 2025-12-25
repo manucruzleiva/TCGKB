@@ -3,12 +3,9 @@ import Reaction from '../models/Reaction.js'
 import User from '../models/User.js'
 import CardCache from '../models/CardCache.js'
 import riftboundService from '../services/riftboundTCG.service.js'
-import pokemon from 'pokemontcgsdk'
+import tcgdexService from '../services/tcgdex.service.js'
 import log from '../utils/logger.js'
 import reputationService from '../services/reputation.service.js'
-
-// Configure Pokemon TCG SDK
-pokemon.configure({ apiKey: process.env.POKEMON_TCG_API_KEY })
 
 const MODULE = 'ModController'
 
@@ -725,37 +722,16 @@ export const syncPokemonCards = async (req, res) => {
     // Valid regulation marks for Standard format
     const VALID_REGULATION_MARKS = ['G', 'H', 'I', 'J', 'K']
 
-    // Fetch all sets - try SDK first, then direct API
-    let allSets = []
-    try {
-      const sdkResult = await pokemon.set.all()
-      // SDK may return array directly or {data: [...]}
-      allSets = Array.isArray(sdkResult) ? sdkResult : (sdkResult?.data || sdkResult || [])
-      log.info(MODULE, `SDK returned ${allSets.length} sets`)
-    } catch (setsError) {
-      log.error(MODULE, 'SDK failed, trying direct API:', setsError.message)
-    }
+    // Fetch all sets from TCGdex
+    const allSets = await tcgdexService.getAllSets()
 
-    // Fallback to direct API if SDK failed or returned empty
     if (!allSets || allSets.length === 0) {
-      try {
-        const setsResponse = await fetch('https://api.pokemontcg.io/v2/sets', {
-          headers: { 'X-Api-Key': process.env.POKEMON_TCG_API_KEY || '' }
-        })
-        if (!setsResponse.ok) {
-          throw new Error(`HTTP ${setsResponse.status}: ${setsResponse.statusText}`)
-        }
-        const setsData = await setsResponse.json()
-        allSets = setsData?.data || []
-        log.info(MODULE, `Direct API returned ${allSets.length} sets`)
-      } catch (apiError) {
-        log.error(MODULE, 'Direct API also failed:', apiError.message)
-        return res.status(500).json({
-          success: false,
-          message: `Failed to fetch Pokemon sets: ${apiError.message}. Check POKEMON_TCG_API_KEY.`
-        })
-      }
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch Pokemon sets from TCGdex'
+      })
     }
+    log.info(MODULE, `TCGdex returned ${allSets.length} total Pokemon sets`)
 
     if (!Array.isArray(allSets) || allSets.length === 0) {
       return res.status(500).json({
@@ -821,32 +797,9 @@ export const syncPokemonCards = async (req, res) => {
 
         // Fetch all cards from this set using direct API
         let allCardsFromSet = []
-        let page = 1
-        let hasMoreCards = true
-
-        while (hasMoreCards) {
-          try {
-            const cardsResponse = await fetch(
-              `https://api.pokemontcg.io/v2/cards?q=set.id:${set.id}&page=${page}&pageSize=250`,
-              { headers: { 'X-Api-Key': process.env.POKEMON_TCG_API_KEY || '' } }
-            )
-            const cardsData = await cardsResponse.json()
-            const cards = cardsData.data || []
-            allCardsFromSet = allCardsFromSet.concat(cards)
-
-            if (cards.length < 250) {
-              hasMoreCards = false
-            } else {
-              page++
-            }
-
-            // Rate limit - Pokemon API has 1000 requests/day for free tier
-            await new Promise(resolve => setTimeout(resolve, 100))
-          } catch (fetchError) {
-            log.error(MODULE, `Error fetching page ${page} for ${set.id}:`, fetchError.message)
-            hasMoreCards = false
-          }
-        }
+        // Use TCGdex to get all cards for this set
+        allCardsFromSet = await tcgdexService.getCardsBySet(set.id)
+        log.info(MODULE, `TCGdex returned ${allCardsFromSet.length} cards for ${set.name}`)
 
         // Cache cards - filter by regulation mark only if not syncing all
         for (const card of allCardsFromSet) {
@@ -857,12 +810,12 @@ export const syncPokemonCards = async (req, res) => {
           }
 
           try {
-            const cardData = { ...card, tcgSystem: 'pokemon' }
+            // tcgdexService already adds tcgSystem: 'pokemon'
             await CardCache.findOneAndUpdate(
               { cardId: card.id },
               {
                 cardId: card.id,
-                data: cardData,
+                data: card,
                 tcgSystem: 'pokemon',
                 cachedAt: new Date(),
                 expiresAt,
@@ -941,26 +894,23 @@ export const verifyCacheIntegrity = async (req, res) => {
     const pokemonCached = await CardCache.countDocuments({ tcgSystem: 'pokemon' })
     report.pokemon.cached = pokemonCached
 
-    // Sample check - get newest cards from API and check if in cache
+    // Sample check - get newest cards from TCGdex and check if in cache
     try {
-      const newestPokemonSets = await pokemon.set.where({
-        q: 'series:"Scarlet & Violet"',
-        orderBy: '-releaseDate',
-        pageSize: 5
-      })
+      const allSets = await tcgdexService.getAllSets()
+      const newestPokemonSets = allSets
+        .filter(set => set.series === 'Scarlet & Violet')
+        .sort((a, b) => new Date(b.releaseDate || 0) - new Date(a.releaseDate || 0))
+        .slice(0, 5)
 
       let sourceCount = 0
       let missingCount = 0
 
-      for (const set of (newestPokemonSets.data || [])) {
-        const setCards = await pokemon.card.where({
-          q: `set.id:${set.id}`,
-          pageSize: 250
-        })
-        sourceCount += (setCards.data || []).length
+      for (const set of newestPokemonSets) {
+        const setCards = await tcgdexService.getCardsBySet(set.id)
+        sourceCount += setCards.length
 
         // Check a sample of cards
-        const sampleCards = (setCards.data || []).slice(0, 10)
+        const sampleCards = setCards.slice(0, 10)
         for (const card of sampleCards) {
           const cached = await CardCache.findOne({ cardId: card.id })
           if (!cached) missingCount++
