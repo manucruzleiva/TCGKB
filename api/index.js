@@ -472,7 +472,6 @@ app.use('/api', async (req, res, next) => {
       const usersRoutes = (await import('../backend/src/routes/users.routes.js')).default
       const collectionRoutes = (await import('../backend/src/routes/collection.routes.js')).default
       const reprintsRoutes = (await import('../backend/src/routes/reprints.routes.js')).default
-      const adminRoutes = (await import('../backend/src/routes/admin.routes.js')).default
 
       app.use('/api/auth', ensureDbConnection, authRoutes)
       app.use('/api/cards', ensureDbConnection, cardsRoutes)
@@ -486,7 +485,6 @@ app.use('/api', async (req, res, next) => {
       app.use('/api/users', ensureDbConnection, usersRoutes)
       app.use('/api/collection', ensureDbConnection, collectionRoutes)
       app.use('/api/reprints', ensureDbConnection, reprintsRoutes)
-      app.use('/api/admin', ensureDbConnection, adminRoutes)
 
       routesLoaded = true
     } catch (error) {

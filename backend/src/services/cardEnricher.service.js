@@ -217,7 +217,8 @@ export async function enrichDeckCards(cards, tcg = 'pokemon') {
       setCode: card.setCode,
       number: card.number,
       // Add enriched metadata
-      supertype: cardData?.supertype || card.supertype || null,
+      // Map TCGdex 'category' to 'supertype' for consistency
+      supertype: cardData?.supertype || cardData?.category || card.supertype || null,
       subtypes: cardData?.subtypes || [],
       types: cardData?.types || [],
       regulationMark: cardData?.regulationMark || null,
