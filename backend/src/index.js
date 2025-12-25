@@ -20,6 +20,7 @@ import collectionRoutes from './routes/collection.routes.js'
 import artistsRoutes from './routes/artists.routes.js'
 import githubRoutes from './routes/github.routes.js'
 import reputationRoutes from './routes/reputation.routes.js'
+import adminRoutes from './routes/admin.routes.js'
 
 // Load environment variables
 dotenv.config()
@@ -279,6 +280,7 @@ app.use('/api/collection', collectionRoutes)
 app.use('/api/artists', artistsRoutes)
 app.use('/api/github', githubRoutes)
 app.use('/api/reputation', reputationRoutes)
+app.use('/api/admin', adminRoutes)
 
 // Error handler (must be last)
 app.use(errorHandler)
