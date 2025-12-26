@@ -402,9 +402,9 @@ class UnifiedTCGService {
           .filter(c => fuzzyMatch(c.data.name, name))
           .map(c => c.data)
 
-        const sorted = sortByStandardAndRarity(filtered)
-
-        const results = sorted
+        // Don't sort - let users see all matches, not just "standard legal" ones
+        // Sorting moved to suggestions logic
+        const results = filtered
           .slice(0, limit)
           .map(card => ({
             id: card.id,

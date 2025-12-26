@@ -17,7 +17,7 @@ function detectTCG(input) {
 
   // Riftbound indicators
   if (/rune/i.test(input)) riftboundScore += 3
-  if (/battlefield/i.test(input)) riftboundScore += 2
+  if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(input)) riftboundScore += 2
   for (const domain of RIFTBOUND_DOMAINS) {
     if (input.toLowerCase().includes(domain)) riftboundScore++
   }
@@ -164,7 +164,7 @@ function parseRiftbound(input) {
 
       // Detect card type from name
       if (/rune$/i.test(name)) cardType = 'Rune'
-      else if (/battlefield|grove/i.test(name)) cardType = 'Battlefield'
+      else if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) cardType = 'Battlefield'
       else if (+match[1] === 1 && cards.length === 0) cardType = 'Legend'
 
       // Detect domains
@@ -394,11 +394,11 @@ function detectRiftboundFormat(cards, detectedDomains) {
   }
 
   // Categorize cards
-  const mainDeck = cards.filter(c => !['Legend', 'Battlefield', 'Rune'].includes(c.cardType))
+  const mainDeck = cards.filter(c => !['Legend', 'Battlefield', 'Rune'].includes(c.type || c.cardType))
   const mainCount = mainDeck.reduce((sum, c) => sum + c.quantity, 0)
-  const legendCount = cards.filter(c => c.cardType === 'Legend').reduce((sum, c) => sum + c.quantity, 0)
-  const battlefieldCount = cards.filter(c => c.cardType === 'Battlefield').reduce((sum, c) => sum + c.quantity, 0)
-  const runeCount = cards.filter(c => c.cardType === 'Rune').reduce((sum, c) => sum + c.quantity, 0)
+  const legendCount = cards.filter(c => (c.type || c.cardType) === 'Legend').reduce((sum, c) => sum + c.quantity, 0)
+  const battlefieldCount = cards.filter(c => (c.type || c.cardType) === 'Battlefield').reduce((sum, c) => sum + c.quantity, 0)
+  const runeCount = cards.filter(c => (c.type || c.cardType) === 'Rune').reduce((sum, c) => sum + c.quantity, 0)
 
   // Validate counts
   if (mainCount !== 40) {
@@ -484,11 +484,11 @@ function detectInputFormat(input) {
 function calculateBreakdown(cards, tcg) {
   if (tcg === 'riftbound') {
     return {
-      mainDeck: cards.filter(c => !['Legend', 'Battlefield', 'Rune'].includes(c.cardType))
+      mainDeck: cards.filter(c => !['Legend', 'Battlefield', 'Rune'].includes(c.type || c.cardType))
         .reduce((sum, c) => sum + c.quantity, 0),
-      legend: cards.filter(c => c.cardType === 'Legend').reduce((sum, c) => sum + c.quantity, 0),
-      battlefield: cards.filter(c => c.cardType === 'Battlefield').reduce((sum, c) => sum + c.quantity, 0),
-      rune: cards.filter(c => c.cardType === 'Rune').reduce((sum, c) => sum + c.quantity, 0)
+      legend: cards.filter(c => (c.type || c.cardType) === 'Legend').reduce((sum, c) => sum + c.quantity, 0),
+      battlefield: cards.filter(c => (c.type || c.cardType) === 'Battlefield').reduce((sum, c) => sum + c.quantity, 0),
+      rune: cards.filter(c => (c.type || c.cardType) === 'Rune').reduce((sum, c) => sum + c.quantity, 0)
     }
   }
 

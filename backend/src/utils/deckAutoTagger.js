@@ -119,7 +119,7 @@ function generateRiftboundTags(cards) {
   const tags = new Set()
 
   // Find the Legend
-  const legends = cards.filter(c => c.cardType === 'Legend')
+  const legends = cards.filter(c => (c.type || c.cardType) === 'Legend')
   if (legends.length > 0) {
     const legendName = legends[0].name
     if (legendName) {

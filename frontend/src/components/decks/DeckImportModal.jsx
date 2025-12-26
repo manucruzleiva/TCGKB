@@ -64,7 +64,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
   }
 
   const handleImport = async () => {
-    if (!parseResult || parseResult.cards.length === 0) return
+    if (!parseResult || !parseResult.cards || parseResult.cards.length === 0) return
 
     try {
       setImporting(true)
@@ -195,10 +195,17 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
             <div className="space-y-4">
               {/* Detection badges with format selector */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* TCG Badge */}
-                <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full text-sm font-medium">
-                  {tcgLabels[parseResult.tcg] || parseResult.tcg}
-                </span>
+                {/* TCG Badge with confidence */}
+                <div className="flex items-center gap-1.5">
+                  <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full text-sm font-medium">
+                    {tcgLabels[parseResult.tcg] || parseResult.tcg}
+                  </span>
+                  {parseResult.tcgConfidence && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400" title={parseResult.tcgReasons?.join(', ')}>
+                      {parseResult.tcgConfidence}%
+                    </span>
+                  )}
+                </div>
 
                 {/* Format Selector */}
                 <div className="relative inline-flex items-center">
@@ -208,8 +215,8 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
                     className="appearance-none pl-3 pr-8 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 rounded-full text-sm font-medium border-0 cursor-pointer focus:ring-2 focus:ring-purple-500 focus:outline-none"
                   >
                     <option value="auto">
-                      {parseResult.autoDetectedFormat
-                        ? `${formatLabels[parseResult.autoDetectedFormat]?.[language] || parseResult.autoDetectedFormat} (${t('deckImport.autoDetected')})`
+                      {parseResult.format
+                        ? `${formatLabels[parseResult.format]?.[language] || parseResult.format} (${t('deckImport.autoDetected')})`
                         : t('deckImport.autoDetect')
                       }
                     </option>
@@ -224,10 +231,10 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
                   </svg>
                 </div>
 
-                {/* Override indicator */}
-                {parseResult.isFormatOverride && (
-                  <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded text-xs">
-                    {t('deckImport.manualOverride')}
+                {/* Format confidence */}
+                {parseResult.formatConfidence && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400" title={parseResult.formatReason}>
+                    {parseResult.formatConfidence}%
                   </span>
                 )}
 
@@ -236,13 +243,61 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
                   {inputFormatLabels[parseResult.inputFormat] || parseResult.inputFormat}
                 </span>
 
-                {/* Confidence indicator (only when auto-detected) */}
-                {!parseResult.isFormatOverride && parseResult.formatConfidence && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    ({parseResult.formatConfidence}% {t('deckImport.confidence')})
+                {/* Input validation badge */}
+                {parseResult?.inputValidation && typeof parseResult.inputValidation.isValid !== 'undefined' && (
+                  <span className={`px-2 py-0.5 rounded text-xs ${
+                    parseResult.inputValidation.isValid === true
+                      ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                      : 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300'
+                  }`} title={parseResult.inputValidation.isValid === true ? 'Input format valid' : `${parseResult.inputValidation.errors?.length || 0} validation errors`}>
+                    {parseResult.inputValidation.isValid === true ? '✓ Valid Input' : `⚠ ${parseResult.inputValidation.errors?.length || 0} errors`}
                   </span>
                 )}
               </div>
+
+              {/* TCG Detection Reasons (NEW) */}
+              {parseResult.tcgReasons && parseResult.tcgReasons.length > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                    {language === 'es' ? 'Detección de TCG' : 'TCG Detection'}
+                  </h4>
+                  <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                    {parseResult.tcgReasons.map((reason, idx) => (
+                      <li key={idx}>• {reason}</li>
+                    ))}
+                  </ul>
+                  {parseResult.formatReason && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                      <strong>{language === 'es' ? 'Formato:' : 'Format:'}</strong> {parseResult.formatReason}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Input Validation Errors (NEW) */}
+              {parseResult?.inputValidation && parseResult.inputValidation.isValid === false && parseResult.inputValidation.errors?.length > 0 && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
+                  <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+                    {language === 'es' ? 'Errores de formato de entrada' : 'Input Format Errors'}
+                  </h4>
+                  <ul className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
+                    {parseResult.inputValidation.errors.slice(0, 5).map((err, idx) => (
+                      <li key={idx} className="font-mono">
+                        {err.line ? `"${err.line}": ${err.error}` : err.error}
+                      </li>
+                    ))}
+                    {parseResult.inputValidation.errors.length > 5 && (
+                      <li>... +{parseResult.inputValidation.errors.length - 5} {t('deckImport.more')}</li>
+                    )}
+                  </ul>
+                  <div className="mt-2 pt-2 border-t border-yellow-200 dark:border-yellow-800 text-xs text-yellow-600 dark:text-yellow-400">
+                    {language === 'es'
+                      ? `${parseResult.inputValidation.stats?.validLines || 0}/${parseResult.inputValidation.stats?.totalLines || 0} líneas válidas`
+                      : `${parseResult.inputValidation.stats?.validLines || 0}/${parseResult.inputValidation.stats?.totalLines || 0} valid lines`
+                    }
+                  </div>
+                </div>
+              )}
 
               {/* Auto-generated tags */}
               {parseResult.cards?.length > 0 && (
@@ -259,7 +314,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
               {/* Stats preview */}
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                  {t('deckImport.preview')}: {parseResult.stats.totalCards} {t('deckImport.cards')}
+                  {t('deckImport.preview')}: {parseResult?.stats?.totalCards || 0} {t('deckImport.cards')}
                 </h3>
 
                 {/* Pokemon breakdown */}
@@ -293,16 +348,16 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
                     )}
 
                     {/* Visual bar */}
-                    {parseResult.stats.totalCards > 0 && (
+                    {(parseResult?.stats?.totalCards || 0) > 0 && (
                       <div className="mt-2 h-3 rounded-full overflow-hidden flex bg-gray-200 dark:bg-gray-600">
-                        {parseResult.breakdown.pokemon > 0 && (
-                          <div className="bg-blue-500" style={{ width: `${(parseResult.breakdown.pokemon / parseResult.stats.totalCards) * 100}%` }} />
+                        {(parseResult?.breakdown?.pokemon || 0) > 0 && (
+                          <div className="bg-blue-500" style={{ width: `${((parseResult?.breakdown?.pokemon || 0) / (parseResult?.stats?.totalCards || 1)) * 100}%` }} />
                         )}
-                        {parseResult.breakdown.trainer > 0 && (
-                          <div className="bg-purple-500" style={{ width: `${(parseResult.breakdown.trainer / parseResult.stats.totalCards) * 100}%` }} />
+                        {(parseResult?.breakdown?.trainer || 0) > 0 && (
+                          <div className="bg-purple-500" style={{ width: `${((parseResult?.breakdown?.trainer || 0) / (parseResult?.stats?.totalCards || 1)) * 100}%` }} />
                         )}
-                        {parseResult.breakdown.energy > 0 && (
-                          <div className="bg-yellow-500" style={{ width: `${(parseResult.breakdown.energy / parseResult.stats.totalCards) * 100}%` }} />
+                        {(parseResult?.breakdown?.energy || 0) > 0 && (
+                          <div className="bg-yellow-500" style={{ width: `${((parseResult?.breakdown?.energy || 0) / (parseResult?.stats?.totalCards || 1)) * 100}%` }} />
                         )}
                       </div>
                     )}
@@ -456,7 +511,7 @@ const DeckImportModal = ({ isOpen, onClose, onImport, mode = 'import', onCreateD
           </button>
           <button
             onClick={handleImport}
-            disabled={!parseResult || parseResult.cards.length === 0 || importing || parsing}
+            disabled={!parseResult || !parseResult?.cards || parseResult.cards.length === 0 || importing || parsing}
             className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50 flex items-center gap-2 transition-colors"
           >
             {importing && <Spinner size="sm" />}

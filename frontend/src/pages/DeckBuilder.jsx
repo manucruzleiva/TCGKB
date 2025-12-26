@@ -264,6 +264,7 @@ const DeckBuilder = () => {
         name: cardName,
         quantity: addable,
         supertype: card.supertype,
+        cardType: card.cardType, // Riftbound: Legend/Battlefield/Rune
         imageSmall: card.images?.small || card.imageSmall
       }]
     })
@@ -421,7 +422,7 @@ const DeckBuilder = () => {
   }
 
   const handleExport = () => {
-    const exportText = deckService.formatToTCGLive(cards)
+    const exportText = deckService.formatToTCGLive(cards, tcgSystem)
     navigator.clipboard.writeText(exportText)
     alert(language === 'es' ? 'Copiado al portapapeles' : 'Copied to clipboard')
   }
@@ -781,8 +782,8 @@ const DeckBuilder = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* Group by supertype */}
-                {['Pokémon', 'Trainer', 'Energy'].map(supertype => {
+                {/* Pokemon TCG: Group by supertype */}
+                {tcgSystem === 'pokemon' && ['Pokémon', 'Trainer', 'Energy'].map(supertype => {
                   const supertypeCards = cards.filter(c => normalizeType(c.supertype) === supertype)
                   if (supertypeCards.length === 0) return null
 
@@ -817,8 +818,57 @@ const DeckBuilder = () => {
                   )
                 })}
 
-                {/* Unknown supertype cards */}
-                {cards.filter(c => !['Pokémon', 'Trainer', 'Energy'].includes(normalizeType(c.supertype))).length > 0 && (
+                {/* Riftbound TCG: Group by cardType */}
+                {tcgSystem === 'riftbound' && ['Legend', 'Battlefield', 'Rune', 'Main Deck'].map(cardType => {
+                  const categoryCards = cards.filter(c => {
+                    if (cardType === 'Main Deck') {
+                      return !c.cardType || !['Legend', 'Battlefield', 'Rune'].includes(c.cardType)
+                    }
+                    return c.cardType === cardType
+                  })
+                  if (categoryCards.length === 0) return null
+
+                  const labelMap = {
+                    'Legend': language === 'es' ? 'Leyenda' : 'Legend',
+                    'Battlefield': language === 'es' ? 'Campos de Batalla' : 'Battlefields',
+                    'Rune': language === 'es' ? 'Runas' : 'Runes',
+                    'Main Deck': language === 'es' ? 'Mazo Principal' : 'Main Deck'
+                  }
+
+                  return (
+                    <div key={cardType}>
+                      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
+                        {labelMap[cardType]} ({categoryCards.reduce((sum, c) => sum + c.quantity, 0)})
+                      </h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        {categoryCards.map(card => (
+                          <DeckCardInteractive
+                            key={card.cardId}
+                            card={{
+                              id: card.cardId,
+                              cardId: card.cardId,
+                              name: card.name,
+                              quantity: card.quantity,
+                              supertype: card.supertype,
+                              cardType: card.cardType,
+                              images: { small: card.imageSmall },
+                              imageSmall: card.imageSmall
+                            }}
+                            mode="deck"
+                            onAdd={addCard}
+                            onRemove={removeCard}
+                            onDelete={deleteCard}
+                            onSetQuantity={setCardQuantity}
+                            maxQuantity={getMaxCopies(card)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Unknown cards (fallback for mixed or unrecognized) */}
+                {(tcgSystem === 'pokemon' && cards.filter(c => !['Pokémon', 'Trainer', 'Energy'].includes(normalizeType(c.supertype))).length > 0) && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
                       {language === 'es' ? 'Otros' : 'Other'}

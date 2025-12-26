@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pokemon Stadium Card Type - Battle arena - Source: Bulbapedia -->
+  <circle cx="50" cy="50" r="48" fill="#10B981"/>
+  <ellipse cx="50" cy="55" rx="35" ry="18" fill="white"/>
+  <ellipse cx="50" cy="55" rx="25" ry="12" fill="#10B981"/>
+  <line x1="15" y1="55" x2="85" y2="55" stroke="white" stroke-width="2"/>
+  <rect x="30" y="25" width="40" height="20" fill="white"/>
+  <rect x="35" y="28" width="30" height="14" fill="#10B981"/>
+</svg>

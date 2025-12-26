@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sin conexión - TCG KB</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #e2e8f0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 500px;
+        text-align: center;
+      }
+
+      .icon {
+        font-size: 80px;
+        margin-bottom: 24px;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.7;
+          transform: scale(0.95);
+        }
+      }
+
+      h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        color: #f1f5f9;
+      }
+
+      p {
+        font-size: 18px;
+        line-height: 1.6;
+        color: #cbd5e1;
+        margin-bottom: 32px;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 12px 32px;
+        background: #3b82f6;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 16px;
+        transition: all 0.2s;
+        border: none;
+        cursor: pointer;
+      }
+
+      .btn:hover {
+        background: #2563eb;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+      }
+
+      .btn:active {
+        transform: translateY(0);
+      }
+
+      .features {
+        margin-top: 48px;
+        text-align: left;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 24px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .features h2 {
+        font-size: 18px;
+        margin-bottom: 16px;
+        color: #f1f5f9;
+      }
+
+      .features ul {
+        list-style: none;
+      }
+
+      .features li {
+        padding: 8px 0;
+        padding-left: 28px;
+        position: relative;
+        color: #cbd5e1;
+        font-size: 14px;
+      }
+
+      .features li::before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        color: #10b981;
+        font-weight: bold;
+      }
+
+      .connection-status {
+        margin-top: 24px;
+        padding: 12px;
+        background: rgba(234, 179, 8, 0.1);
+        border: 1px solid rgba(234, 179, 8, 0.3);
+        border-radius: 8px;
+        font-size: 14px;
+        color: #fef08a;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="icon" role="img" aria-label="Sin conexión">⚡</div>
+
+      <h1>Sin conexión</h1>
+
+      <p id="message">
+        No tienes conexión a internet en este momento. La aplicación funciona mejor con conexión,
+        pero puedes acceder a contenido guardado.
+      </p>
+
+      <button class="btn" onclick="tryReconnect()">
+        Reintentar conexión
+      </button>
+
+      <div class="features">
+        <h2>Disponible sin conexión:</h2>
+        <ul>
+          <li>Ver cartas guardadas en caché</li>
+          <li>Consultar mazos guardados</li>
+          <li>Buscar en contenido local</li>
+          <li>Acceder a configuración</li>
+        </ul>
+      </div>
+
+      <div class="connection-status" id="status" role="status" aria-live="polite">
+        Esperando conexión...
+      </div>
+    </div>
+
+    <script>
+      // Language detection
+      const lang = navigator.language.startsWith('es') ? 'es' : 'en';
+
+      const messages = {
+        es: {
+          title: 'Sin conexión',
+          message: 'No tienes conexión a internet en este momento. La aplicación funciona mejor con conexión, pero puedes acceder a contenido guardado.',
+          retry: 'Reintentar conexión',
+          featuresTitle: 'Disponible sin conexión:',
+          feature1: 'Ver cartas guardadas en caché',
+          feature2: 'Consultar mazos guardados',
+          feature3: 'Buscar en contenido local',
+          feature4: 'Acceder a configuración',
+          statusWaiting: 'Esperando conexión...',
+          statusChecking: 'Verificando conexión...',
+          statusOnline: 'Conexión restaurada! Redirigiendo...'
+        },
+        en: {
+          title: 'Offline',
+          message: 'You don\'t have an internet connection right now. The app works best with connection, but you can access cached content.',
+          retry: 'Retry connection',
+          featuresTitle: 'Available offline:',
+          feature1: 'View cached cards',
+          feature2: 'Browse saved decks',
+          feature3: 'Search local content',
+          feature4: 'Access settings',
+          statusWaiting: 'Waiting for connection...',
+          statusChecking: 'Checking connection...',
+          statusOnline: 'Connection restored! Redirecting...'
+        }
+      };
+
+      const t = messages[lang];
+
+      // Update text based on language
+      document.title = t.title + ' - TCG KB';
+      document.querySelector('h1').textContent = t.title;
+      document.getElementById('message').textContent = t.message;
+      document.querySelector('.btn').textContent = t.retry;
+      document.querySelector('.features h2').textContent = t.featuresTitle;
+      document.querySelectorAll('.features li')[0].textContent = t.feature1;
+      document.querySelectorAll('.features li')[1].textContent = t.feature2;
+      document.querySelectorAll('.features li')[2].textContent = t.feature3;
+      document.querySelectorAll('.features li')[3].textContent = t.feature4;
+      document.getElementById('status').textContent = t.statusWaiting;
+
+      // Try to reconnect
+      async function tryReconnect() {
+        const statusEl = document.getElementById('status');
+        statusEl.textContent = t.statusChecking;
+
+        try {
+          const response = await fetch('/manifest.json', {
+            method: 'HEAD',
+            cache: 'no-cache'
+          });
+
+          if (response.ok) {
+            statusEl.textContent = t.statusOnline;
+            statusEl.style.background = 'rgba(16, 185, 129, 0.1)';
+            statusEl.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+            statusEl.style.color = '#6ee7b7';
+
+            // Redirect to home after brief delay
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 1000);
+          } else {
+            statusEl.textContent = t.statusWaiting;
+          }
+        } catch (error) {
+          statusEl.textContent = t.statusWaiting;
+        }
+      }
+
+      // Auto-check connection every 5 seconds
+      setInterval(() => {
+        if (navigator.onLine) {
+          tryReconnect();
+        }
+      }, 5000);
+
+      // Listen for online event
+      window.addEventListener('online', () => {
+        tryReconnect();
+      });
+    </script>
+  </body>
+</html>
