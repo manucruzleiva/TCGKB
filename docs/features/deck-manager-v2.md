@@ -2,7 +2,17 @@
 
 ## Summary
 
-Evolución del Deck Manager existente para añadir: importación inteligente con auto-detección de juego y formato, validación de estructura por TCG/formato, filtros visuales con iconos toggle, sistema de auto-tagging en tiempo real con imágenes, y navegación entre "Mis Decks" y "Comunidad".
+El **Deck Manager** es el feature principal de TCGKB. Permite a los usuarios crear, gestionar, validar y compartir decks de Pokémon TCG y Riftbound.
+
+**Features Clave**:
+- ✅ **Import Automático**: Pega tu deck en texto → el sistema detecta automáticamente si es Pokémon o Riftbound
+- ✅ **Validación en Tiempo Real**: Verifica reglas del formato mientras construyes (Standard, GLC, Constructed, etc.)
+- ✅ **Creación Manual**: Búsqueda de cartas con filtros visuales, drag & drop, interacciones con click
+- ✅ **Compartir con Comunidad**: Decks públicos con votos 👍/👎, comentarios y clonación
+- ✅ **Collection Integration**: Build/Disarm decks con Smart Reprint Substitution
+
+**Evolución Técnica**:
+Incluye importación inteligente con auto-detección de juego y formato, validación de estructura por TCG/formato, filtros visuales con iconos toggle, sistema de auto-tagging en tiempo real, y navegación entre "Mis Decks" y "Comunidad".
 
 ## User Stories
 
@@ -75,7 +85,11 @@ Evolución del Deck Manager existente para añadir: importación inteligente con
 
 ## Formatos de Import Soportados
 
-### Pokemon TCG Live Format
+### Pokemon TCG Live Format (PTCGL)
+
+**Estructura**: `<qty> <card.name> <tcgOnline> <card.localid>`
+
+**Ejemplo**:
 ```
 Pokémon: 12
 4 Pikachu ex SVI 057
@@ -90,6 +104,18 @@ Energy: 12
 8 Electric Energy SVE 004
 4 Double Turbo Energy BRS 151
 ```
+
+**Campo `tcgOnline`**:
+- Representa el **código de set de PTCGL** (ej: `SVI`, `PAL`, `OBF`)
+- Si no está en cache, se **popula automáticamente** durante el sync de cache
+- **Fuente**: [Bulbapedia - List of Pokémon TCG expansions](https://m.bulbapedia.bulbagarden.net/wiki/List_of_Pok%C3%A9mon_Trading_Card_Game_expansions)
+- **Mapeo**: Se inyecta el `set.abb` (abreviación oficial) del set correspondiente
+- **Ejemplo**: `Paldea Evolved` → `PAL`, `Obsidian Flames` → `OBF`
+
+**Implementación**:
+- `backend/src/utils/setCodeMapping.js` - Mapeo completo de sets a códigos PTCGL
+- `scripts/sync-pokemon-cache.js` - Popula `set.tcgOnline` durante sync
+- `backend/src/services/cardEnricher.service.js` - Resuelve códigos PTCGL a TCGdex IDs
 
 ### Pokemon TCG Pocket Format
 ```
@@ -773,9 +799,15 @@ The `parseDeck` endpoint now:
 
 ## References
 
+### Internal Documentation
+- [**App Features Overview**](./app-features-overview.md) - Complete guide to all app features
+- [PTCGL Import Support](../engineering/ptcgl-import-support.md) - Technical details on PTCGL format
+- [Architecture](../architecture.md) - System architecture and data models
+
 ### Pokemon TCG
 - [Pokemon.com Deckbuilding Guide](https://www.pokemon.com/us/strategy/designing-a-deck-from-scratch)
 - [JustInBasil Card Limits](https://www.justinbasil.com/guide/limits)
+- [Bulbapedia - List of Pokémon TCG expansions](https://m.bulbapedia.bulbagarden.net/wiki/List_of_Pok%C3%A9mon_Trading_Card_Game_expansions) - **PTCGL set code source**
 - [Gym Leader Challenge Rules](https://gymleaderchallenge.com/rules)
 - [GLC FAQ](https://gymleaderchallenge.com/faq)
 - [Bulbapedia GLC](https://bulbapedia.bulbagarden.net/wiki/Gym_Leader_Challenge_format_(TCG))

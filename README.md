@@ -1,6 +1,8 @@
 # TCGKB - Trading Card Game Knowledge Base
 
-A full-stack multi-TCG platform for card search, community discussion, and collection management.
+**Una Progressive Web App para crear, compartir y gestionar decks de Trading Card Games**
+
+TCGKB es una plataforma multi-TCG completa que combina gestión de mazos, comunidad y colección personal. Soporta **Pokémon TCG** y **Riftbound** con import automático, validación en tiempo real y compartición con la comunidad.
 
 **Production**: [tcgkb.app](https://tcgkb.app) | **Staging**: [staging.tcgkb.app](https://staging.tcgkb.app)
 
@@ -25,6 +27,7 @@ npm run dev
 
 | Document | Description |
 |----------|-------------|
+| [**Features Overview**](docs/features/app-features-overview.md) | **Complete guide to all app features** |
 | [Architecture](docs/architecture.md) | System design, tech stack, data models, roles |
 | [API Reference](docs/api.md) | All API endpoints with examples |
 | [Security](docs/security.md) | Auth flows, OWASP compliance, automation |
@@ -70,24 +73,34 @@ TCGKB/
 
 ## Core Features
 
-### Multi-TCG Card System
-- Transparent search across Pokemon TCG + Riftbound
-- 7-day MongoDB cache with TTL auto-expiration
-- Fuzzy search with Levenshtein distance
+### 🎴 Deck Manager (Feature Principal)
+- **Creación Manual**: Búsqueda, filtros visuales, drag & drop
+- **Import Automático**:
+  - Pega tu deck en texto → sistema detecta automáticamente si es Pokémon o Riftbound
+  - Pokémon: Formato PTCGL (`<qty> <card.name> <tcgOnline> <card.localid>`)
+  - Riftbound: Formato simple (`<qty> <card.name>`)
+- **Validación en Tiempo Real**: Verifica reglas del formato (Standard, GLC, Constructed, etc.)
+- **Compartir con Comunidad**: Decks públicos con votos, comentarios y clonación
 
-### Community Features
-- Nested comments with unlimited depth
-- @ mentions for cards
-- Emoji reactions (anonymous allowed)
-- Real-time updates via Socket.io
+### 🎮 Juegos Soportados
+- **Pokémon TCG**: Standard, Expanded, GLC, Legacy (NO soportamos Pocket aún)
+- **Riftbound**: Constructed format
 
-### Deck Builder
-- Create/manage decks for any supported TCG
-- Import/export functionality
-- Real-time validation against format rules
-- TCG System Locking (prevents mixing cards)
+### 🌐 Progressive Web App (PWA)
+- Instalable como app nativa (iOS/Android/Desktop)
+- Funciona offline con cache inteligente
+- Mobile-first design con touch gestures
 
-> **Full feature specs**: See [Features](docs/features/)
+### 👥 Comunidad
+- Comentarios anidados ilimitados
+- @ mentions para cartas
+- Reacciones emoji (anónimos permitidos)
+- Updates en tiempo real vía Socket.io
+
+### 📊 Próximamente
+- **Valoración de Decks por Formato**: Sistema automático que evalúa decks según meta, sinergias y composición
+
+> **Full feature specs**: See [**Features Overview**](docs/features/app-features-overview.md)
 
 ---
 
@@ -260,6 +273,7 @@ git push origin main   # → tcgkb.app (requires PR)
 | Pokemon TCG API | Card data | 20k/day |
 | Riftbound API | Card data | TBD |
 | PokeAPI | Sprites | Unlimited |
+| Bulbapedia | PTCGL set code mappings | - |
 | GitHub API | Roadmap, bugs | 5k/hour |
 
 ---
