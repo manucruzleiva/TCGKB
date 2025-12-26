@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pokemon TCG Dragon Energy - Source: Bulbapedia -->
+  <circle cx="50" cy="50" r="48" fill="#7038F8"/>
+  <path d="M50 15c-20 0-35 15-35 35s15 35 35 35 35-15 35-35-15-35-35-35zm15 50l-15 15-15-15v-30l15-15 15 15z" fill="white"/>
+</svg>

@@ -8,6 +8,7 @@ import { parseDeckString } from '../services/deckParser.service.js'
 import { validateDeck } from '../utils/deckValidator.js'
 import { enrichDeckCards } from '../services/cardEnricher.service.js'
 import { getIO } from '../config/socket.js'
+import { calculateBreakdown } from '../utils/deckParser.js'
 
 const MODULE = 'DeckController'
 
@@ -675,7 +676,7 @@ export const copyDeck = async (req, res) => {
 export const updateDeckCardInfo = async (req, res) => {
   try {
     const { deckId } = req.params
-    const { cardInfo } = req.body // Array of { cardId, name, supertype, imageSmall }
+    const { cardInfo } = req.body // Array of { cardId, name, supertype, cardType, type, imageSmall }
 
     const deck = await Deck.findById(deckId)
 
@@ -700,6 +701,8 @@ export const updateDeckCardInfo = async (req, res) => {
       if (card) {
         card.name = info.name
         card.supertype = info.supertype
+        card.cardType = info.cardType // Riftbound: Legend/Battlefield/Rune
+        card.type = info.type // Riftbound: Unit/Spell/Gear
         card.imageSmall = info.imageSmall
       }
     })
@@ -1021,14 +1024,20 @@ export const parseDeck = async (req, res) => {
       })
     }
 
-    // Parse with optional format override
+    // NEW 5-STEP FLOW:
+    // STEP 1: checkTCG() - Already done in parseDeckString
+    // STEP 2: validateInput() - Already done in parseDeckString
+    // STEP 3: parseCards() - Already done in parseDeckString
     const result = parseDeckString(deckString, format)
 
     if (!result.success) {
       return res.status(400).json({
         success: false,
         message: result.error,
-        errors: result.errors
+        errors: result.errors,
+        tcg: result.tcg,
+        inputFormat: result.inputFormat,
+        inputValidation: result.inputValidation
       })
     }
 
@@ -1050,12 +1059,17 @@ export const parseDeck = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
+        // TCG Detection (Step 1)
         tcg: result.tcg,
+        tcgConfidence: result.tcgConfidence,
+        tcgReasons: result.tcgReasons,
+
+        // Format Detection
         format: result.format,
-        autoDetectedFormat: result.autoDetectedFormat,
-        isFormatOverride: result.isFormatOverride,
         formatConfidence: result.formatConfidence,
-        formatReasons: result.formatReasons,
+        formatReason: result.formatReason,
+
+        // Input Validation (Step 2)
         inputFormat: result.inputFormat,
         cards,
         reprintGroups: result.reprintGroups,
@@ -1072,7 +1086,9 @@ export const parseDeck = async (req, res) => {
     log.error(MODULE, 'Parse deck failed', error)
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to parse deck'
+      message: process.env.NODE_ENV === 'production'
+        ? 'Failed to parse deck'
+        : error.message || 'Failed to parse deck'
     })
   }
 }

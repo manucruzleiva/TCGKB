@@ -84,30 +84,52 @@ function isRuleBox(card) {
 
 /**
  * Check if a card is a Basic Pokemon
- * Uses the 'stage' field from TCGdex data
+ *
+ * Detection strategy:
+ * 1. Check subtypes array for 'Basic' (case-insensitive)
+ * 2. Check evolutionStage field for 'Basic'
+ * 3. Fallback: Check if card has NO evolvesFrom field (likely Basic)
+ *
+ * @param {Object} card - Card object with supertype, subtypes, evolutionStage
+ * @returns {boolean} True if card is a Basic Pokemon
  */
 function isBasicPokemon(card) {
-  // Check supertype first (if available)
+  if (!card) return false
+
   const supertype = card.supertype?.toLowerCase() || ''
-  const category = card.category?.toLowerCase() || ''
 
-  // Must be a Pokemon card
-  const isPokemon = supertype === 'pokémon' || supertype === 'pokemon' ||
-                    category === 'pokémon' || category === 'pokemon'
+  // Must be a Pokemon
+  if (supertype !== 'pokémon' && supertype !== 'pokemon') return false
 
-  if (!isPokemon) return false
+  // Strategy 1: Check subtypes array (case-insensitive)
+  if (card.subtypes && Array.isArray(card.subtypes)) {
+    const hasBasicSubtype = card.subtypes.some(subtype =>
+      typeof subtype === 'string' && subtype.toLowerCase() === 'basic'
+    )
+    if (hasBasicSubtype) return true
+  }
 
-  // TCGdex uses 'stage' field directly - this is the primary source
-  const stage = card.stage?.toLowerCase() || ''
-  if (stage === 'basic') return true
-
-  // Fallback: check subtypes (for backward compatibility)
-  const subtypes = card.subtypes?.map(s => s.toLowerCase()) || []
-  if (subtypes.includes('basic')) return true
-
-  // Fallback: evolutionStage (legacy)
+  // Strategy 2: Check evolutionStage field
   const evolutionStage = card.evolutionStage?.toLowerCase() || ''
   if (evolutionStage === 'basic') return true
+
+  // Strategy 3: Fallback - Basic Pokemon typically have no evolvesFrom
+  // If it's a Pokemon and doesn't evolve from anything, it's likely Basic
+  if (!card.evolvesFrom && !card.evolves_from) {
+    // Additional check: Stage 1/2 cards sometimes lack evolvesFrom in data
+    // Exclude cards with "Stage" or "VMAX" or "ex" in subtypes (these are evolved)
+    if (card.subtypes && Array.isArray(card.subtypes)) {
+      const evolvedTypes = card.subtypes.some(subtype => {
+        const lower = (subtype || '').toLowerCase()
+        return lower.includes('stage') || lower.includes('vmax') ||
+               lower.includes('vstar') || lower === 'ex' || lower === 'gx'
+      })
+      if (evolvedTypes) return false
+    }
+
+    // If no evolves info and no evolved subtype markers, assume Basic
+    return true
+  }
 
   return false
 }
@@ -358,9 +380,7 @@ export function validatePokemonGLC(cards, options = {}) {
   // 5. Check single type (all Pokemon must share a type)
   const pokemonCards = cards.filter(c => {
     const st = c.supertype?.toLowerCase() || ''
-    const cat = c.category?.toLowerCase() || ''
-    return st === 'pokémon' || st === 'pokemon' ||
-           cat === 'pokémon' || cat === 'pokemon'
+    return st === 'pokémon' || st === 'pokemon'
   })
 
   const allTypes = new Set()
@@ -463,12 +483,14 @@ export function validateRiftboundConstructed(cards, options = {}) {
 
   // Categorize cards
   const runes = cards.filter(c => c.name?.toLowerCase().includes('rune'))
-  const battlefields = cards.filter(c => c.name?.toLowerCase().includes('battlefield'))
-  const legends = cards.filter(c => c.cardType === 'Legend')
+  const battlefields = cards.filter(c =>
+    /battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(c.name || '')
+  )
+  const legends = cards.filter(c => (c.type || c.cardType) === 'Legend')
   const mainDeck = cards.filter(c =>
     !c.name?.toLowerCase().includes('rune') &&
-    !c.name?.toLowerCase().includes('battlefield') &&
-    c.cardType !== 'Legend'
+    !/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(c.name || '') &&
+    (c.type || c.cardType) !== 'Legend'
   )
 
   const runeCount = runes.reduce((sum, c) => sum + c.quantity, 0)

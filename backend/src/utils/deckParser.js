@@ -1,6 +1,12 @@
 /**
- * Deck Parser Utility
- * Parses deck strings from various formats and detects TCG/format
+ * Deck Parser Utility - Refactored with 5-Step Import Flow
+ *
+ * Flow:
+ * 1. checkTCG() - Detect Pokemon vs Riftbound
+ * 2. validateInput() - Validate format patterns
+ * 3. parseCards() - Extract card data
+ * 4. categorizeCards() - Enrich with metadata (done in controller)
+ * 5. validateDeck() - Format & legality validation (done in controller)
  *
  * Supported formats:
  * - Pokemon TCG Live (sections with Pokemon/Trainer/Energy)
@@ -9,8 +15,10 @@
  */
 
 import log from './logger.js'
+import deckValidator from './deckValidator.js'
 
 const MODULE = 'DeckParser'
+const { isBasicPokemon } = deckValidator
 
 // Pokemon TCG Live section headers (multiple languages)
 const POKEMON_SECTIONS = {
@@ -33,64 +41,259 @@ const POKEMON_KEYWORDS = [
 ]
 
 /**
- * Detect if text looks like Pokemon TCG Live format
- * Format has section headers like "Pokémon: 12" or "Pokemon:"
+ * STEP 1: checkTCG() - TCG Detection
+ *
+ * Analyzes raw input text to determine Pokemon TCG vs Riftbound
+ * Uses keyword analysis, format structure detection, and scoring system
+ *
+ * @param {string} text - Raw deck string input
+ * @returns {object} { tcg: 'pokemon'|'riftbound', confidence: 0-100, reasons: [] }
  */
-function isPokemonTCGLiveFormat(text) {
+export function checkTCG(text) {
   const lower = text.toLowerCase()
-  const hasPokemonSection = POKEMON_SECTIONS.pokemon.some(h => lower.includes(h))
-  const hasTrainerSection = POKEMON_SECTIONS.trainer.some(h => lower.includes(h))
-  const hasEnergySection = POKEMON_SECTIONS.energy.some(h => lower.includes(h))
+  const reasons = []
 
-  // Need at least 2 of 3 sections, or Pokemon section + one other
-  const sectionCount = [hasPokemonSection, hasTrainerSection, hasEnergySection].filter(Boolean).length
-  return sectionCount >= 2 || (hasPokemonSection && sectionCount >= 1)
-}
+  // Detection Method 1: Keyword Analysis
+  const hasPokemonKeywords = POKEMON_KEYWORDS.some(keyword => lower.includes(keyword))
+  const hasRiftboundKeywords = RIFTBOUND_KEYWORDS.some(keyword => lower.includes(keyword))
 
-/**
- * Detect if text looks like Pokemon TCG Pocket format
- * Format: "Card Name x2" or "Card Name (Set) x2"
- */
-function isPokemonTCGPocketFormat(text) {
+  // Detection Method 2: Format Structure
+  const hasPokemonSections = POKEMON_SECTIONS.pokemon.some(h => lower.includes(h)) ||
+                             POKEMON_SECTIONS.trainer.some(h => lower.includes(h)) ||
+                             POKEMON_SECTIONS.energy.some(h => lower.includes(h))
+
+  // Detection Method 3: Scoring System
+  let pokemonScore = 0
+  let riftboundScore = 0
+
+  if (hasPokemonKeywords) {
+    pokemonScore += 3
+    reasons.push('Contains Pokemon keywords')
+  }
+
+  if (hasRiftboundKeywords) {
+    riftboundScore += 3
+    reasons.push('Contains Riftbound keywords')
+  }
+
+  if (hasPokemonSections) {
+    pokemonScore += 4
+    reasons.push('Has Pokemon TCG Live section headers')
+  }
+
+  // Check for Pocket format pattern
   const lines = text.trim().split('\n').filter(l => l.trim())
-  if (lines.length === 0) return false
-
-  // Check if most lines match the "Name x#" or "Name (Set) x#" pattern
   const pocketPattern = /^(.+?)\s*(?:\([^)]+\))?\s*x\s*(\d+)$/i
-  const matchingLines = lines.filter(l => pocketPattern.test(l.trim()))
+  const pocketMatches = lines.filter(l => pocketPattern.test(l.trim())).length
+  if (pocketMatches >= lines.length * 0.6) {
+    pokemonScore += 2
+    reasons.push('Matches Pokemon Pocket format pattern')
+  }
 
-  return matchingLines.length >= lines.length * 0.6 // 60% of lines match
+  // Check for Riftbound format pattern
+  const riftboundPattern = /^(\d+)\s*x?\s+(.+)$/i
+  const riftboundMatches = lines.filter(l => riftboundPattern.test(l.trim())).length
+  if (riftboundMatches >= lines.length * 0.6 && hasRiftboundKeywords) {
+    riftboundScore += 2
+    reasons.push('Matches Riftbound format pattern')
+  }
+
+  // Determine TCG
+  const tcg = riftboundScore > pokemonScore ? 'riftbound' : 'pokemon'
+  const maxScore = Math.max(pokemonScore, riftboundScore)
+  const totalPossible = 9 // Max possible score
+  const confidence = Math.min(100, Math.round((maxScore / totalPossible) * 100))
+
+  log.info(MODULE, `TCG Detection: ${tcg} (confidence: ${confidence}%, pokemon: ${pokemonScore}, riftbound: ${riftboundScore})`)
+
+  return {
+    tcg,
+    confidence,
+    reasons,
+    scores: {
+      pokemon: pokemonScore,
+      riftbound: riftboundScore
+    }
+  }
 }
 
 /**
- * Detect if text contains Riftbound-specific keywords
+ * STEP 2: validateInput() - Input Format Validation
+ *
+ * Validates that input conforms to expected TCG format patterns
+ * Returns detailed errors for lines that don't match expected format
+ *
+ * @param {string} text - Raw deck string
+ * @param {string} tcg - Detected TCG ('pokemon' or 'riftbound')
+ * @returns {object} { isValid: boolean, errors: [], inputFormat: string }
  */
-function containsRiftboundKeywords(text) {
-  const lower = text.toLowerCase()
-  return RIFTBOUND_KEYWORDS.some(keyword => lower.includes(keyword))
+export function validateInput(text, tcg) {
+  const lines = text.trim().split('\n')
+  const errors = []
+  let inputFormat = 'unknown'
+  let validLines = 0
+  let totalLines = 0
+
+  if (tcg === 'pokemon') {
+    // Check if it's Pokemon TCG Live format (has section headers)
+    const hasSections = POKEMON_SECTIONS.pokemon.some(h => text.toLowerCase().includes(h))
+
+    if (hasSections) {
+      inputFormat = 'pokemon-tcg-live'
+
+      // Validate Pokemon TCG Live format
+      // Expected: section headers + "quantity name setCode number" lines
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue
+
+        totalLines++
+
+        // Check for section header
+        const lower = trimmed.toLowerCase()
+        if (POKEMON_SECTIONS.pokemon.some(h => lower.startsWith(h)) ||
+            POKEMON_SECTIONS.trainer.some(h => lower.startsWith(h)) ||
+            POKEMON_SECTIONS.energy.some(h => lower.startsWith(h))) {
+          validLines++
+          continue
+        }
+
+        // Skip section count lines (just numbers)
+        if (/^\d+$/.test(trimmed)) {
+          validLines++
+          continue
+        }
+
+        // Validate card line: "4 Pikachu ex SVI 057"
+        const match = trimmed.match(/^(\d+)\s+(.+)$/)
+        if (match) {
+          const quantity = parseInt(match[1])
+          const cardPart = match[2].trim()
+
+          if (quantity > 0 && quantity <= 60 && cardPart) {
+            validLines++
+          } else {
+            if (quantity < 1 || quantity > 60) {
+              errors.push({ line: trimmed, error: 'Invalid quantity (must be 1-60)' })
+            } else {
+              errors.push({ line: trimmed, error: 'Missing card name' })
+            }
+          }
+        } else {
+          errors.push({ line: trimmed, error: 'Line does not match expected format "quantity name [set number]"' })
+        }
+      }
+    } else {
+      // Check for Pokemon Pocket format
+      inputFormat = 'pokemon-tcg-pocket'
+      const pocketPattern = /^(.+?)\s*(?:\([^)]+\))?\s*x\s*(\d+)$/i
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue
+
+        totalLines++
+
+        const match = trimmed.match(pocketPattern)
+        if (match) {
+          const quantity = parseInt(match[2])
+          if (quantity > 0 && quantity <= 60) {
+            validLines++
+          } else {
+            errors.push({ line: trimmed, error: 'Invalid quantity (must be 1-60)' })
+          }
+        } else {
+          errors.push({ line: trimmed, error: 'Line does not match expected format "Name x#" or "Name (Set) x#"' })
+        }
+      }
+
+      // Pocket format requires at least 60% match
+      if (validLines < totalLines * 0.6) {
+        errors.push({ line: '', error: `Only ${validLines}/${totalLines} lines match Pocket format (need 60%)` })
+      }
+    }
+  } else if (tcg === 'riftbound') {
+    inputFormat = 'riftbound'
+
+    // Validate Riftbound format: "quantity Name" or "quantity x Name"
+    const riftboundPattern = /^(\d+)\s*x?\s+(.+)$/i
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue
+
+      totalLines++
+
+      const match = trimmed.match(riftboundPattern)
+      if (match) {
+        const quantity = parseInt(match[1])
+        const name = match[2].trim()
+
+        if (quantity > 0 && quantity <= 60 && name) {
+          validLines++
+        } else {
+          if (quantity < 1 || quantity > 60) {
+            errors.push({ line: trimmed, error: 'Invalid quantity (must be 1-60)' })
+          } else {
+            errors.push({ line: trimmed, error: 'Missing card name' })
+          }
+        }
+      } else {
+        errors.push({ line: trimmed, error: 'Line does not match expected format "quantity Name" or "quantity x Name"' })
+      }
+    }
+
+    // Check for Riftbound-specific cards
+    const hasRunes = lines.some(l => l.toLowerCase().includes('rune'))
+    const hasBattlefields = lines.some(l => /battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(l))
+
+    if (!hasRunes && !hasBattlefields) {
+      errors.push({ line: '', error: 'Riftbound decks should contain Rune and/or Battlefield cards' })
+    }
+  }
+
+  const isValid = errors.length === 0
+
+  log.info(MODULE, `Input Validation: ${isValid ? 'Valid' : 'Invalid'} (${validLines}/${totalLines} lines valid, ${errors.length} errors)`)
+
+  return {
+    isValid,
+    errors,
+    inputFormat,
+    stats: {
+      validLines,
+      totalLines
+    }
+  }
 }
 
 /**
- * Detect if text contains Pokemon-specific keywords
+ * STEP 3: parseCards() - Extract Card Data
+ *
+ * Extracts all card information from validated input
+ * Handles different formats (TCG Live, Pocket, Riftbound)
+ * Combines duplicate cards automatically
+ *
+ * @param {string} text - Raw deck string
+ * @param {string} tcg - TCG type
+ * @param {string} inputFormat - Detected input format
+ * @returns {object} { cards: [], errors: [] }
  */
-function containsPokemonKeywords(text) {
-  const lower = text.toLowerCase()
-  return POKEMON_KEYWORDS.some(keyword => lower.includes(keyword))
+export function parseCards(text, tcg, inputFormat) {
+  if (inputFormat === 'pokemon-tcg-live') {
+    return parsePokemonTCGLive(text)
+  } else if (inputFormat === 'pokemon-tcg-pocket') {
+    return parsePokemonTCGPocket(text)
+  } else if (inputFormat === 'riftbound') {
+    return parseRiftbound(text)
+  } else {
+    return parseGeneric(text)
+  }
 }
 
 /**
  * Parse Pokemon TCG Live format
- *
- * Example:
- * Pokémon: 12
- * 4 Pikachu ex SVI 057
- * 4 Raichu SVI 058
- *
- * Trainer: 36
- * 4 Professor's Research SVI 189
- *
- * Energy: 12
- * 8 Electric Energy SVE 004
+ * Format has section headers like "Pokémon: 12" or "Pokemon:"
  */
 function parsePokemonTCGLive(text) {
   const lines = text.trim().split('\n')
@@ -121,7 +324,6 @@ function parsePokemonTCGLive(text) {
     if (/^\d+$/.test(trimmed)) continue
 
     // Parse card line: "4 Pikachu ex SVI 057" or "4 SVI 057"
-    // Pattern: quantity name [setCode] [number]
     const match = trimmed.match(/^(\d+)\s+(.+)$/)
     if (match) {
       const quantity = parseInt(match[1])
@@ -129,7 +331,6 @@ function parsePokemonTCGLive(text) {
 
       if (quantity > 0 && quantity <= 60 && cardPart) {
         // Try to extract set code and number from the end
-        // Format: "Card Name SET 123" or "Card Name SET-123"
         const setMatch = cardPart.match(/^(.+?)\s+([A-Z]{2,4})\s*[-]?\s*(\d{1,4})$/i)
 
         let name, setCode, setNumber, cardId
@@ -171,16 +372,13 @@ function parsePokemonTCGLive(text) {
     }
   }
 
+  log.info(MODULE, `Parsed ${cards.length} unique cards from Pokemon TCG Live format`)
   return { cards, errors }
 }
 
 /**
  * Parse Pokemon TCG Pocket format
- *
- * Example:
- * Pikachu ex x2
- * Raichu x2
- * Professor's Research x2
+ * Format: "Card Name x2" or "Card Name (Set) x2"
  */
 function parsePokemonTCGPocket(text) {
   const lines = text.trim().split('\n')
@@ -221,16 +419,13 @@ function parsePokemonTCGPocket(text) {
     }
   }
 
+  log.info(MODULE, `Parsed ${cards.length} unique cards from Pokemon Pocket format`)
   return { cards, errors }
 }
 
 /**
  * Parse Riftbound format (tcg-arena.fr style)
- *
- * Example:
- * 1 Leona, Determined
- * 3 Clockwork Keeper
- * 6 Order Rune
+ * Format: "1 Leona, Determined" or "3 x Clockwork Keeper"
  */
 function parseRiftbound(text) {
   const lines = text.trim().split('\n')
@@ -251,11 +446,11 @@ function parseRiftbound(text) {
       if (quantity > 0 && name) {
         const cardId = `riftbound-${name.replace(/\s+/g, '-').toLowerCase()}`
 
-        // Detect card type from name
+        // Detect card type from name (basic detection, will be enriched later)
         let cardType = null
         const lowerName = name.toLowerCase()
         if (lowerName.includes('rune')) cardType = 'Rune'
-        else if (lowerName.includes('battlefield')) cardType = 'Battlefield'
+        else if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) cardType = 'Battlefield'
 
         const existing = cards.find(c => c.name?.toLowerCase() === name.toLowerCase())
         if (existing) {
@@ -276,12 +471,13 @@ function parseRiftbound(text) {
     }
   }
 
+  log.info(MODULE, `Parsed ${cards.length} unique cards from Riftbound format`)
   return { cards, errors }
 }
 
 /**
- * Parse generic format (quantity + card reference)
- * Fallback parser for unrecognized formats
+ * Parse generic format (fallback)
+ * Tries to detect "quantity + card reference" patterns
  */
 function parseGeneric(text) {
   const lines = text.trim().split('\n')
@@ -293,15 +489,13 @@ function parseGeneric(text) {
     if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) continue
 
     // Try various patterns
-    // Pattern 1: "4 card-name" or "4 Card Name"
     let match = trimmed.match(/^(\d+)\s+(.+)$/)
 
     // Pattern 2: "Card Name x4"
     if (!match) {
       match = trimmed.match(/^(.+?)\s*x\s*(\d+)$/i)
       if (match) {
-        // Swap groups
-        match = [match[0], match[2], match[1]]
+        match = [match[0], match[2], match[1]] // Swap groups
       }
     }
 
@@ -329,55 +523,15 @@ function parseGeneric(text) {
     }
   }
 
+  log.info(MODULE, `Parsed ${cards.length} unique cards from generic format`)
   return { cards, errors }
 }
 
 /**
- * Detect TCG type from parsed cards and original text
- */
-function detectTCG(text, cards) {
-  const hasRiftboundKeywords = containsRiftboundKeywords(text)
-  const hasPokemonKeywords = containsPokemonKeywords(text)
-
-  // Check card names for TCG-specific patterns
-  const cardNames = cards.map(c => c.name?.toLowerCase() || '').join(' ')
-  const cardsHaveRiftbound = containsRiftboundKeywords(cardNames)
-  const cardsHavePokemon = containsPokemonKeywords(cardNames)
-
-  // Check for Riftbound-specific card types
-  const hasRunes = cards.some(c => c.cardType === 'Rune' || c.name?.toLowerCase().includes('rune'))
-  const hasBattlefields = cards.some(c => c.cardType === 'Battlefield' || c.name?.toLowerCase().includes('battlefield'))
-
-  // Scoring
-  let pokemonScore = 0
-  let riftboundScore = 0
-
-  if (hasPokemonKeywords) pokemonScore += 3
-  if (hasRiftboundKeywords) riftboundScore += 3
-  if (cardsHavePokemon) pokemonScore += 2
-  if (cardsHaveRiftbound) riftboundScore += 2
-  if (hasRunes) riftboundScore += 2
-  if (hasBattlefields) riftboundScore += 2
-
-  // Check for Pokemon sections in text
-  if (isPokemonTCGLiveFormat(text)) pokemonScore += 4
-
-  // Check total cards (Pokemon = 60, Riftbound = 56)
-  const totalCards = cards.reduce((sum, c) => sum + c.quantity, 0)
-  if (totalCards === 60) pokemonScore += 1
-  if (totalCards === 56) riftboundScore += 1 // 40 main + 1 legend + 3 battlefield + 12 runes
-
-  if (riftboundScore > pokemonScore) {
-    return 'riftbound'
-  }
-
-  return 'pokemon' // Default to Pokemon
-}
-
-/**
  * Detect Pokemon format based on deck composition
+ * (Used in validateDeck step)
  */
-function detectPokemonFormat(cards) {
+export function detectPokemonFormat(cards) {
   const totalCards = cards.reduce((sum, c) => sum + c.quantity, 0)
 
   // Check for GLC indicators
@@ -418,12 +572,11 @@ function detectPokemonFormat(cards) {
 
 /**
  * Detect Riftbound format based on deck composition
+ * (Used in validateDeck step)
  */
-function detectRiftboundFormat(cards) {
-  // Riftbound Constructed: 40 main + 1 legend + 3 battlefield + 12 runes
+export function detectRiftboundFormat(cards) {
   const runes = cards.filter(c => c.name?.toLowerCase().includes('rune'))
-  const battlefields = cards.filter(c => c.name?.toLowerCase().includes('battlefield'))
-  const legends = cards.filter(c => c.cardType === 'Legend')
+  const battlefields = cards.filter(c => /battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(c.name || ''))
 
   const runeCount = runes.reduce((sum, c) => sum + c.quantity, 0)
   const battlefieldCount = battlefields.reduce((sum, c) => sum + c.quantity, 0)
@@ -445,11 +598,14 @@ function detectRiftboundFormat(cards) {
 
 /**
  * Calculate deck breakdown by card type
+ * (Used after categorizeCards step)
  */
-function calculateBreakdown(cards, tcg) {
+export function calculateBreakdown(cards, tcg) {
   if (tcg === 'pokemon') {
     const breakdown = {
       pokemon: 0,
+      basic: 0,
+      evolution: 0,
       trainer: 0,
       energy: 0,
       unknown: 0
@@ -459,6 +615,13 @@ function calculateBreakdown(cards, tcg) {
       const supertype = card.supertype?.toLowerCase()
       if (supertype === 'pokémon' || supertype === 'pokemon') {
         breakdown.pokemon += card.quantity
+
+        // Check if Basic or Evolution
+        if (isBasicPokemon(card)) {
+          breakdown.basic += card.quantity
+        } else {
+          breakdown.evolution += card.quantity
+        }
       } else if (supertype === 'trainer') {
         breakdown.trainer += card.quantity
       } else if (supertype === 'energy') {
@@ -481,15 +644,26 @@ function calculateBreakdown(cards, tcg) {
     }
 
     cards.forEach(card => {
-      const name = card.name?.toLowerCase() || ''
-      if (name.includes('rune')) {
-        breakdown.rune += card.quantity
-      } else if (name.includes('battlefield')) {
-        breakdown.battlefield += card.quantity
-      } else if (card.cardType === 'Legend') {
+      const name = card.name || ''
+      const cardType = card.type || card.cardType
+
+      if (cardType === 'Legend') {
         breakdown.legend += card.quantity
-      } else {
+      } else if (cardType === 'Rune' || name.toLowerCase().includes('rune')) {
+        breakdown.rune += card.quantity
+      } else if (cardType === 'Battlefield' || /battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) {
+        breakdown.battlefield += card.quantity
+      } else if (cardType === 'Unit' || cardType === 'Spell' || cardType === 'Gear') {
         breakdown.mainDeck += card.quantity
+      } else {
+        // If no type detected, use name-based fallback
+        if (name.toLowerCase().includes('rune')) {
+          breakdown.rune += card.quantity
+        } else if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) {
+          breakdown.battlefield += card.quantity
+        } else {
+          breakdown.mainDeck += card.quantity
+        }
       }
     })
 
@@ -500,8 +674,10 @@ function calculateBreakdown(cards, tcg) {
 }
 
 /**
- * Main parsing function
- * Detects format and TCG, parses cards, returns structured result
+ * Main parsing function with new 5-step flow
+ *
+ * @param {string} deckString - Raw deck input
+ * @returns {object} Complete parsing result with all steps
  */
 export function parseDeckString(deckString) {
   if (!deckString || typeof deckString !== 'string') {
@@ -510,6 +686,13 @@ export function parseDeckString(deckString) {
       error: 'No deck string provided',
       tcg: null,
       format: null,
+      inputFormat: null,
+      inputValidation: {
+        isValid: false,
+        errors: [{ line: '', error: 'No deck string provided' }],
+        inputFormat: 'unknown',
+        stats: { validLines: 0, totalLines: 0 }
+      },
       cards: [],
       errors: []
     }
@@ -522,82 +705,98 @@ export function parseDeckString(deckString) {
       error: 'Empty deck string',
       tcg: null,
       format: null,
+      inputFormat: null,
+      inputValidation: {
+        isValid: false,
+        errors: [{ line: '', error: 'Empty deck string' }],
+        inputFormat: 'unknown',
+        stats: { validLines: 0, totalLines: 0 }
+      },
       cards: [],
       errors: []
     }
   }
 
-  let parseResult
-  let detectedInputFormat
+  // STEP 1: Check TCG (Pokemon vs Riftbound)
+  const tcgDetection = checkTCG(text)
+  const { tcg, confidence: tcgConfidence, reasons: tcgReasons } = tcgDetection
 
-  // Detect and parse based on input format
-  if (isPokemonTCGLiveFormat(text)) {
-    detectedInputFormat = 'pokemon-tcg-live'
-    parseResult = parsePokemonTCGLive(text)
-  } else if (isPokemonTCGPocketFormat(text)) {
-    detectedInputFormat = 'pokemon-tcg-pocket'
-    parseResult = parsePokemonTCGPocket(text)
-  } else if (containsRiftboundKeywords(text) && !containsPokemonKeywords(text)) {
-    detectedInputFormat = 'riftbound'
-    parseResult = parseRiftbound(text)
-  } else {
-    detectedInputFormat = 'generic'
-    parseResult = parseGeneric(text)
+  // STEP 2: Validate Input Format
+  const validation = validateInput(text, tcg)
+  if (!validation.isValid) {
+    log.warn(MODULE, `Input validation failed: ${validation.errors.length} errors`)
+    // Continue anyway to show errors to user
   }
 
-  const { cards, errors } = parseResult
+  // STEP 3: Parse Cards
+  const parseResult = parseCards(text, tcg, validation.inputFormat)
+  const { cards, errors: parseErrors } = parseResult
 
   if (cards.length === 0) {
     return {
       success: false,
       error: 'Could not parse any cards from the input',
-      tcg: null,
+      tcg,
+      tcgConfidence,
+      tcgReasons,
       format: null,
-      inputFormat: detectedInputFormat,
+      inputFormat: validation.inputFormat,
+      inputValidation: validation,
       cards: [],
-      errors
+      errors: [...validation.errors, ...parseErrors]
     }
   }
 
-  // Detect TCG
-  const tcg = detectTCG(text, cards)
+  // Calculate basic stats
+  const totalCards = cards.reduce((sum, c) => sum + c.quantity, 0)
+  const uniqueCards = cards.length
 
-  // Detect format based on TCG
+  // Detect format (will be refined after enrichment in controller)
   const formatInfo = tcg === 'riftbound'
     ? detectRiftboundFormat(cards)
     : detectPokemonFormat(cards)
 
-  // Calculate breakdown
+  // Calculate breakdown (will be recalculated after enrichment in controller)
   const breakdown = calculateBreakdown(cards, tcg)
-  const totalCards = cards.reduce((sum, c) => sum + c.quantity, 0)
-  const uniqueCards = cards.length
 
   log.info(MODULE, `Parsed ${uniqueCards} unique cards (${totalCards} total) - TCG: ${tcg}, Format: ${formatInfo.format}`)
 
   return {
     success: true,
     tcg,
+    tcgConfidence,
+    tcgReasons,
     format: formatInfo.format,
     formatConfidence: formatInfo.confidence,
     formatReason: formatInfo.reason,
-    inputFormat: detectedInputFormat,
+    inputFormat: validation.inputFormat,
+    inputValidation: validation,
     cards: cards.map(c => ({
       cardId: c.cardId,
       name: c.name,
       quantity: c.quantity,
       setCode: c.setCode || null,
       setNumber: c.setNumber || null,
-      supertype: c.supertype || null
+      supertype: c.supertype || null,
+      cardType: c.cardType || null
     })),
     breakdown,
     stats: {
       totalCards,
-      uniqueCards
+      uniqueCards,
+      validLines: validation.stats.validLines,
+      totalLines: validation.stats.totalLines
     },
-    errors
+    errors: [...validation.errors, ...parseErrors]
   }
 }
 
 export default {
-  parseDeckString
+  parseDeckString,
+  checkTCG,
+  validateInput,
+  parseCards,
+  calculateBreakdown,
+  detectPokemonFormat,
+  detectRiftboundFormat
 }

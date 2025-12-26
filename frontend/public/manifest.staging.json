@@ -1,0 +1,74 @@
+{
+  "name": "TCG KB [STAGING]",
+  "short_name": "TCG KB STG",
+  "description": "Base de conocimiento para Pokemon TCG y otros juegos de cartas coleccionables - Entorno de pruebas",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#0f172a",
+  "theme_color": "#f59e0b",
+  "orientation": "any",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/icon-192-staging.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512-staging.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment", "utilities"],
+  "lang": "es",
+  "dir": "ltr",
+  "iarc_rating_id": "",
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Buscar Cartas",
+      "short_name": "Buscar",
+      "url": "/cards",
+      "description": "Buscar en la base de datos de cartas",
+      "icons": [
+        {
+          "src": "/icons/icon-192-staging.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Mis Mazos",
+      "short_name": "Mazos",
+      "url": "/decks",
+      "description": "Ver tus mazos guardados",
+      "icons": [
+        {
+          "src": "/icons/icon-192-staging.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/decks/new",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "name",
+      "text": "text"
+    }
+  },
+  "protocol_handlers": [],
+  "related_applications": [],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
+}
