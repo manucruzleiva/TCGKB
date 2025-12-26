@@ -219,6 +219,8 @@ export async function enrichDeckCards(cards, tcg = 'pokemon') {
       // Add enriched metadata
       // Map TCGdex 'category' to 'supertype' for consistency
       supertype: cardData?.supertype || cardData?.category || card.supertype || null,
+      category: cardData?.category || null,  // Preserve category for Pokemon type detection
+      stage: cardData?.stage || null,         // CRITICAL: Preserve stage for Basic Pokemon detection
       subtypes: cardData?.subtypes || [],
       types: cardData?.types || [],
       regulationMark: cardData?.regulationMark || null,
