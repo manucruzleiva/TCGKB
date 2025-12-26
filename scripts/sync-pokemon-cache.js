@@ -95,11 +95,18 @@ function sleep(ms) {
 
 async function fetchAllSets() {
   console.log('Fetching all Pokemon sets from TCGdex...')
-  const sets = await fetchWithRetry(`${TCGDEX_API_BASE}/sets`)
-  console.log(`Found ${sets.length} sets`)
+  const allSets = await fetchWithRetry(`${TCGDEX_API_BASE}/sets`)
+
+  // Filter: Only Scarlet & Violet sets (sv01, sv02, etc.)
+  const svSets = allSets.filter(set => {
+    const id = set.id?.toLowerCase() || ''
+    return id.startsWith('sv') || id.startsWith('swsh') || id.startsWith('sm')
+  })
+
+  console.log(`Found ${allSets.length} total sets, filtered to ${svSets.length} SV/SWSH/SM sets`)
 
   // Map TCGdex sets to expected format
-  return sets.map(set => ({
+  return svSets.map(set => ({
     id: set.id,
     name: set.name,
     logo: set.logo,
