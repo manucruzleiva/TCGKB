@@ -188,11 +188,7 @@ const DeckBuilder = () => {
     if (currentTcg !== 'riftbound' && card?.supertype === 'Energy') {
       return 60
     }
-    // Riftbound Runes: up to 12 total (no per-card limit)
-    if (currentTcg === 'riftbound' && card?.cardType === 'Rune') {
-      return 12 // Total pool limit, not per-card
-    }
-    // Riftbound: 3 copies max for non-rune cards
+    // Riftbound: 3 copies max for all cards
     if (currentTcg === 'riftbound') {
       return 3
     }
@@ -231,29 +227,18 @@ const DeckBuilder = () => {
       const maxQty = getMaxCopies(card)
 
       // #151 fix: Count total copies of cards with the same NAME (reprint detection)
-      // This applies to all cards except basic energy in Pokemon TCG and runes in Riftbound
+      // This applies to all cards except basic energy in Pokemon TCG
       const isBasicEnergy = card.supertype === 'Energy' && tcgSystem !== 'riftbound'
-      const isRune = tcgSystem === 'riftbound' && card.cardType === 'Rune'
-
-      // For runes, check TOTAL runes count (not per-card limit)
-      const totalByName = isBasicEnergy || isRune
-        ? 0 // No per-card limit for basic energy and runes
+      const totalByName = isBasicEnergy
+        ? 0 // Basic energy has no reprint limit
         : prev.filter(c => c.name?.toLowerCase() === cardName?.toLowerCase())
             .reduce((sum, c) => sum + c.quantity, 0)
 
-      // For runes, calculate available slots based on total rune count
-      let availableSlots
-      if (isBasicEnergy) {
-        availableSlots = 60
-      } else if (isRune) {
-        const totalRunes = prev.filter(c => c.cardType === 'Rune').reduce((sum, c) => sum + c.quantity, 0)
-        availableSlots = 12 - totalRunes
-      } else {
-        availableSlots = maxQty - totalByName
-      }
+      // Calculate how many more copies can be added
+      const availableSlots = isBasicEnergy ? 60 : maxQty - totalByName
 
       if (availableSlots <= 0 && !isBasicEnergy) {
-        // Can't add more - limit reached
+        // Can't add more - limit reached across all reprints
         return prev
       }
 
@@ -294,22 +279,13 @@ const DeckBuilder = () => {
 
       // #151 fix: Check reprint limit (total copies of same name across all versions)
       const isBasicEnergy = existing.supertype === 'Energy' && tcgSystem !== 'riftbound'
-      const isRune = tcgSystem === 'riftbound' && existing.cardType === 'Rune'
+      const otherSameNameQty = isBasicEnergy
+        ? 0
+        : prev.filter(c => c.name?.toLowerCase() === existing.name?.toLowerCase() && c.cardId !== cardId)
+            .reduce((sum, c) => sum + c.quantity, 0)
 
-      let effectiveMax
-      if (isBasicEnergy) {
-        effectiveMax = 60
-      } else if (isRune) {
-        // For runes, max is based on total pool of 12
-        const otherRunesQty = prev.filter(c => c.cardType === 'Rune' && c.cardId !== cardId)
-          .reduce((sum, c) => sum + c.quantity, 0)
-        effectiveMax = 12 - otherRunesQty
-      } else {
-        const otherSameNameQty = prev.filter(c => c.name?.toLowerCase() === existing.name?.toLowerCase() && c.cardId !== cardId)
-          .reduce((sum, c) => sum + c.quantity, 0)
-        effectiveMax = maxQty - otherSameNameQty
-      }
-
+      // Max for this card is limit minus other reprints
+      const effectiveMax = isBasicEnergy ? 60 : maxQty - otherSameNameQty
       const newQty = Math.max(1, Math.min(effectiveMax, quantity))
 
       return prev.map(c =>
@@ -395,24 +371,10 @@ const DeckBuilder = () => {
     setActiveDomains(ALL_DOMAINS)
   }
 
-  // Detect TCG from search results (for deck creation without locked TCG)
-  const detectedTcg = useMemo(() => {
-    if (tcgSystem) return tcgSystem // Use locked TCG if exists
-    if (searchResults.length === 0) return null
-    // Check if results contain Riftbound cards
-    const hasRiftbound = searchResults.some(card => card.tcgSystem === 'riftbound')
-    const hasPokemon = searchResults.some(card => card.tcgSystem === 'pokemon' || !card.tcgSystem)
-    // If only one TCG in results, use that
-    if (hasRiftbound && !hasPokemon) return 'riftbound'
-    if (hasPokemon && !hasRiftbound) return 'pokemon'
-    // Mixed results - default to pokemon
-    return 'pokemon'
-  }, [searchResults, tcgSystem])
-
   // Filter search results by active types/domains
   const filteredSearchResults = useMemo(() => {
     // For Pokemon: filter by types
-    if (detectedTcg === 'pokemon' || !detectedTcg) {
+    if (tcgSystem === 'pokemon' || !tcgSystem) {
       if (activeTypes.length === ALL_TYPES.length) {
         return searchResults
       }
@@ -422,7 +384,7 @@ const DeckBuilder = () => {
       })
     }
     // For Riftbound: filter by domains
-    if (detectedTcg === 'riftbound') {
+    if (tcgSystem === 'riftbound') {
       if (activeDomains.length === ALL_DOMAINS.length) {
         return searchResults
       }
@@ -432,7 +394,7 @@ const DeckBuilder = () => {
       })
     }
     return searchResults
-  }, [searchResults, activeTypes, activeDomains, detectedTcg])
+  }, [searchResults, activeTypes, activeDomains, tcgSystem])
 
   // Handle import from DeckImportModal
   const handleImport = (importData) => {
@@ -442,7 +404,6 @@ const DeckBuilder = () => {
       name: card.name,
       quantity: card.quantity,
       supertype: card.supertype || 'Unknown',
-      cardType: card.cardType, // Riftbound: Legend/Battlefield/Rune
       imageSmall: card.imageSmall || null // Use enriched image from parse
     }))
 
@@ -748,13 +709,13 @@ const DeckBuilder = () => {
               )}
             </div>
 
-            {/* Type/Domain Filters - Switch based on detected TCG from results */}
+            {/* Type/Domain Filters - Switch based on TCG system */}
             {searchResults.length > 0 && (
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
                   {language === 'es' ? 'Filtrar:' : 'Filter:'}
                 </span>
-                {detectedTcg === 'riftbound' ? (
+                {tcgSystem === 'riftbound' ? (
                   <DomainFilterBar
                     domains={ALL_DOMAINS}
                     activeDomains={activeDomains}
@@ -769,8 +730,8 @@ const DeckBuilder = () => {
                     size={24}
                   />
                 )}
-                {((detectedTcg === 'riftbound' && activeDomains.length < ALL_DOMAINS.length) ||
-                  (detectedTcg !== 'riftbound' && activeTypes.length < ALL_TYPES.length)) && (
+                {((tcgSystem === 'riftbound' && activeDomains.length < ALL_DOMAINS.length) ||
+                  (tcgSystem !== 'riftbound' && activeTypes.length < ALL_TYPES.length)) && (
                   <button
                     onClick={resetFilters}
                     className="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:underline"

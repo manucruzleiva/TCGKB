@@ -143,7 +143,7 @@ app.get('/api/health', async (req, res) => {
 app.get('/api/health/sources', async (req, res) => {
   const sources = []
   let healthyCount = 0
-  const totalSources = 3 // MongoDB, Pokemon TCG API, Riftbound API
+  const totalSources = 3 // MongoDB, TCGdex API, Riftbound API
 
   // Check MongoDB
   const mongoStart = Date.now()
@@ -188,44 +188,43 @@ app.get('/api/health/sources', async (req, res) => {
     })
   }
 
-  // Check Pokemon TCG API
-  const pokemonStart = Date.now()
+  // Check TCGdex API
+  const tcgdexStart = Date.now()
   try {
-    const response = await fetch('https://api.pokemontcg.io/v2/sets?pageSize=1', {
-      headers: { 'X-Api-Key': process.env.POKEMON_TCG_API_KEY || '' },
+    const response = await fetch('https://api.tcgdex.net/v2/en/sets', {
       signal: AbortSignal.timeout(10000)
     })
     if (response.ok) {
       sources.push({
-        name: 'Pokemon TCG API',
+        name: 'TCGdex API',
         type: 'external',
-        url: 'https://api.pokemontcg.io/v2',
-        docsUrl: 'https://docs.pokemontcg.io/',
+        url: 'https://api.tcgdex.net/v2/en',
+        docsUrl: 'https://tcgdex.dev/',
         status: 'healthy',
         message: 'Reachable',
-        latency: Date.now() - pokemonStart
+        latency: Date.now() - tcgdexStart
       })
       healthyCount++
     } else {
       sources.push({
-        name: 'Pokemon TCG API',
+        name: 'TCGdex API',
         type: 'external',
-        url: 'https://api.pokemontcg.io/v2',
-        docsUrl: 'https://docs.pokemontcg.io/',
+        url: 'https://api.tcgdex.net/v2/en',
+        docsUrl: 'https://tcgdex.dev/',
         status: 'error',
         message: `HTTP ${response.status}`,
-        latency: Date.now() - pokemonStart
+        latency: Date.now() - tcgdexStart
       })
     }
   } catch (error) {
     sources.push({
-      name: 'Pokemon TCG API',
+      name: 'TCGdex API',
       type: 'external',
-      url: 'https://api.pokemontcg.io/v2',
-      docsUrl: 'https://docs.pokemontcg.io/',
+      url: 'https://api.tcgdex.net/v2/en',
+      docsUrl: 'https://tcgdex.dev/',
       status: 'error',
       message: error.name === 'TimeoutError' ? 'Timeout' : (error.message || 'Unreachable'),
-      latency: Date.now() - pokemonStart
+      latency: Date.now() - tcgdexStart
     })
   }
 

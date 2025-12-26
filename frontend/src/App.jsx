@@ -32,46 +32,42 @@ function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <ConnectivityProvider>
-          <DateFormatProvider>
-            <AuthProvider>
-              <SocketProvider>
-                <Router>
-                  <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 transition-colors">
-                    <OfflineBanner />
-                    <InstallPrompt />
-                    <Header />
-                    <main className="flex-1 container mx-auto px-4 py-8">
-                      <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/card/:cardId" element={<CardDetails />} />
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/register" element={<Register />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/admin" element={<ModDashboard />} />
-                        <Route path="/mod" element={<ModDashboard />} />
-                        <Route path="/user/:username" element={<UserActivity />} />
-                        <Route path="/dev" element={<DevDashboard />} />
-                        <Route path="/roadmap" element={<Roadmap />} />
-                        <Route path="/relationship-map" element={<RelationshipMap />} />
-                        <Route path="/catalog" element={<Catalog />} />
-                        <Route path="/artists" element={<Artists />} />
-                        <Route path="/artist/:artistName" element={<ArtistDetail />} />
-                        <Route path="/decks" element={<DeckList />} />
-                        <Route path="/decks/new" element={<DeckBuilder />} />
-                        <Route path="/decks/:deckId" element={<DeckDetail />} />
-                        <Route path="/decks/:deckId/edit" element={<DeckBuilder />} />
-                        <Route path="/support" element={<Support />} />
-                      </Routes>
-                    </main>
-                    <BugReportButton />
-                    <Footer />
-                  </div>
-                </Router>
-              </SocketProvider>
-            </AuthProvider>
-          </DateFormatProvider>
-        </ConnectivityProvider>
+        <DateFormatProvider>
+          <AuthProvider>
+            <SocketProvider>
+              <Router>
+                <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 transition-colors">
+                  <Header />
+                  <main className="flex-1 container mx-auto px-4 py-8">
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/card/:cardId" element={<CardDetails />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/register" element={<Register />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/admin" element={<ModDashboard />} />
+                      <Route path="/mod" element={<ModDashboard />} />
+                      <Route path="/user/:username" element={<UserActivity />} />
+                      <Route path="/dev" element={<DevDashboard />} />
+                      <Route path="/roadmap" element={<Roadmap />} />
+                      <Route path="/relationship-map" element={<RelationshipMap />} />
+                      <Route path="/catalog" element={<Catalog />} />
+                      <Route path="/artists" element={<Artists />} />
+                      <Route path="/artist/:artistName" element={<ArtistDetail />} />
+                      <Route path="/decks" element={<DeckList />} />
+                      <Route path="/decks/new" element={<DeckBuilder />} />
+                      <Route path="/decks/:deckId" element={<DeckDetail />} />
+                      <Route path="/decks/:deckId/edit" element={<DeckBuilder />} />
+                      <Route path="/support" element={<Support />} />
+                    </Routes>
+                  </main>
+                  <BugReportButton />
+                  <Footer />
+                </div>
+              </Router>
+            </SocketProvider>
+          </AuthProvider>
+        </DateFormatProvider>
       </LanguageProvider>
     </ThemeProvider>
   )

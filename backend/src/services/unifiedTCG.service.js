@@ -160,16 +160,10 @@ class UnifiedTCGService {
   }
 
   /**
-   * Search Pokemon TCG using TCGdex (fast alternative)
+   * Search Pokemon via TCGdex
    */
   async searchPokemon(name, page, pageSize) {
-    try {
-      const result = await tcgdexService.searchCards(name, page, pageSize)
-      return result.data || []
-    } catch (error) {
-      log.error(MODULE, 'TCGdex search failed', error)
-      return []
-    }
+    return await tcgdexService.searchCards(name, page, pageSize)
   }
 
   /**
@@ -416,7 +410,6 @@ class UnifiedTCGService {
             id: card.id,
             name: card.name,
             supertype: card.supertype, // Include supertype for deck building
-            type: card.type, // Include type for Riftbound (Unit, Spell, Gear, Legend, etc.)
             types: card.types || [], // Include types for filter bar (#152 fix)
             domains: card.domains || [], // Include domains for Riftbound filter bar (#152 fix)
             images: card.images,
@@ -441,8 +434,7 @@ class UnifiedTCGService {
       let rifboundResults = []
 
       if (!tcgSystem || tcgSystem === 'pokemon') {
-        const result = await tcgdexService.searchCards(name, 1, limit * 2).catch(() => ({ data: [] }))
-        pokemonResults = result.data || []
+        pokemonResults = await tcgdexService.searchCards(name, 1, limit * 2).catch(() => [])
       }
 
       if (!tcgSystem || tcgSystem === 'riftbound') {
@@ -555,15 +547,14 @@ class UnifiedTCGService {
         return cached.data
       }
 
-      // LEVEL 3: Try TCGdex first
+      // LEVEL 3: Try TCGdex API first
       try {
         const card = await tcgdexService.getCardById(cardId)
         if (card) {
-          const cardData = { ...card, tcgSystem: 'pokemon' }
-          await this.cacheCard(cardData, 'pokemon')
-          cardCache.set('card', cardId, cardData, 86400000) // 24 hours
-          log.perf(MODULE, `TCGdex card ${cardId}`, Date.now() - startTime)
-          return cardData
+          await this.cacheCard(card, 'pokemon')
+          cardCache.set('card', cardId, card, 86400000) // 24 hours
+          log.perf(MODULE, `TCGdex API card ${cardId}`, Date.now() - startTime)
+          return card
         }
       } catch (pokemonErr) {
         log.info(MODULE, `Card ${cardId} not found in TCGdex`)
@@ -627,9 +618,22 @@ class UnifiedTCGService {
         }
       }
 
-      // Fetch from TCGdex
-      const newestCards = await tcgdexService.getNewestCards(pageSize)
-      const pokemonCards = newestCards.map(c => ({ ...c, tcgSystem: 'pokemon' }))
+      // Fetch from TCGdex - get latest 3 sets and their cards
+      const sets = await tcgdexService.getAllSets()
+      const latestSets = sets
+        .sort((a, b) => new Date(b.releaseDate || 0) - new Date(a.releaseDate || 0))
+        .slice(0, 3)
+
+      const allCards = []
+      for (const set of latestSets) {
+        const setCards = await tcgdexService.getCardsBySet(set.id, 100)
+        allCards.push(...setCards)
+      }
+
+      const pokemonCards = allCards
+        .sort((a, b) => new Date(b.set?.releaseDate || 0) - new Date(a.set?.releaseDate || 0))
+        .slice(0, pageSize)
+
       const filteredCards = this.filterPokemonCards(pokemonCards)
 
       // Background cache

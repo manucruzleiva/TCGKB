@@ -1041,7 +1041,7 @@ export const parseDeck = async (req, res) => {
       })
     }
 
-    // STEP 4: categorizeCards() - Enrich with metadata from CardCache
+    // Enrich cards with metadata from CardCache (for accurate validation)
     let cards = result.cards
     let enrichmentStats = null
 
@@ -1049,24 +1049,12 @@ export const parseDeck = async (req, res) => {
       const enrichResult = await enrichDeckCards(result.cards, result.tcg)
       cards = enrichResult.cards
       enrichmentStats = enrichResult.stats
-      log.info(MODULE, `STEP 4 (categorizeCards): Enriched ${enrichmentStats.enriched}/${enrichmentStats.total} cards in ${enrichmentStats.duration}ms`)
     }
 
-    // Re-calculate breakdown after enrichment for accurate categorization
-    let breakdown = result.breakdown
-    if (enrich) {
-      breakdown = calculateBreakdown(cards, result.tcg)
-      log.info(MODULE, `Re-calculated breakdown after enrichment: ${JSON.stringify(breakdown)}`)
-    }
+    // Use the validation from the parser (already includes format-specific rules)
+    const validation = result.validation
 
-    // STEP 5: validateDeck() - Format & legality validation
-    let validation = null
-    if (validate) {
-      validation = validateDeck(cards, result.tcg, result.format)
-      log.info(MODULE, `STEP 5 (validateDeck): ${validation.isValid ? 'Valid' : 'Invalid'} (${validation.errors.length} errors, ${validation.warnings.length} warnings)`)
-    }
-
-    log.info(MODULE, `Deck parsed successfully: ${result.stats.uniqueCards} cards (${result.stats.totalCards} total), TCG=${result.tcg} (${result.tcgConfidence}%), Format=${result.format} (${result.formatConfidence}%), InputFormat=${result.inputFormat}, Valid=${validation?.isValid ?? 'N/A'}`)
+    log.info(MODULE, `Parsed deck: ${result.stats.uniqueCards} cards, TCG=${result.tcg}, Format=${result.format}${result.isFormatOverride ? ' (override)' : ''}, Valid=${validation?.isValid ?? 'N/A'}${enrichmentStats ? `, Enriched=${enrichmentStats.enriched}/${enrichmentStats.total} in ${enrichmentStats.duration}ms` : ''}`)
 
     res.status(200).json({
       success: true,
@@ -1083,28 +1071,15 @@ export const parseDeck = async (req, res) => {
 
         // Input Validation (Step 2)
         inputFormat: result.inputFormat,
-        inputValidation: result.inputValidation,
-
-        // Parsed & Enriched Cards (Step 3 & 4)
         cards,
-
-        // Categorization (Step 4)
-        breakdown,
-
-        // Validation (Step 5)
-        validation,
-
-        // Stats
+        reprintGroups: result.reprintGroups,
+        breakdown: result.breakdown,
         stats: {
-          totalCards: result.stats.totalCards,
-          uniqueCards: result.stats.uniqueCards,
-          validLines: result.stats.validLines,
-          totalLines: result.stats.totalLines,
+          ...result.stats,
           enrichment: enrichmentStats
         },
-
-        // Errors from parsing
-        errors: result.errors
+        warnings: result.warnings,
+        validation
       }
     })
   } catch (error) {

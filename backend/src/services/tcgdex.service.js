@@ -1,329 +1,292 @@
-import TCGdex from '@tcgdex/sdk'
+/**
+ * TCGdex Service
+ * Handles all Pokemon card data fetching from TCGdex API (https://tcgdex.dev)
+ *
+ * CRITICAL: TCGdex uses 'category' instead of 'supertype'
+ * This service transforms all cards to match Pokemon TCG API format for compatibility
+ */
 import log from '../utils/logger.js'
 
 const MODULE = 'TCGdexService'
+const TCGDEX_API_BASE = 'https://api.tcgdex.net/v2/en'
 
-// Initialize TCGdex SDK with English language
-const tcgdex = new TCGdex('en')
-
-/**
- * TCGdex Service - Fast Pokemon TCG data provider
- * Replaces pokemontcgsdk for better performance
- *
- * API: https://api.tcgdex.net/v2/{lang}/
- * Docs: https://tcgdex.dev/
- */
 class TCGdexService {
+  /**
+   * Fetch all Pokemon sets from TCGdex
+   * @returns {Promise<Array>} Array of sets with normalized format
+   */
+  async getAllSets() {
+    try {
+      const response = await fetch(`${TCGDEX_API_BASE}/sets`)
+      if (!response.ok) {
+        throw new Error(`TCGdex API returned ${response.status}`)
+      }
+
+      const sets = await response.json()
+      log.info(MODULE, `Fetched ${sets.length} sets from TCGdex`)
+
+      return sets.map(set => ({
+        id: set.id,
+        name: set.name,
+        logo: set.logo,
+        symbol: set.symbol,
+        cardCount: set.cardCount,
+        series: this.inferSeries(set.id),
+        releaseDate: this.inferReleaseDate(set.id),
+        printedTotal: set.cardCount?.total || 0,
+        total: set.cardCount?.total || 0
+      }))
+    } catch (error) {
+      log.error(MODULE, 'Failed to fetch sets from TCGdex:', error)
+      return []
+    }
+  }
+
+  /**
+   * Fetch all cards from a specific set
+   * @param {string} setId - Set ID (e.g., 'sv08', 'sv04')
+   * @returns {Promise<Array>} Array of transformed cards
+   */
+  async getCardsBySet(setId) {
+    try {
+      // Get set details (includes card list)
+      const response = await fetch(`${TCGDEX_API_BASE}/sets/${setId}`)
+      if (!response.ok) {
+        log.warn(MODULE, `Set ${setId} not found in TCGdex (${response.status})`)
+        return []
+      }
+
+      const setData = await response.json()
+      const cardSummaries = setData.cards || []
+
+      log.info(MODULE, `Fetching ${cardSummaries.length} cards for set ${setId}`)
+
+      // Fetch full details for each card in batches of 10
+      const cards = []
+      for (let i = 0; i < cardSummaries.length; i += 10) {
+        const batch = cardSummaries.slice(i, i + 10)
+        const batchPromises = batch.map(card =>
+          fetch(`${TCGDEX_API_BASE}/cards/${card.id}`)
+            .then(res => res.ok ? res.json() : null)
+            .catch(err => {
+              log.error(MODULE, `Failed to fetch card ${card.id}:`, err)
+              return null
+            })
+        )
+
+        const batchResults = await Promise.all(batchPromises)
+        const validCards = batchResults.filter(Boolean)
+        cards.push(...validCards)
+
+        // Rate limiting - 100ms between batches
+        if (i + 10 < cardSummaries.length) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+      }
+
+      log.info(MODULE, `Successfully fetched ${cards.length}/${cardSummaries.length} cards for ${setId}`)
+
+      return cards.map(card => this.transformCard(card))
+    } catch (error) {
+      log.error(MODULE, `Failed to fetch cards for set ${setId}:`, error)
+      return []
+    }
+  }
+
+  /**
+   * Get single card by ID
+   * @param {string} cardId - Card ID (e.g., 'sv08-97')
+   * @returns {Promise<Object|null>} Transformed card or null
+   */
+  async getCardById(cardId) {
+    try {
+      const response = await fetch(`${TCGDEX_API_BASE}/cards/${cardId}`)
+      if (!response.ok) {
+        log.warn(MODULE, `Card ${cardId} not found in TCGdex (${response.status})`)
+        return null
+      }
+
+      const card = await response.json()
+      return this.transformCard(card)
+    } catch (error) {
+      log.error(MODULE, `Failed to fetch card ${cardId}:`, error)
+      return null
+    }
+  }
+
   /**
    * Search cards by name
    * @param {string} name - Card name to search
    * @param {number} page - Page number (1-indexed)
    * @param {number} pageSize - Results per page
+   * @returns {Promise<Array>} Array of transformed cards
    */
   async searchCards(name, page = 1, pageSize = 20) {
-    const startTime = Date.now()
-
     try {
-      // TCGdex returns all matching cards, we paginate client-side
-      const cards = await tcgdex.fetch('cards', { name })
-
-      if (!cards || cards.length === 0) {
-        return { data: [], totalCount: 0 }
+      const response = await fetch(`${TCGDEX_API_BASE}/cards?name=${encodeURIComponent(name)}`)
+      if (!response.ok) {
+        throw new Error(`TCGdex search failed: ${response.status}`)
       }
 
-      // Transform to our format
-      const transformedCards = cards.map(card => this.transformCard(card))
+      const results = await response.json()
 
-      // Sort by release date (newest first)
-      transformedCards.sort((a, b) => {
-        const dateA = a.set?.releaseDate || '1900-01-01'
-        const dateB = b.set?.releaseDate || '1900-01-01'
-        return dateB.localeCompare(dateA)
-      })
-
-      // Paginate
-      const startIndex = (page - 1) * pageSize
-      const paginatedCards = transformedCards.slice(startIndex, startIndex + pageSize)
-
-      log.perf(MODULE, `Search "${name}" page ${page}`, Date.now() - startTime)
-
-      return {
-        data: paginatedCards,
-        totalCount: transformedCards.length
+      // TCGdex returns card summaries, fetch full details for each
+      const fullCards = []
+      for (const summary of results.slice(0, pageSize * 3)) {
+        const card = await this.getCardById(summary.id)
+        if (card) fullCards.push(card)
       }
+
+      // Client-side pagination
+      const start = (page - 1) * pageSize
+      const end = start + pageSize
+
+      return fullCards
+        .sort((a, b) => new Date(b.set?.releaseDate || 0) - new Date(a.set?.releaseDate || 0))
+        .slice(start, end)
     } catch (error) {
-      log.error(MODULE, `Search failed for "${name}"`, error)
-      return { data: [], totalCount: 0 }
-    }
-  }
-
-  /**
-   * Get card by ID (format: {setId}-{localId})
-   * @param {string} cardId - Card ID like "swsh3-136"
-   */
-  async getCardById(cardId) {
-    const startTime = Date.now()
-
-    try {
-      // TCGdex card IDs are {setId}-{localId}
-      const [setId, localId] = cardId.includes('-')
-        ? cardId.split('-', 2)
-        : [null, cardId]
-
-      if (!setId || !localId) {
-        log.warn(MODULE, `Invalid card ID format: ${cardId}`)
-        return null
-      }
-
-      const card = await tcgdex.fetch('cards', setId, localId)
-
-      if (!card) {
-        return null
-      }
-
-      log.perf(MODULE, `Get card ${cardId}`, Date.now() - startTime)
-      return this.transformCard(card)
-    } catch (error) {
-      log.error(MODULE, `Get card ${cardId} failed`, error)
-      return null
-    }
-  }
-
-  /**
-   * Get all sets
-   */
-  async getAllSets() {
-    const startTime = Date.now()
-
-    try {
-      const sets = await tcgdex.fetch('sets')
-      log.perf(MODULE, `Get all sets (${sets?.length || 0})`, Date.now() - startTime)
-      return sets || []
-    } catch (error) {
-      log.error(MODULE, 'Get all sets failed', error)
+      log.error(MODULE, 'Search cards failed:', error)
       return []
     }
   }
 
   /**
-   * Get set by ID
-   * @param {string} setId - Set ID like "swsh3"
-   */
-  async getSetById(setId) {
-    try {
-      const set = await tcgdex.fetch('sets', setId)
-      return set
-    } catch (error) {
-      log.error(MODULE, `Get set ${setId} failed`, error)
-      return null
-    }
-  }
-
-  /**
-   * Get all cards from a specific set
-   * @param {string} setId - Set ID like "swsh3"
-   */
-  async getCardsBySet(setId) {
-    const startTime = Date.now()
-
-    try {
-      const set = await tcgdex.fetch('sets', setId)
-
-      if (!set || !set.cards) {
-        log.warn(MODULE, `Set ${setId} not found or has no cards`)
-        return []
-      }
-
-      // set.cards contains card references, need to fetch full details
-      const cardPromises = set.cards.map(async (cardRef) => {
-        try {
-          const card = await tcgdex.fetch('cards', setId, cardRef.localId)
-          return card ? this.transformCard(card) : null
-        } catch {
-          return null
-        }
-      })
-
-      const cards = (await Promise.all(cardPromises)).filter(Boolean)
-
-      log.perf(MODULE, `Get cards for set ${setId} (${cards.length})`, Date.now() - startTime)
-      return cards
-    } catch (error) {
-      log.error(MODULE, `Get cards for set ${setId} failed`, error)
-      return []
-    }
-  }
-
-  /**
-   * Get newest cards across all sets
-   * @param {number} limit - Max cards to return
-   */
-  async getNewestCards(limit = 20) {
-    const startTime = Date.now()
-
-    try {
-      // Get recent sets
-      const sets = await this.getAllSets()
-
-      if (!sets || sets.length === 0) {
-        return []
-      }
-
-      // Sort by release date and get the 3 most recent sets
-      const sortedSets = sets
-        .filter(s => s.releaseDate)
-        .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate))
-        .slice(0, 3)
-
-      // Fetch cards from each recent set
-      const allCards = []
-      for (const set of sortedSets) {
-        const cards = await this.getCardsBySet(set.id)
-        allCards.push(...cards)
-
-        if (allCards.length >= limit) break
-      }
-
-      // Sort by release date and limit
-      const result = allCards
-        .sort((a, b) => {
-          const dateA = a.set?.releaseDate || '1900-01-01'
-          const dateB = b.set?.releaseDate || '1900-01-01'
-          return dateB.localeCompare(dateA)
-        })
-        .slice(0, limit)
-
-      log.perf(MODULE, `Get newest cards (${result.length})`, Date.now() - startTime)
-      return result
-    } catch (error) {
-      log.error(MODULE, 'Get newest cards failed', error)
-      return []
-    }
-  }
-
-  /**
-   * Transform TCGdex card format to our standard format
-   * Compatible with existing Pokemon TCG API format
+   * Transform TCGdex card to Pokemon TCG API format
+   * CRITICAL: Maps category → supertype for frontend compatibility
+   *
+   * @param {Object} card - TCGdex card object
+   * @returns {Object} Transformed card matching Pokemon TCG API structure
    */
   transformCard(card) {
     if (!card) return null
 
-    // Build images object
-    const images = {}
-    if (card.image) {
-      // TCGdex provides image URLs in format: https://assets.tcgdex.net/en/{setId}/{localId}/{quality}
-      images.small = `${card.image}/low.webp`
-      images.large = `${card.image}/high.webp`
-    }
-
-    // Transform types (TCGdex uses 'types' array)
-    const types = card.types || []
-
-    // Build set object
-    const set = {
-      id: card.set?.id || null,
-      name: card.set?.name || 'Unknown Set',
-      series: card.set?.serie?.name || null,
-      releaseDate: card.set?.releaseDate || null,
-      logo: card.set?.logo ? `${card.set.logo}/high.webp` : null,
-      symbol: card.set?.symbol ? `${card.set.symbol}/high.webp` : null,
-      legalities: {
-        standard: card.set?.legal?.standard ? 'Legal' : 'Not Legal',
-        expanded: card.set?.legal?.expanded ? 'Legal' : 'Not Legal'
-      }
-    }
-
-    // Build attacks array
-    const attacks = (card.attacks || []).map(attack => ({
-      name: attack.name,
-      cost: attack.cost || [],
-      damage: attack.damage || '',
-      text: attack.effect || ''
-    }))
-
-    // Build abilities array
-    const abilities = (card.abilities || []).map(ability => ({
-      name: ability.name,
-      text: ability.effect || '',
-      type: ability.type || 'Ability'
-    }))
-
     return {
-      id: `${card.set?.id || 'unknown'}-${card.localId || card.id}`,
-      localId: card.localId || card.id,
+      id: card.id,
       name: card.name,
-      tcgSystem: 'pokemon',
-      supertype: card.category || 'Pokemon', // Pokemon, Trainer, Energy
-      subtypes: card.stage ? [card.stage] : [], // Basic, Stage 1, Stage 2
-      hp: card.hp ? String(card.hp) : null,
-      types,
-      evolvesFrom: card.evolveFrom || null,
-      evolvesTo: card.evolvesTo || [],
-      attacks,
-      abilities,
-      weaknesses: card.weaknesses || [],
-      resistances: card.resistances || [],
+      // ⚠️ CRITICAL MAPPING: TCGdex uses 'category', we need 'supertype'
+      supertype: card.category || 'Unknown',
+      subtypes: card.stage ? [card.stage] : (card.dexId ? ['Basic'] : []),
+      types: card.types || [],
+      hp: card.hp ? String(card.hp) : undefined,
+      regulationMark: card.regulationMark,
+      rarity: card.rarity,
+      number: card.localId,
+      artist: card.illustrator,
+
+      // Set information
+      set: {
+        id: card.set?.id,
+        name: card.set?.name,
+        series: this.inferSeries(card.set?.id),
+        releaseDate: this.inferReleaseDate(card.set?.id),
+        printedTotal: card.set?.cardCount?.total || 0,
+        total: card.set?.cardCount?.total || 0,
+        legalities: card.legal ? {
+          standard: card.legal.standard ? 'Legal' : 'Not Legal',
+          expanded: card.legal.expanded ? 'Legal' : 'Not Legal'
+        } : undefined
+      },
+
+      // Images
+      images: card.image ? {
+        small: `${card.image}/low.webp`,
+        large: `${card.image}/high.webp`
+      } : undefined,
+
+      // Attacks
+      attacks: card.attacks?.map(a => ({
+        name: a.name,
+        cost: a.cost || [],
+        convertedEnergyCost: a.cost?.length || 0,
+        damage: a.damage || '',
+        text: a.effect || ''
+      })),
+
+      // Abilities
+      abilities: card.abilities?.map(ab => ({
+        name: ab.name,
+        text: ab.effect,
+        type: ab.type || 'Ability'
+      })),
+
+      // Evolution
+      evolvesFrom: card.evolveFrom,
+
+      // Retreat cost
       retreatCost: card.retreat ? Array(card.retreat).fill('Colorless') : [],
-      regulationMark: card.regulationMark || null,
-      rarity: card.rarity || 'Common',
-      artist: card.illustrator || null,
-      number: card.localId || card.id,
-      images,
-      set,
-      // Additional TCGdex fields
-      description: card.description || null,
-      dexId: card.dexId || [],
-      level: card.level || null,
-      suffix: card.suffix || null
+
+      // Weaknesses and resistances
+      weaknesses: card.weaknesses?.map(w => ({
+        type: w.type,
+        value: w.value || '×2'
+      })),
+      resistances: card.resistances?.map(r => ({
+        type: r.type,
+        value: r.value || '-20'
+      })),
+
+      // System marker
+      tcgSystem: 'pokemon'
     }
   }
 
   /**
-   * Get all cards for bulk caching
-   * Fetches cards set by set for reliability
+   * Infer series from set ID
+   * @param {string} setId - Set ID
+   * @returns {string} Series name
    */
-  async getAllCards(onProgress = null) {
-    const startTime = Date.now()
-    const allCards = []
+  inferSeries(setId) {
+    if (!setId) return 'Unknown'
 
-    try {
-      const sets = await this.getAllSets()
-      log.info(MODULE, `Found ${sets.length} sets to process`)
-
-      for (let i = 0; i < sets.length; i++) {
-        const set = sets[i]
-
-        try {
-          const cards = await this.getCardsBySet(set.id)
-          allCards.push(...cards)
-
-          if (onProgress) {
-            onProgress({
-              current: i + 1,
-              total: sets.length,
-              setName: set.name,
-              cardsInSet: cards.length,
-              totalCards: allCards.length
-            })
-          }
-
-          log.info(MODULE, `[${i + 1}/${sets.length}] Set "${set.name}": ${cards.length} cards`)
-
-          // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100))
-
-        } catch (setError) {
-          log.error(MODULE, `Failed to process set ${set.name}`, setError)
-        }
-      }
-
-      log.perf(MODULE, `Get all cards (${allCards.length} total)`, Date.now() - startTime)
-      return allCards
-
-    } catch (error) {
-      log.error(MODULE, 'Get all cards failed', error)
-      return allCards // Return what we have so far
+    const prefixMap = {
+      'sv': 'Scarlet & Violet',
+      'swsh': 'Sword & Shield',
+      'sm': 'Sun & Moon',
+      'xy': 'XY',
+      'bw': 'Black & White',
+      'dp': 'Diamond & Pearl',
+      'pl': 'Platinum',
+      'hgss': 'HeartGold & SoulSilver',
+      'col': 'Call of Legends',
+      'ex': 'EX',
+      'pop': 'POP',
+      'base': 'Base'
     }
+
+    const lowerSetId = setId.toLowerCase()
+    for (const [prefix, series] of Object.entries(prefixMap)) {
+      if (lowerSetId.startsWith(prefix)) return series
+    }
+
+    return 'Other'
+  }
+
+  /**
+   * Infer release date from set ID (approximate for newer sets)
+   * @param {string} setId - Set ID
+   * @returns {string|null} Release date in YYYY-MM-DD format
+   */
+  inferReleaseDate(setId) {
+    if (!setId) return null
+
+    // Scarlet & Violet sets with known dates
+    const svDates = {
+      'sv01': '2023-03-31',
+      'sv02': '2023-06-09',
+      'sv03': '2023-08-11',
+      'sv03.5': '2023-09-22',
+      'sv04': '2023-11-03',
+      'sv04.5': '2024-01-26',
+      'sv05': '2024-03-22',
+      'sv06': '2024-05-24',
+      'sv06.5': '2024-08-02',
+      'sv07': '2024-09-13',
+      'sv08': '2024-11-08',
+      'sv09': '2025-02-07',
+      'sv10': '2025-05-09'
+    }
+
+    return svDates[setId] || null
   }
 }
 

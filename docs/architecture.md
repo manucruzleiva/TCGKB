@@ -1,7 +1,7 @@
 # TCGKB - System Architecture
 
 > **Source of Truth** for system architecture, tech stack, and data models.
-> Last updated: 2025-12-21
+> Last updated: 2025-12-20
 
 ---
 
@@ -53,75 +53,8 @@
 | **Backend** | Express.js | REST API |
 | **Database** | MongoDB + Mongoose | Data persistence |
 | **Auth** | JWT | Stateless authentication |
-| **PWA** | Service Worker + Cache API | Offline support, installability |
 | **Deploy** | Vercel | Serverless hosting |
 | **Testing** | Playwright | E2E tests |
-
----
-
-## PWA Architecture
-
-TCGKB is a Progressive Web App with offline-first capabilities:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              PWA ARCHITECTURE                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────┐   │
-│  │   React App     │────▶│  Service Worker │────▶│    Cache API        │   │
-│  │  (UI Layer)     │◀────│  (sw.js v1.1.0) │◀────│  (Multi-strategy)   │   │
-│  └────────┬────────┘     └────────┬────────┘     └─────────────────────┘   │
-│           │                       │                                         │
-│           ▼                       ▼                                         │
-│  ┌─────────────────┐     ┌─────────────────┐                               │
-│  │ Connectivity    │     │   Cache Stores  │                               │
-│  │ Context         │     │  - static-v1.1  │                               │
-│  │ (online/offline)│     │  - images-v1.1  │                               │
-│  └─────────────────┘     │  - api-v1.1     │                               │
-│                          │  - fonts-v1.1   │                               │
-│                          └─────────────────┘                               │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                        CACHE STRATEGIES                              │   │
-│  ├──────────────────┬──────────────────┬───────────────────────────────┤   │
-│  │ Cache-First      │ Network-First    │ Stale-While-Revalidate       │   │
-│  │ (Static assets)  │ (API calls)      │ (Card images)                 │   │
-│  │ (Fonts)          │                  │                               │   │
-│  └──────────────────┴──────────────────┴───────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Implemented Features (Phase 1 + Phase 4)
-
-| Feature | Status | Location |
-|---------|--------|----------|
-| **Service Worker** | ✅ Implemented | `/frontend/public/sw.js` |
-| **Manifest** | ✅ Implemented | `/frontend/public/manifest.json` |
-| **ConnectivityContext** | ✅ Implemented | `/frontend/src/contexts/ConnectivityContext.jsx` |
-| **OfflineBanner** | ✅ Implemented | `/frontend/src/components/common/OfflineBanner.jsx` |
-| **InstallPrompt** | ✅ Implemented | `/frontend/src/components/common/InstallPrompt.jsx` |
-| **Offline Fallback** | ✅ Implemented | `/frontend/public/offline.html` |
-| **Cache Strategies** | ✅ Implemented | Static, Images, API, Fonts |
-| **IndexedDB** | ⏳ Pending | Phase 2 |
-| **Background Sync** | ⏳ Pending | Phase 3 |
-
-### Cache Strategy Details
-
-| Resource Type | Strategy | Cache Name | TTL |
-|---------------|----------|------------|-----|
-| HTML, JS, CSS | Cache-First | `tcgkb-static-v1.1.0` | Versioned |
-| Card Images | Stale-While-Revalidate | `tcgkb-images-v1.1.0` | 30 days |
-| API (GET) | Network-First with fallback | `tcgkb-api-v1.1.0` | 7 days |
-| Web Fonts | Cache-First | `tcgkb-fonts-v1.1.0` | Versioned |
-
-### Service Worker Lifecycle
-
-1. **Install**: Precache static assets (`/`, `/index.html`, `/manifest.json`, icons, `/offline.html`)
-2. **Activate**: Clean up old cache versions (anything not `v1.1.0`)
-3. **Fetch**: Route requests to appropriate cache strategy based on resource type
-4. **Update**: Automatic service worker update detection and activation
 
 ---
 
@@ -323,34 +256,10 @@ user → moderator → dev
 
 | Service | Purpose | Rate Limits |
 |---------|---------|-------------|
-| **TCGdex API** | Card data for Pokemon | Unlimited (faster) |
+| **Pokemon TCG API** | Card data for Pokemon | 20k/day |
 | **Riftbound API** | Card data for Riftbound | TBD |
 | **PokeAPI** | Pokemon sprites | Unlimited |
 | **GitHub API** | Bug reports, changelog, roadmap | 5k/hour |
-
----
-
-## External Asset Repositories
-
-| Resource | Type | URL | Description |
-|----------|------|-----|-------------|
-| **Riftbound Icons** | Google Drive | [Riftbound Assets](https://drive.google.com/drive/u/0/folders/11V-sIN0JMAT-gADkSoPOhzuavmLwQUqB) | Official Riftbound TCG icon set (domain icons, card types, etc.) |
-| **Bulbapedia TCG** | Wiki | [Pokemon TCG Wiki](https://bulbapedia.bulbagarden.net/wiki/Pok%C3%A9mon_Trading_Card_Game) | Pokemon TCG reference, rules, mechanics, card types |
-| **Bulbapedia Energy** | Wiki | [Energy Cards](https://bulbapedia.bulbagarden.net/wiki/Energy_card_(TCG)) | Energy type icons, special energy info |
-| **Bulbapedia Items** | Wiki | [Rare Candy](https://bulbapedia.bulbagarden.net/wiki/Rare_Candy) | Item card reference icons |
-
-### Local Icon Assets
-
-Located in `frontend/public/assets/icons/`:
-
-| Folder | Contents | Source |
-|--------|----------|--------|
-| `pokemon-types/` | 11 energy type SVGs (fire, water, grass, etc.) | Bulbapedia |
-| `pokemon-cardtypes/` | Card type SVGs (Pokemon, Trainer, Item, Stadium) | Bulbapedia |
-| `riftbound-domains/` | 6 domain SVGs (fury, calm, mind, body, order, chaos) | Google Drive |
-| `riftbound-types/` | Card type SVGs (unit, spell, battlefield, item) | Google Drive |
-
-> **Note**: These are external resources not controlled by TCGKB. Always verify availability and licensing before use.
 
 ---
 
@@ -381,13 +290,6 @@ Located in `frontend/public/assets/icons/`:
 - Stateless = scales horizontally
 - Works with serverless (no session store needed)
 - 7-day expiration balances security and UX
-
-### Why TCGdex over pokemontcg.io?
-- Faster response times (no rate limiting issues)
-- More reliable uptime (no 504 timeouts)
-- 14 languages supported
-- Includes regulation marks for Standard format filtering
-- Better set coverage (197 sets vs 170)
 
 ---
 
