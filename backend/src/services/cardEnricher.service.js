@@ -207,26 +207,14 @@ export async function enrichDeckCards(cards, tcg = 'pokemon') {
       }
     }
 
-    // Build enriched card
+    // Build enriched card - just merge cache data with parsed card data
     const enrichedCard = {
-      ...card,
-      // Preserve original data
+      ...card,           // Original parsed card data (cardId, quantity, name, etc.)
+      ...cardData,       // ALL cache data (stage, category, types, rarity, attacks, etc.)
+      // Override with parsed data where available
       cardId: card.cardId,
       quantity: card.quantity,
       name: card.name || cardData?.name || 'Unknown',
-      setCode: card.setCode,
-      number: card.number,
-      // Add enriched metadata
-      // Map TCGdex 'category' to 'supertype' for consistency
-      supertype: cardData?.supertype || cardData?.category || card.supertype || null,
-      category: cardData?.category || null,  // Preserve category for Pokemon type detection
-      stage: cardData?.stage || null,         // CRITICAL: Preserve stage for Basic Pokemon detection
-      subtypes: cardData?.subtypes || [],
-      types: cardData?.types || [],
-      regulationMark: cardData?.regulationMark || null,
-      // Additional useful fields for display
-      imageSmall: cardData?.images?.small || null,
-      rarity: cardData?.rarity || null,
       // Enrichment status
       enriched: !!cardData,
       enrichedFrom: cardData ? (card.cardId ? 'cardId' : 'name') : null
