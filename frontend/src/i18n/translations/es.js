@@ -136,8 +136,8 @@ export const es = {
   // Deck Import
   deckImport: {
     title: 'Importar Mazo',
-    instructions: 'Pega tu lista de mazo. Formatos Pokemon TCG Live, Pokemon Pocket y Riftbound son soportados.',
-    placeholder: 'Pokémon: 12\n4 Pikachu ex SVI 057\n4 Raichu SVI 058\n\nTrainer: 36\n4 Professor\'s Research SVI 189\n\nEnergy: 12\n8 Electric Energy SVE 004',
+    instructions: 'Pega tu lista usando formato PTCGL (ej: "4 Pikachu ex SVI 057"). Pokemon TCG Live y Riftbound son soportados.',
+    placeholder: 'Pokémon: 12\n4 Pikachu ex SVI 057\n4 Raichu TWM 055\n\nTrainer: 36\n4 Professor\'s Research SVI 189\n4 Iono PAL 185\n\nEnergy: 12\n12 Lightning Energy',
     parseError: 'Error al analizar el mazo',
     importError: 'Error al importar el mazo',
     importing: 'Importando...',

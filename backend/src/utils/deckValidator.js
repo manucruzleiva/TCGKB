@@ -358,7 +358,9 @@ export function validatePokemonGLC(cards, options = {}) {
   // 5. Check single type (all Pokemon must share a type)
   const pokemonCards = cards.filter(c => {
     const st = c.supertype?.toLowerCase() || ''
-    return st === 'pokémon' || st === 'pokemon'
+    const cat = c.category?.toLowerCase() || ''
+    return st === 'pokémon' || st === 'pokemon' ||
+           cat === 'pokémon' || cat === 'pokemon'
   })
 
   const allTypes = new Set()

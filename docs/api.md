@@ -1,7 +1,8 @@
 # TCGKB - API Reference
 
 > **Source of Truth** for all API endpoints.
-> Last updated: 2025-12-20
+> Last updated: 2025-12-26
+> by @raj
 
 ---
 
@@ -133,6 +134,13 @@ Fetch multiple cards in a single request.
 #### POST /api/decks/parse
 
 Parses a deck string, auto-detects TCG/format, and validates.
+
+**Supported Formats:**
+- **PTCGL Format** (Recommended): `<qty> <card name> <PTCGL code> <number>`
+  - Example: `4 Pikachu ex SVI 057`
+  - Uses 3-letter set codes (SVI, PAR, MEW, etc.)
+- **TCGdex Format**: `<qty> <card name> <set id>-<number>`
+  - Example: `4 Pikachu ex sv01-057`
 
 **Request:**
 ```json
