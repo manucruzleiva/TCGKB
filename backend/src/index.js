@@ -106,15 +106,14 @@ app.get('/api/health/sources', async (req, res) => {
     })
   }
 
-  // 2. Pokemon TCG API
+  // 2. TCGdex API
   try {
     const start = Date.now()
-    const response = await fetch('https://api.pokemontcg.io/v2/cards?pageSize=1', {
-      headers: { 'X-Api-Key': process.env.POKEMON_TCG_API_KEY || '' },
+    const response = await fetch('https://api.tcgdex.net/v2/en/sets', {
       signal: AbortSignal.timeout(5000)
     })
     sources.push({
-      name: 'Pokemon TCG API',
+      name: 'TCGdex API',
       type: 'external_api',
       status: response.ok ? 'healthy' : 'error',
       latency: Date.now() - start,
@@ -122,7 +121,7 @@ app.get('/api/health/sources', async (req, res) => {
     })
   } catch (error) {
     sources.push({
-      name: 'Pokemon TCG API',
+      name: 'TCGdex API',
       type: 'external_api',
       status: 'error',
       latency: 0,

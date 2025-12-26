@@ -736,7 +736,7 @@ export const syncPokemonCards = async (req, res) => {
     if (!Array.isArray(allSets) || allSets.length === 0) {
       return res.status(500).json({
         success: false,
-        message: 'No Pokemon sets returned from API. Check API connectivity and POKEMON_TCG_API_KEY.'
+        message: 'No Pokemon sets returned from TCGdex API. Check API connectivity.'
       })
     }
 
