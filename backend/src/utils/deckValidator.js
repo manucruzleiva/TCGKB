@@ -84,15 +84,32 @@ function isRuleBox(card) {
 
 /**
  * Check if a card is a Basic Pokemon
+ * Uses the 'stage' field from TCGdex data
  */
 function isBasicPokemon(card) {
+  // Check supertype first (if available)
   const supertype = card.supertype?.toLowerCase() || ''
+  const category = card.category?.toLowerCase() || ''
+
+  // Must be a Pokemon card
+  const isPokemon = supertype === 'pokémon' || supertype === 'pokemon' ||
+                    category === 'pokémon' || category === 'pokemon'
+
+  if (!isPokemon) return false
+
+  // TCGdex uses 'stage' field directly - this is the primary source
+  const stage = card.stage?.toLowerCase() || ''
+  if (stage === 'basic') return true
+
+  // Fallback: check subtypes (for backward compatibility)
   const subtypes = card.subtypes?.map(s => s.toLowerCase()) || []
+  if (subtypes.includes('basic')) return true
+
+  // Fallback: evolutionStage (legacy)
   const evolutionStage = card.evolutionStage?.toLowerCase() || ''
+  if (evolutionStage === 'basic') return true
 
-  if (supertype !== 'pokémon' && supertype !== 'pokemon') return false
-
-  return subtypes.includes('basic') || evolutionStage === 'basic'
+  return false
 }
 
 /**
