@@ -2,7 +2,7 @@
 /**
  * Pokemon Card Cache Sync Script
  *
- * This script fetches all Pokemon cards from the Pokemon TCG API
+ * This script fetches all Pokemon cards from TCGdex API
  * and inserts them into the MongoDB CardCache collection.
  *
  * Usage:
@@ -17,9 +17,6 @@
  *   Method 2 (Legacy):
  *     - MONGODB_URI: Full MongoDB connection string
  *
- *   Optional:
- *     - POKEMON_TCG_API_KEY: Pokemon TCG API key (recommended for higher rate limits)
- *
  * You can create a .env file in the project root or pass them inline:
  *   DB_ENDPOINT="mongodb+srv://cluster.mongodb.net" DB_CLIENT_ID="user" DB_CLIENT_SECRET="pass" node scripts/sync-pokemon-cache.js
  */
@@ -30,8 +27,7 @@ import dotenv from 'dotenv'
 // Load environment variables from .env file
 dotenv.config()
 
-const POKEMON_API_BASE = 'https://api.pokemontcg.io/v2'
-const POKEMON_API_KEY = process.env.POKEMON_TCG_API_KEY || ''
+const TCGDEX_API_BASE = 'https://api.tcgdex.net/v2/en'
 
 /**
  * Build MongoDB URI from environment variables
@@ -74,23 +70,11 @@ const cardCacheSchema = new mongoose.Schema({
 
 const CardCache = mongoose.model('CardCache', cardCacheSchema)
 
-// Helper to make API requests with rate limiting
+// Helper to make API requests with retry logic
 async function fetchWithRetry(url, retries = 3, delay = 1000) {
-  const headers = {}
-  if (POKEMON_API_KEY) {
-    headers['X-Api-Key'] = POKEMON_API_KEY
-  }
-
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(url, { headers })
-
-      if (response.status === 429) {
-        // Rate limited - wait longer
-        console.log(`  Rate limited, waiting ${delay * 2}ms...`)
-        await sleep(delay * 2)
-        continue
-      }
+      const response = await fetch(url)
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -110,35 +94,191 @@ function sleep(ms) {
 }
 
 async function fetchAllSets() {
-  console.log('Fetching all Pokemon TCG sets...')
-  const data = await fetchWithRetry(`${POKEMON_API_BASE}/sets?orderBy=-releaseDate`)
-  console.log(`Found ${data.data.length} sets`)
-  return data.data
+  console.log('Fetching all Pokemon sets from TCGdex...')
+  const sets = await fetchWithRetry(`${TCGDEX_API_BASE}/sets`)
+  console.log(`Found ${sets.length} sets`)
+
+  // Map TCGdex sets to expected format
+  return sets.map(set => ({
+    id: set.id,
+    name: set.name,
+    logo: set.logo,
+    symbol: set.symbol,
+    cardCount: set.cardCount,
+    series: inferSeries(set.id),
+    releaseDate: inferReleaseDate(set.id),
+    printedTotal: set.cardCount?.total || 0,
+    total: set.cardCount?.total || 0
+  }))
 }
 
 async function fetchCardsForSet(setId, setName) {
+  // Get set details from TCGdex
+  const setData = await fetchWithRetry(`${TCGDEX_API_BASE}/sets/${setId}`)
+  const cardSummaries = setData.cards || []
+
+  console.log(`  Fetching ${cardSummaries.length} cards for set "${setName}"`)
+
+  // Fetch full details for each card in batches of 10
   const cards = []
-  let page = 1
-  const pageSize = 250
+  for (let i = 0; i < cardSummaries.length; i += 10) {
+    const batch = cardSummaries.slice(i, i + 10)
+    const batchPromises = batch.map(card =>
+      fetchWithRetry(`${TCGDEX_API_BASE}/cards/${card.id}`)
+        .catch(err => {
+          console.error(`    Failed to fetch card ${card.id}: ${err.message}`)
+          return null
+        })
+    )
 
-  while (true) {
-    const url = `${POKEMON_API_BASE}/cards?q=set.id:${setId}&page=${page}&pageSize=${pageSize}`
-    const data = await fetchWithRetry(url)
+    const batchResults = await Promise.all(batchPromises)
+    const validCards = batchResults.filter(Boolean)
+    cards.push(...validCards)
 
-    if (!data.data || data.data.length === 0) break
+    console.log(`  Progress: ${Math.min(i + 10, cardSummaries.length)}/${cardSummaries.length} cards fetched`)
 
-    cards.push(...data.data)
-
-    const totalCount = data.totalCount || 0
-    console.log(`  Set "${setName}": Page ${page}, got ${data.data.length} cards (total: ${cards.length}/${totalCount})`)
-
-    if (cards.length >= totalCount || data.data.length < pageSize) break
-
-    page++
-    await sleep(100) // Small delay between pages
+    // Rate limiting - 100ms between batches
+    if (i + 10 < cardSummaries.length) {
+      await sleep(100)
+    }
   }
 
-  return cards
+  console.log(`  Fetched ${cards.length}/${cardSummaries.length} cards successfully`)
+
+  // Transform all cards to Pokemon TCG API format
+  return cards.map(transformCard)
+}
+
+/**
+ * Transform TCGdex card to Pokemon TCG API format
+ * CRITICAL: Maps category → supertype for frontend compatibility
+ */
+function transformCard(card) {
+  if (!card) return null
+
+  return {
+    id: card.id,
+    name: card.name,
+    // ⚠️ CRITICAL MAPPING: TCGdex uses 'category', we need 'supertype'
+    supertype: card.category || 'Unknown',
+    subtypes: card.stage ? [card.stage] : (card.dexId ? ['Basic'] : []),
+    types: card.types || [],
+    hp: card.hp ? String(card.hp) : undefined,
+    regulationMark: card.regulationMark,
+    rarity: card.rarity,
+    number: card.localId,
+    artist: card.illustrator,
+
+    // Set information
+    set: {
+      id: card.set?.id,
+      name: card.set?.name,
+      series: inferSeries(card.set?.id),
+      releaseDate: inferReleaseDate(card.set?.id),
+      printedTotal: card.set?.cardCount?.total || 0,
+      total: card.set?.cardCount?.total || 0,
+      legalities: card.legal ? {
+        standard: card.legal.standard ? 'Legal' : 'Not Legal',
+        expanded: card.legal.expanded ? 'Legal' : 'Not Legal'
+      } : undefined
+    },
+
+    // Images
+    images: card.image ? {
+      small: `${card.image}/low.webp`,
+      large: `${card.image}/high.webp`
+    } : undefined,
+
+    // Attacks
+    attacks: card.attacks?.map(a => ({
+      name: a.name,
+      cost: a.cost || [],
+      convertedEnergyCost: a.cost?.length || 0,
+      damage: a.damage || '',
+      text: a.effect || ''
+    })),
+
+    // Abilities
+    abilities: card.abilities?.map(ab => ({
+      name: ab.name,
+      text: ab.effect,
+      type: ab.type || 'Ability'
+    })),
+
+    // Evolution
+    evolvesFrom: card.evolveFrom,
+
+    // Retreat cost
+    retreatCost: card.retreat ? Array(card.retreat).fill('Colorless') : [],
+
+    // Weaknesses and resistances
+    weaknesses: card.weaknesses?.map(w => ({
+      type: w.type,
+      value: w.value || '×2'
+    })),
+    resistances: card.resistances?.map(r => ({
+      type: r.type,
+      value: r.value || '-20'
+    })),
+
+    // System marker
+    tcgSystem: 'pokemon'
+  }
+}
+
+/**
+ * Infer series from set ID
+ */
+function inferSeries(setId) {
+  if (!setId) return 'Unknown'
+
+  const prefixMap = {
+    'sv': 'Scarlet & Violet',
+    'swsh': 'Sword & Shield',
+    'sm': 'Sun & Moon',
+    'xy': 'XY',
+    'bw': 'Black & White',
+    'dp': 'Diamond & Pearl',
+    'pl': 'Platinum',
+    'hgss': 'HeartGold & SoulSilver',
+    'col': 'Call of Legends',
+    'ex': 'EX',
+    'pop': 'POP',
+    'base': 'Base'
+  }
+
+  const lowerSetId = setId.toLowerCase()
+  for (const [prefix, series] of Object.entries(prefixMap)) {
+    if (lowerSetId.startsWith(prefix)) return series
+  }
+
+  return 'Other'
+}
+
+/**
+ * Infer release date from set ID (approximate for newer sets)
+ */
+function inferReleaseDate(setId) {
+  if (!setId) return null
+
+  // Scarlet & Violet sets with known dates
+  const svDates = {
+    'sv01': '2023-03-31',
+    'sv02': '2023-06-09',
+    'sv03': '2023-08-11',
+    'sv03.5': '2023-09-22',
+    'sv04': '2023-11-03',
+    'sv04.5': '2024-01-26',
+    'sv05': '2024-03-22',
+    'sv06': '2024-05-24',
+    'sv06.5': '2024-08-02',
+    'sv07': '2024-09-13',
+    'sv08': '2024-11-08',
+    'sv09': '2025-02-07',
+    'sv10': '2025-05-09'
+  }
+
+  return svDates[setId] || null
 }
 
 async function upsertCards(cards) {
@@ -193,7 +333,7 @@ async function main() {
     process.exit(1)
   }
 
-  console.log(`API Key: ${POKEMON_API_KEY ? 'Configured' : 'Not set (rate limits may apply)'}`)
+  console.log('Using TCGdex API (free, no API key required)')
   console.log('')
 
   // Connect to MongoDB
