@@ -9,6 +9,59 @@ const POKEMON_SETS_EXPANDED = /SSH|RCL|DAA|VIV|BST|CRE|EVS|FST|BRS|ASR|PGO|LOR|S
 const RIFTBOUND_DOMAINS = ['fury', 'calm', 'mind', 'body', 'order', 'chaos']
 
 /**
+ * Pokemon deck abbreviation to TCGdex set code mapping.
+ * Maps common deck list abbreviations (SSP, PAR, etc.) to TCGdex codes (sv08, sv04, etc.)
+ */
+const DECK_CODE_TO_TCGDEX = {
+  // Scarlet & Violet era (main sets)
+  'SVI': 'sv01',    // Scarlet & Violet Base
+  'PAL': 'sv02',    // Paldea Evolved
+  'OBF': 'sv03',    // Obsidian Flames
+  'PAR': 'sv04',    // Paradox Rift
+  'TEF': 'sv05',    // Temporal Forces
+  'TWM': 'sv06',    // Twilight Masquerade
+  'SSP': 'sv08',    // Surging Sparks
+  'BLK': 'sv09',    // Battle Partners
+  'JTG': 'sv09',    // Journey Together (same as BLK)
+  'MEG': 'sv10',    // Mega
+  'MEW': 'sv10',    // MEW (same as MEG)
+
+  // Scarlet & Violet era (mini sets)
+  'PAF': 'sv04.5',  // Paldean Fates
+  'MEE': 'sv04.5',  // Paldean Fates (energy set, same as PAF)
+  'SFA': 'sv06.5',  // Shrouded Fable
+  'PRE': 'sv08.5',  // Prismatic Evolutions
+
+  // Sword & Shield era
+  'CRZ': 'swsh12.5', // Crown Zenith
+  'SIT': 'swsh12',   // Silver Tempest
+  'LOR': 'swsh11',   // Lost Origin
+  'PGO': 'swsh11.5', // Pokemon GO
+  'ASR': 'swsh10',   // Astral Radiance
+  'BRS': 'swsh9',    // Brilliant Stars
+  'FST': 'swsh8',    // Fusion Strike
+  'CEL': 'swsh7.5',  // Celebrations
+  'EVS': 'swsh7',    // Evolving Skies
+  'CRE': 'swsh6',    // Chilling Reign
+  'BST': 'swsh5',    // Battle Styles
+  'SHF': 'swsh4.5',  // Shining Fates
+  'VIV': 'swsh4',    // Vivid Voltage
+  'CPA': 'swsh3.5',  // Champion's Path
+  'DAA': 'swsh3',    // Darkness Ablaze
+  'RCL': 'swsh2',    // Rebel Clash
+  'SSH': 'swsh1',    // Sword & Shield Base
+}
+
+/**
+ * Normalizes set code from deck abbreviation to TCGdex format
+ * Example: "SSP" -> "sv08", "PAR" -> "sv04"
+ */
+function normalizeSetCode(setCode) {
+  const upper = setCode.toUpperCase()
+  return DECK_CODE_TO_TCGDEX[upper] || setCode.toLowerCase()
+}
+
+/**
  * Detect TCG type from deck string
  */
 function detectTCG(input) {
@@ -17,7 +70,7 @@ function detectTCG(input) {
 
   // Riftbound indicators
   if (/rune/i.test(input)) riftboundScore += 3
-  if (/battlefield/i.test(input)) riftboundScore += 2
+  if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(input)) riftboundScore += 2
   for (const domain of RIFTBOUND_DOMAINS) {
     if (input.toLowerCase().includes(domain)) riftboundScore++
   }
@@ -58,11 +111,13 @@ function parsePokemonTCGLive(input) {
       const supertype = currentSection === 'pokemon' ? 'Pokemon' :
                         currentSection === 'trainer' ? 'Trainer' :
                         currentSection === 'energy' ? 'Energy' : null
+      const setCode = cardMatch[3].toUpperCase()
+      const normalizedSet = normalizeSetCode(setCode)
       cards.push({
-        cardId: cardMatch[3].toLowerCase() + '-' + cardMatch[4],
+        cardId: normalizedSet + '-' + cardMatch[4],
         quantity: +cardMatch[1],
         name: cardMatch[2].trim(),
-        setCode: cardMatch[3].toUpperCase(),
+        setCode,
         number: cardMatch[4],
         supertype,
         raw: line
@@ -75,11 +130,13 @@ function parsePokemonTCGLive(input) {
         const setDashMatch = simpleMatch[2].match(/(.+?)\s+([A-Z]{2,4})-(\d{1,4})$/i)
         if (setDashMatch) {
           // This is close to valid - accept with warning
+          const setCode = setDashMatch[2].toUpperCase()
+          const normalizedSet = normalizeSetCode(setCode)
           cards.push({
-            cardId: setDashMatch[2].toLowerCase() + '-' + setDashMatch[3],
+            cardId: normalizedSet + '-' + setDashMatch[3],
             quantity: +simpleMatch[1],
             name: setDashMatch[1].trim(),
-            setCode: setDashMatch[2].toUpperCase(),
+            setCode,
             number: setDashMatch[3],
             raw: line
           })
@@ -164,7 +221,7 @@ function parseRiftbound(input) {
 
       // Detect card type from name
       if (/rune$/i.test(name)) cardType = 'Rune'
-      else if (/battlefield|grove/i.test(name)) cardType = 'Battlefield'
+      else if (/battlefield|grove|monastery|hillock|windswept|temple|sanctuary|citadel/i.test(name)) cardType = 'Battlefield'
       else if (+match[1] === 1 && cards.length === 0) cardType = 'Legend'
 
       // Detect domains
@@ -314,9 +371,24 @@ function detectPokemonFormat(cards) {
   )
 
   // Check for Basic Pokemon
-  const basicPokemon = cards.filter(card =>
-    card.supertype === 'Pokemon' && !/\b(ex|V|VMAX|VSTAR|Stage|BREAK)\b/i.test(card.name)
-  )
+  // Support both supertype (Pokemon TCG SDK) and category+stage (TCGdex)
+  const basicPokemon = cards.filter(card => {
+    const supertype = card.supertype?.toLowerCase()
+    const category = card.category?.toLowerCase()
+    const stage = card.stage?.toLowerCase()
+
+    // Must be a Pokemon card
+    const isPokemon = supertype === 'pokemon' || supertype === 'pokémon' ||
+                      category === 'pokemon' || category === 'pokémon'
+
+    if (!isPokemon) return false
+
+    // TCGdex format: check stage field directly
+    if (stage === 'basic') return true
+
+    // Fallback: name-based detection (for cards without stage field)
+    return !/\b(ex|V|VMAX|VSTAR|Stage|BREAK)\b/i.test(card.name)
+  })
   const basicCount = basicPokemon.reduce((sum, card) => sum + card.quantity, 0)
 
   if (basicCount === 0) {
@@ -394,11 +466,11 @@ function detectRiftboundFormat(cards, detectedDomains) {
   }
 
   // Categorize cards
-  const mainDeck = cards.filter(c => !['Legend', 'Battlefield', 'Rune'].includes(c.cardType))
+  const mainDeck = cards.filter(c => !['Legend', 'Battlefield', 'Rune'].includes(c.type || c.cardType))
   const mainCount = mainDeck.reduce((sum, c) => sum + c.quantity, 0)
-  const legendCount = cards.filter(c => c.cardType === 'Legend').reduce((sum, c) => sum + c.quantity, 0)
-  const battlefieldCount = cards.filter(c => c.cardType === 'Battlefield').reduce((sum, c) => sum + c.quantity, 0)
-  const runeCount = cards.filter(c => c.cardType === 'Rune').reduce((sum, c) => sum + c.quantity, 0)
+  const legendCount = cards.filter(c => (c.type || c.cardType) === 'Legend').reduce((sum, c) => sum + c.quantity, 0)
+  const battlefieldCount = cards.filter(c => (c.type || c.cardType) === 'Battlefield').reduce((sum, c) => sum + c.quantity, 0)
+  const runeCount = cards.filter(c => (c.type || c.cardType) === 'Rune').reduce((sum, c) => sum + c.quantity, 0)
 
   // Validate counts
   if (mainCount !== 40) {
@@ -479,24 +551,47 @@ function detectInputFormat(input) {
 }
 
 /**
- * Calculate breakdown by supertype
+ * Calculate breakdown by supertype/category
+ * Supports both Pokemon TCG SDK (supertype) and TCGdex (category) formats
  */
 function calculateBreakdown(cards, tcg) {
   if (tcg === 'riftbound') {
     return {
-      mainDeck: cards.filter(c => !['Legend', 'Battlefield', 'Rune'].includes(c.cardType))
+      mainDeck: cards.filter(c => !['Legend', 'Battlefield', 'Rune'].includes(c.type || c.cardType))
         .reduce((sum, c) => sum + c.quantity, 0),
-      legend: cards.filter(c => c.cardType === 'Legend').reduce((sum, c) => sum + c.quantity, 0),
-      battlefield: cards.filter(c => c.cardType === 'Battlefield').reduce((sum, c) => sum + c.quantity, 0),
-      rune: cards.filter(c => c.cardType === 'Rune').reduce((sum, c) => sum + c.quantity, 0)
+      legend: cards.filter(c => (c.type || c.cardType) === 'Legend').reduce((sum, c) => sum + c.quantity, 0),
+      battlefield: cards.filter(c => (c.type || c.cardType) === 'Battlefield').reduce((sum, c) => sum + c.quantity, 0),
+      rune: cards.filter(c => (c.type || c.cardType) === 'Rune').reduce((sum, c) => sum + c.quantity, 0)
     }
   }
 
+  // Helper to check if card is Pokemon (supports both formats)
+  const isPokemon = (c) => {
+    const supertype = c.supertype?.toLowerCase()
+    const category = c.category?.toLowerCase()
+    return supertype === 'pokemon' || supertype === 'pokémon' ||
+           category === 'pokemon' || category === 'pokémon'
+  }
+
+  // Helper to check if card is Trainer
+  const isTrainer = (c) => {
+    const supertype = c.supertype?.toLowerCase()
+    const category = c.category?.toLowerCase()
+    return supertype === 'trainer' || category === 'trainer'
+  }
+
+  // Helper to check if card is Energy
+  const isEnergy = (c) => {
+    const supertype = c.supertype?.toLowerCase()
+    const category = c.category?.toLowerCase()
+    return supertype === 'energy' || category === 'energy'
+  }
+
   return {
-    pokemon: cards.filter(c => c.supertype === 'Pokemon').reduce((sum, c) => sum + c.quantity, 0),
-    trainer: cards.filter(c => c.supertype === 'Trainer').reduce((sum, c) => sum + c.quantity, 0),
-    energy: cards.filter(c => c.supertype === 'Energy').reduce((sum, c) => sum + c.quantity, 0),
-    unknown: cards.filter(c => !c.supertype).reduce((sum, c) => sum + c.quantity, 0)
+    pokemon: cards.filter(isPokemon).reduce((sum, c) => sum + c.quantity, 0),
+    trainer: cards.filter(isTrainer).reduce((sum, c) => sum + c.quantity, 0),
+    energy: cards.filter(isEnergy).reduce((sum, c) => sum + c.quantity, 0),
+    unknown: cards.filter(c => !isPokemon(c) && !isTrainer(c) && !isEnergy(c)).reduce((sum, c) => sum + c.quantity, 0)
   }
 }
 
@@ -605,9 +700,24 @@ function validateForFormat(cards, format, tcg) {
   }
 
   // Check for Basic Pokemon
-  const basicPokemon = cards.filter(card =>
-    card.supertype === 'Pokemon' && !/\b(ex|V|VMAX|VSTAR|Stage|BREAK)\b/i.test(card.name)
-  )
+  // Support both supertype (Pokemon TCG SDK) and category+stage (TCGdex)
+  const basicPokemon = cards.filter(card => {
+    const supertype = card.supertype?.toLowerCase()
+    const category = card.category?.toLowerCase()
+    const stage = card.stage?.toLowerCase()
+
+    // Must be a Pokemon card
+    const isPokemon = supertype === 'pokemon' || supertype === 'pokémon' ||
+                      category === 'pokemon' || category === 'pokémon'
+
+    if (!isPokemon) return false
+
+    // TCGdex format: check stage field directly
+    if (stage === 'basic') return true
+
+    // Fallback: name-based detection (for cards without stage field)
+    return !/\b(ex|V|VMAX|VSTAR|Stage|BREAK)\b/i.test(card.name)
+  })
   const basicCount = basicPokemon.reduce((sum, card) => sum + card.quantity, 0)
 
   if (basicCount === 0) {

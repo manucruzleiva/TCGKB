@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Riftbound Item Card Type - Replace with official icon from Google Drive -->
+  <circle cx="50" cy="50" r="48" fill="#D97706"/>
+  <path d="M50 20l-20 10v25l20 25 20-25v-25z" fill="white"/>
+  <circle cx="50" cy="45" r="8" fill="#D97706"/>
+</svg>

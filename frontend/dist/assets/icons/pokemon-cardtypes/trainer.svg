@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pokemon Trainer Card Type - Ash's Cap style - Source: Bulbapedia -->
+  <circle cx="50" cy="50" r="48" fill="#EF4444"/>
+  <ellipse cx="50" cy="55" rx="25" ry="15" fill="#1F2937"/>
+  <path d="M25 52c0-15 11-27 25-27s25 12 25 27" fill="#EF4444"/>
+  <rect x="42" y="35" width="16" height="12" fill="white"/>
+  <path d="M30 52h40v5c0 3-9 5-20 5s-20-2-20-5z" fill="#1F2937"/>
+</svg>

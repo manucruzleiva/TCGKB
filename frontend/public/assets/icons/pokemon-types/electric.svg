@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Pokemon TCG Lightning Energy - Source: Bulbapedia -->
+  <circle cx="50" cy="50" r="48" fill="#F8D030"/>
+  <polygon points="60,15 35,45 48,45 35,85 70,48 55,48 70,15" fill="white"/>
+</svg>

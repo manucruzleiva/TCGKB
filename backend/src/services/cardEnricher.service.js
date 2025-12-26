@@ -54,17 +54,28 @@ const DECK_CODE_TO_TCGDEX = {
  * Example: "ssp-97" -> "sv08-97"
  *
  * @param {string} cardId - Original card ID from deck string
+ * @param {string} setCode - Optional PTCGL code (e.g., "PAR" from "1 Gholdengo ex PAR 139")
+ * @param {string} number - Optional card number
  * @returns {Array<string>} - Array of possible cardId variations to try
  */
-function getNormalizedCardIds(cardId) {
-  if (!cardId) return []
+function getNormalizedCardIds(cardId, setCode = null, number = null) {
+  if (!cardId && !setCode) return []
 
-  const variations = [cardId.toLowerCase()] // Try original first
+  const variations = []
 
-  // Extract set code and number
-  const match = cardId.match(/^([a-z]+)-(.+)$/i)
-  if (match) {
-    const [, setCode, number] = match
+  // If cardId is provided, try original format
+  if (cardId) {
+    variations.push(cardId.toLowerCase())
+
+    // Extract set code and number from cardId if not provided separately
+    const match = cardId.match(/^([a-z]+)-(.+)$/i)
+    if (match && !setCode) {
+      ;[, setCode, number] = match
+    }
+  }
+
+  // Convert PTCGL code to TCGdex code if available
+  if (setCode && number) {
     const upperSetCode = setCode.toUpperCase()
 
     // Check if there's a TCGdex mapping
@@ -110,7 +121,7 @@ export async function enrichDeckCards(cards, tcg = 'pokemon') {
   const cardIdToVariations = new Map() // Track which variations belong to which original ID
 
   for (const card of cardsByCardId) {
-    const variations = getNormalizedCardIds(card.cardId)
+    const variations = getNormalizedCardIds(card.cardId, card.setCode, card.number)
     cardIdToVariations.set(card.cardId, variations)
     allCardIdVariations.push(...variations)
   }

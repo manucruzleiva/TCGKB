@@ -4,6 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useDateFormat } from '../contexts/DateFormatContext'
 import Button from '../components/common/Button'
 import api from '../services/api'
+import OfflineSettings from '../components/settings/OfflineSettings'
 
 // Default Pokemon avatars from PokeAPI sprites
 const DEFAULT_AVATARS = [
@@ -847,6 +848,14 @@ const Settings = () => {
               </div>
             )}
           </div>
+        </div>
+
+        {/* PWA Offline Settings */}
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            {language === 'es' ? 'PWA & Almacenamiento Offline' : 'PWA & Offline Storage'}
+          </h2>
+          <OfflineSettings />
         </div>
       </div>
     </div>

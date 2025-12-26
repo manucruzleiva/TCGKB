@@ -23,6 +23,7 @@
 
 import mongoose from 'mongoose'
 import dotenv from 'dotenv'
+import { getPTCGLCode } from '../backend/src/utils/setCodeMapping.js'
 
 // Load environment variables from .env file
 dotenv.config()
@@ -163,6 +164,9 @@ async function fetchCardsForSet(setId, setName) {
 function transformCard(card) {
   if (!card) return null
 
+  // Get PTCGL code from set name if tcgOnline is null
+  const ptcglCode = card.set?.tcgOnline || (card.set?.name ? getPTCGLCode(card.set.name) : null)
+
   return {
     ...card,  // Keep ALL TCGdex fields as-is
     // Add image URLs
@@ -170,6 +174,11 @@ function transformCard(card) {
       small: `${card.image}/low.webp`,
       large: `${card.image}/high.webp`
     } : undefined,
+    // Override set.tcgOnline with PTCGL code if it was null
+    set: {
+      ...card.set,
+      tcgOnline: ptcglCode
+    },
     // System marker
     tcgSystem: 'pokemon'
   }

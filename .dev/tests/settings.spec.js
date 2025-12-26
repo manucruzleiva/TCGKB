@@ -15,10 +15,7 @@ test.describe('Settings Page', () => {
     await login(page);
 
     // Navigate to settings via user menu
-    const userMenuButton = page.locator('button').filter({ hasText: '' }).or(
-      page.locator('button svg path[d*="M16 7a4 4 0 11-8 0"]').locator('..')
-    );
-    await userMenuButton.first().click();
+    await page.locator('[data-testid="user-menu-button"]').click();
     await page.getByRole('link', { name: /Preferencias|Settings/i }).click();
     await page.waitForURL('/settings');
   });
@@ -164,10 +161,7 @@ test.describe('Settings Page', () => {
     test('should redirect to login if not authenticated', async ({ page }) => {
       // Logout first
       await page.goto('/');
-      const userMenuButton = page.locator('button').filter({ hasText: '' }).or(
-        page.locator('button svg path[d*="M16 7a4 4 0 11-8 0"]').locator('..')
-      );
-      await userMenuButton.first().click();
+      await page.locator('[data-testid="user-menu-button"]').click();
       await page.getByRole('button', { name: /Cerrar Sesión|Logout/i }).click();
       await page.waitForTimeout(500);
 
@@ -182,10 +176,7 @@ test.describe('Settings Page', () => {
       await page.goto('/');
 
       // Click user menu
-      const userMenuButton = page.locator('button').filter({ hasText: '' }).or(
-        page.locator('button svg path[d*="M16 7a4 4 0 11-8 0"]').locator('..')
-      );
-      await userMenuButton.first().click();
+      await page.locator('[data-testid="user-menu-button"]').click();
 
       // Settings link should be visible
       await expect(page.getByRole('link', { name: /Preferencias|Settings/i })).toBeVisible();

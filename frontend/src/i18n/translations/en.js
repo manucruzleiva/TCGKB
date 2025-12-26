@@ -156,8 +156,8 @@ export const en = {
   // Deck Import
   deckImport: {
     title: 'Import Deck',
-    instructions: 'Paste your deck list. Pokemon TCG Live, Pokemon Pocket, and Riftbound formats are supported.',
-    placeholder: 'Pokémon: 12\n4 Pikachu ex SVI 057\n4 Raichu SVI 058\n\nTrainer: 36\n4 Professor\'s Research SVI 189\n\nEnergy: 12\n8 Electric Energy SVE 004',
+    instructions: 'Paste your deck list using PTCGL format (e.g., "4 Pikachu ex SVI 057"). Pokemon TCG Live and Riftbound formats are supported.',
+    placeholder: 'Pokémon: 12\n4 Pikachu ex SVI 057\n4 Raichu TWM 055\n\nTrainer: 36\n4 Professor\'s Research SVI 189\n4 Iono PAL 185\n\nEnergy: 12\n12 Lightning Energy',
     parseError: 'Error parsing deck',
     importError: 'Error importing deck',
     importing: 'Importing...',
@@ -282,6 +282,13 @@ export const en = {
         cancel: 'Cancel',
         confirm: 'Delete'
       }
+    },
+    // Stats breakdown
+    stats: {
+      supporter: 'Supporter',
+      item: 'Item',
+      tool: 'Tool',
+      stadium: 'Stadium'
     }
   },
 
@@ -378,6 +385,27 @@ export const en = {
     thanks: {
       title: 'Thanks to our supporters',
       description: 'These people make it possible for TCGKB to keep growing'
+    }
+  },
+
+  // PWA / Offline
+  offline: {
+    banner: {
+      offline: 'Offline - Showing cached content',
+      reconnecting: 'Reconnecting...',
+      backOnline: 'Connection restored',
+      retry: 'Retry'
+    },
+    features: {
+      readOnly: 'Read-only while offline',
+      requiresConnection: 'Requires internet connection',
+      pendingSync: '{{count}} pending changes to sync'
+    },
+    install: {
+      title: 'Install TCGKB',
+      description: 'Access faster and use offline',
+      installButton: 'Install App',
+      dismissButton: 'Not now'
     }
   }
 }
