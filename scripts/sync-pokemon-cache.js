@@ -23,6 +23,7 @@
 
 import mongoose from 'mongoose'
 import dotenv from 'dotenv'
+import { getPTCGLCode } from '../backend/src/utils/setCodeMapping.js'
 
 // Load environment variables from .env file
 dotenv.config()
@@ -95,11 +96,18 @@ function sleep(ms) {
 
 async function fetchAllSets() {
   console.log('Fetching all Pokemon sets from TCGdex...')
-  const sets = await fetchWithRetry(`${TCGDEX_API_BASE}/sets`)
-  console.log(`Found ${sets.length} sets`)
+  const allSets = await fetchWithRetry(`${TCGDEX_API_BASE}/sets`)
+
+  // Filter: Only Scarlet & Violet sets (sv01, sv02, etc.)
+  const svSets = allSets.filter(set => {
+    const id = set.id?.toLowerCase() || ''
+    return id.startsWith('sv') || id.startsWith('swsh') || id.startsWith('sm')
+  })
+
+  console.log(`Found ${allSets.length} total sets, filtered to ${svSets.length} SV/SWSH/SM sets`)
 
   // Map TCGdex sets to expected format
-  return sets.map(set => ({
+  return svSets.map(set => ({
     id: set.id,
     name: set.name,
     logo: set.logo,
@@ -150,77 +158,27 @@ async function fetchCardsForSet(setId, setName) {
 }
 
 /**
- * Transform TCGdex card to Pokemon TCG API format
- * CRITICAL: Maps category → supertype for frontend compatibility
+ * Store TCGdex card with minimal transformation
+ * Just add images URLs and keep everything else as-is
  */
 function transformCard(card) {
   if (!card) return null
 
+  // Get PTCGL code from set name if tcgOnline is null
+  const ptcglCode = card.set?.tcgOnline || (card.set?.name ? getPTCGLCode(card.set.name) : null)
+
   return {
-    id: card.id,
-    name: card.name,
-    // ⚠️ CRITICAL MAPPING: TCGdex uses 'category', we need 'supertype'
-    supertype: card.category || 'Unknown',
-    subtypes: card.stage ? [card.stage] : (card.dexId ? ['Basic'] : []),
-    types: card.types || [],
-    hp: card.hp ? String(card.hp) : undefined,
-    regulationMark: card.regulationMark,
-    rarity: card.rarity,
-    number: card.localId,
-    artist: card.illustrator,
-
-    // Set information
-    set: {
-      id: card.set?.id,
-      name: card.set?.name,
-      series: inferSeries(card.set?.id),
-      releaseDate: inferReleaseDate(card.set?.id),
-      printedTotal: card.set?.cardCount?.total || 0,
-      total: card.set?.cardCount?.total || 0,
-      legalities: card.legal ? {
-        standard: card.legal.standard ? 'Legal' : 'Not Legal',
-        expanded: card.legal.expanded ? 'Legal' : 'Not Legal'
-      } : undefined
-    },
-
-    // Images
+    ...card,  // Keep ALL TCGdex fields as-is
+    // Add image URLs
     images: card.image ? {
       small: `${card.image}/low.webp`,
       large: `${card.image}/high.webp`
     } : undefined,
-
-    // Attacks
-    attacks: card.attacks?.map(a => ({
-      name: a.name,
-      cost: a.cost || [],
-      convertedEnergyCost: a.cost?.length || 0,
-      damage: a.damage || '',
-      text: a.effect || ''
-    })),
-
-    // Abilities
-    abilities: card.abilities?.map(ab => ({
-      name: ab.name,
-      text: ab.effect,
-      type: ab.type || 'Ability'
-    })),
-
-    // Evolution
-    evolvesFrom: card.evolveFrom,
-
-    // Retreat cost
-    retreatCost: card.retreat ? Array(card.retreat).fill('Colorless') : [],
-
-    // Weaknesses and resistances
-    weaknesses: card.weaknesses?.map(w => ({
-      type: w.type,
-      value: w.value || '×2'
-    })),
-    resistances: card.resistances?.map(r => ({
-      type: r.type,
-      value: r.value || '-20'
-    })),
-
+    // Override set.tcgOnline with PTCGL code if it was null
+    set: {
+      ...card.set,
+      tcgOnline: ptcglCode
+    },
     // System marker
     tcgSystem: 'pokemon'
   }
